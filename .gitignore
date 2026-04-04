@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+server/.venv/
+.venv/
+venv/
+
+# Environment files
+server/.env
+.env
+*.env.local
+
+# Alembic (keep versions, ignore cache)
+server/alembic/__pycache__/
+
+# pytest
+.pytest_cache/
+server/.pytest_cache/
+
+# Node / client
+client/node_modules/
+client/dist/
+client/.env
+client/.env.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
