@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     FERNET_KEY: str = ""
     ENVIRONMENT: str = "development"
 
+    # Playground (lokamspace) env — used to auto-seed the env_config row
+    PLAYGROUND_BASE_URL: str = ""
+    PLAYGROUND_API_KEY: str = ""
+
     @property
     def db_url(self) -> str:
         """Return async SQLAlchemy database URL."""

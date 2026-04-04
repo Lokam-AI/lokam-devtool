@@ -8,7 +8,7 @@ from app.repositories import env_config_repo, raw_call_repo
 from app.schemas.raw_call import RawCallCreate
 from app.services import assignment_service
 
-CALLS_EXPORT_PATH = "/calls-export"
+CALLS_EXPORT_PATH = "/api/v1/internal/calls-export"
 HTTP_TIMEOUT_SECONDS = 30
 
 

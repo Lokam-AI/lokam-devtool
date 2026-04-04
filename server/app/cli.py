@@ -4,15 +4,11 @@ import sys
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import AsyncSessionLocal
+from app.core.encryption import encrypt_secret
 from app.core.security import hash_password
 from app.repositories import env_config_repo, user_repo
-
-DEFAULT_ENVS = [
-    {"name": "dev", "base_url": "http://localhost:8001", "secrets": {}, "is_active": True},
-    {"name": "staging", "base_url": "https://staging.lokamspace.com", "secrets": {}, "is_active": True},
-    {"name": "prod", "base_url": "https://app.lokamspace.com", "secrets": {}, "is_active": True},
-]
 
 
 def _parse_args() -> tuple[str, str, str]:
@@ -55,15 +51,28 @@ async def _create_superadmin(db: AsyncSession, email: str, name: str, password: 
     print(f"Created superadmin: {user.email} (id={user.id})")
 
 
-async def _seed_default_envs(db: AsyncSession) -> None:
-    """Create default env_configs if they don't already exist."""
-    for env_def in DEFAULT_ENVS:
-        existing = await env_config_repo.get_by_name(db, env_def["name"])
-        if existing is not None:
-            print(f"Env '{env_def['name']}' already exists — skipped")
-            continue
-        env = await env_config_repo.create(db, **env_def)
-        print(f"Created env config: {env.name} → {env.base_url}")
+async def _seed_playground_env(db: AsyncSession) -> None:
+    """Upsert the 'playground' env_config row from PLAYGROUND_BASE_URL / PLAYGROUND_API_KEY settings."""
+    base_url = settings.PLAYGROUND_BASE_URL.strip()
+    api_key = settings.PLAYGROUND_API_KEY.strip()
+
+    if not base_url:
+        print("PLAYGROUND_BASE_URL not set — skipping playground env seed.")
+        return
+
+    secrets: dict[str, str] = {}
+    if api_key:
+        secrets["api_key"] = encrypt_secret(api_key)
+
+    existing = await env_config_repo.get_by_name(db, "playground")
+    if existing is not None:
+        await env_config_repo.update_env(db, existing, base_url=base_url, secrets=secrets, is_active=True)
+        print(f"Updated playground env → {base_url}")
+    else:
+        env = await env_config_repo.create(
+            db, name="playground", base_url=base_url, secrets=secrets, is_active=True
+        )
+        print(f"Created playground env → {env.base_url}")
 
 
 async def _run(email: str, name: str, password: str) -> None:
@@ -71,7 +80,7 @@ async def _run(email: str, name: str, password: str) -> None:
     async with AsyncSessionLocal() as session:
         async with session.begin():
             await _create_superadmin(session, email, name, password)
-            await _seed_default_envs(session)
+            await _seed_playground_env(session)
 
 
 def main() -> None:
