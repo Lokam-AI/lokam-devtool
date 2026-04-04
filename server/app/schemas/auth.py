@@ -15,6 +15,17 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class UserMeResponse(BaseModel):
+    """Schema for the /auth/me endpoint."""
+
+    id: int
+    email: str
+    name: str
+    role: str
+    is_active: bool
+    must_change_password: bool
+
+
 class ChangePasswordRequest(BaseModel):
     """Schema for the change-password request body."""
 

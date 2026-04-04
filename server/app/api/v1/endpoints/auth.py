@@ -3,13 +3,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
-from app.schemas.auth import ChangePasswordRequest, LoginRequest, TokenResponse
+from app.schemas.auth import ChangePasswordRequest, LoginRequest, TokenResponse, UserMeResponse
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 COOKIE_NAME = "access_token"
 COOKIE_MAX_AGE = 60 * 60 * 8  # 8 hours in seconds
+
+
+@router.get("/me", response_model=UserMeResponse)
+async def get_me(
+    current_user: User = Depends(get_current_user),
+) -> UserMeResponse:
+    """Return the profile of the currently authenticated user."""
+    return UserMeResponse(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        role=current_user.role,
+        is_active=current_user.is_active,
+        must_change_password=current_user.must_change_password,
+    )
 
 
 @router.post("/login", response_model=TokenResponse)

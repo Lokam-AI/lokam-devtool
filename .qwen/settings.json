@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx *)",
+      "Bash(npm install)",
+      "Bash(uvicorn *)",
+      "Bash(sleep *)",
+      "Bash(curl *)",
+      "Bash(lsof *)",
+      "Bash(kill *)",
+      "Bash(python *)",
+      "Bash(xargs *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(file *)"
+    ]
+  },
+  "$version": 3
+}
