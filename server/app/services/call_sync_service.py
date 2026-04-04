@@ -15,10 +15,13 @@ HTTP_TIMEOUT_SECONDS = 30
 async def sync_calls_for_date(db: AsyncSession, call_date: date) -> dict[str, int]:
     """Fetch calls from all active envs for a date, upsert them, and assign to reviewers."""
     envs = await env_config_repo.list_active(db)
+    print(f"  Found {len(envs)} active environment(s)")
     summary: dict[str, int] = {}
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
         for env in envs:
+            print(f"\n  [{env.name}] Fetching calls from {env.base_url} ...")
             count = await _sync_single_env(db, client, env, call_date)
+            print(f"  [{env.name}] Upserted {count} calls")
             summary[env.name] = count
     return summary
 
@@ -38,6 +41,8 @@ async def _sync_single_env(db: AsyncSession, client: httpx.AsyncClient, env: obj
     upserted = 0
     for item in calls_data:
         item["source_env"] = env.name
+        if "id" in item and "lokam_call_id" not in item:
+            item["lokam_call_id"] = item.pop("id")
         schema = RawCallCreate(**item)
         await raw_call_repo.upsert_by_lokam_call_id(db, schema)
         upserted += 1

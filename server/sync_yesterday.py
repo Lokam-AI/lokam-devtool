@@ -1,25 +1,35 @@
 import asyncio
+import logging
 from datetime import date, timedelta
 
-from app.core.database import AsyncSessionLocal
+from app.core.database import AsyncSessionLocal, async_engine
 from app.services.call_sync_service import sync_calls_for_date
+
+# Silence SQLAlchemy engine logs for the sync script
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+
 
 async def main() -> None:
     """Fetch call data from yesterday and store it in our DB."""
-    # Always fetch for yesterday
     yesterday = date.today() - timedelta(days=1)
-    print(f"Starting call sync for date: {yesterday}")
+    print(f"\n{'='*50}")
+    print(f"  Call Sync — {yesterday}")
+    print(f"{'='*50}\n")
 
     async with AsyncSessionLocal() as session:
         try:
-            # Sync calls from all active environments
             summary = await sync_calls_for_date(session, yesterday)
-            # Commit the session since the service methods might not commit themselves directly
             await session.commit()
-            print(f"Sync complete for {yesterday}. Summary of upserted/assigned calls: {summary}")
+
+            total = sum(summary.values())
+            print(f"\n{'—'*50}")
+            print(f"  Done! {total} calls synced across {len(summary)} env(s)")
+            for env_name, count in summary.items():
+                print(f"    {env_name}: {count} calls")
+            print(f"{'—'*50}\n")
         except Exception as e:
             await session.rollback()
-            print(f"Error during sync: {e}")
+            print(f"\n  ERROR: {e}\n")
             raise
 
 if __name__ == "__main__":
