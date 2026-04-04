@@ -2,11 +2,12 @@ import asyncio
 import logging
 from datetime import date, timedelta
 
-from app.core.database import AsyncSessionLocal, async_engine
-from app.services.call_sync_service import sync_calls_for_date
-
-# Silence SQLAlchemy engine logs for the sync script
+# Silence SQLAlchemy engine logs BEFORE importing anything that creates the engine
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy.engine.Engine").setLevel(logging.WARNING)
+
+from app.core.database import AsyncSessionLocal  # noqa: E402
+from app.services.call_sync_service import sync_calls_for_date  # noqa: E402
 
 
 async def main() -> None:
