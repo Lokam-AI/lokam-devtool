@@ -50,6 +50,40 @@ async def get_unassigned_for_date(db: AsyncSession, call_date: date, source_env:
     return list(result.scalars().all())
 
 
+async def list_all(
+    db: AsyncSession,
+    source_env: str | None = None,
+    call_status: str | None = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> list[RawCall]:
+    """Return all RawCall rows with optional filters, ordered by most recent first."""
+    query = select(RawCall)
+    if source_env is not None:
+        query = query.where(RawCall.source_env == source_env)
+    if call_status is not None:
+        query = query.where(RawCall.call_status == call_status)
+    query = query.order_by(RawCall.call_date.desc(), RawCall.id.desc()).limit(limit).offset(offset)
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+
+async def count_all(
+    db: AsyncSession,
+    source_env: str | None = None,
+    call_status: str | None = None,
+) -> int:
+    """Return count of RawCall rows matching filters."""
+    from sqlalchemy import func
+    query = select(func.count(RawCall.id))
+    if source_env is not None:
+        query = query.where(RawCall.source_env == source_env)
+    if call_status is not None:
+        query = query.where(RawCall.call_status == call_status)
+    result = await db.execute(query)
+    return result.scalar_one()
+
+
 async def get_by_id(db: AsyncSession, call_id: int) -> RawCall | None:
     """Return the RawCall with the given id, or None if not found."""
     result = await db.execute(select(RawCall).where(RawCall.id == call_id))

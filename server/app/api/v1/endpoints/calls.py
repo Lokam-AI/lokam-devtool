@@ -24,6 +24,46 @@ async def list_calls(
     return [RawCallRead.model_validate(r) for r in rows]
 
 
+@router.get("/all", response_model=list[RawCallRead])
+async def list_all_calls(
+    source_env: str | None = Query(default=None),
+    call_status: str | None = Query(default=None),
+    limit: int = Query(default=200, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> list[RawCallRead]:
+    """Return all raw calls with optional filters; admin+ only."""
+    rows = await raw_call_repo.list_all(db, source_env, call_status, limit, offset)
+    return [RawCallRead.model_validate(r) for r in rows]
+
+
+@router.get("/all/count")
+async def count_all_calls(
+    source_env: str | None = Query(default=None),
+    call_status: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> dict[str, int]:
+    """Return count of all raw calls matching filters; admin+ only."""
+    total = await raw_call_repo.count_all(db, source_env, call_status)
+    return {"count": total}
+
+
+@router.get("/{call_id}", response_model=RawCallRead)
+async def get_call(
+    call_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> RawCallRead:
+    """Return a single raw call by internal DB id; admin+ only."""
+    row = await raw_call_repo.get_by_id(db, call_id)
+    if not row:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Call not found")
+    return RawCallRead.model_validate(row)
+
+
 @router.post("/sync")
 async def sync_calls(
     call_date: date = Query(...),
