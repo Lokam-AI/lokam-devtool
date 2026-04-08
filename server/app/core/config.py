@@ -37,3 +37,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+MAX_CALLS_PER_USER: int = 15
+CALL_TARGETS: dict[str, int] = {"na": 7, "detractor": 2, "promoter": 3, "missed": 3}
+FILL_PRIORITY: list[str] = ["na", "promoter", "detractor", "missed"]

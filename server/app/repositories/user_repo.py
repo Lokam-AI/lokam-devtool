@@ -16,10 +16,10 @@ async def get_by_email(db: AsyncSession, email: str) -> User | None:
     return result.scalar_one_or_none()
 
 
-async def list_active_reviewers(db: AsyncSession) -> list[User]:
-    """Return all active users eligible to review calls."""
+async def list_all_active(db: AsyncSession) -> list[User]:
+    """Return all active users across all roles."""
     result = await db.execute(
-        select(User).where(User.is_active.is_(True))
+        select(User).where(User.is_active.is_(True)).order_by(User.id)
     )
     return list(result.scalars().all())
 
