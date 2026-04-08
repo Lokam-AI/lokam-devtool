@@ -6,9 +6,9 @@ from app.exceptions import NotFoundError
 from app.repositories import env_config_repo
 from app.schemas.admin import ProxyHealthResponse
 
-ACS_PATH = "/admin/acs-toggle"
-SEED_PATH = "/admin/seed"
-HEALTH_PATH = "/health"
+ACS_PATH = "/api/v1/internal/acs/toggle"
+SEED_PATH = "/api/v1/internal/seed/run"
+HEALTH_PATH = "/api/v1/internal/health"
 HTTP_TIMEOUT_SECONDS = 30
 
 
@@ -79,7 +79,7 @@ def _build_headers(secrets: dict) -> dict[str, str]:
     """Build HTTP auth headers from decrypted secrets."""
     headers: dict[str, str] = {}
     if "api_key" in secrets:
-        headers["X-API-Key"] = secrets["api_key"]
+        headers["Authorization"] = f"Bearer {secrets['api_key']}"
     if "bearer_token" in secrets:
         headers["Authorization"] = f"Bearer {secrets['bearer_token']}"
     return headers
