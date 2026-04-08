@@ -69,7 +69,7 @@ def _build_auth_headers(secrets: dict) -> dict[str, str]:
     """Build HTTP auth headers from the decrypted secrets dict."""
     headers: dict[str, str] = {}
     if "api_key" in secrets:
-        headers["X-API-Key"] = secrets["api_key"]
+        headers["Authorization"] = f"Bearer {secrets['api_key']}"
     if "bearer_token" in secrets:
         headers["Authorization"] = f"Bearer {secrets['bearer_token']}"
     return headers
