@@ -83,7 +83,13 @@ async def run_seed(
     _: User = Depends(require_admin),
 ) -> dict:
     """Proxy a seed run to the target lokamspace environment; admin+ only."""
-    return await admin_proxy_service.trigger_seed(db, env_name, confirm=body.confirm)
+    return await admin_proxy_service.trigger_seed(
+        db,
+        env_name,
+        mode=body.mode,
+        organization_name=body.organization_name,
+        rooftop_names=body.rooftop_names,
+    )
 
 
 @router.get("/envs/{env_name}/health", response_model=ProxyHealthResponse)

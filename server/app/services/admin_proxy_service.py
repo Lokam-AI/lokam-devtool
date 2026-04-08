@@ -24,14 +24,22 @@ async def toggle_acs(db: AsyncSession, env_name: str, *, enabled: bool) -> dict:
         return response.json()
 
 
-async def trigger_seed(db: AsyncSession, env_name: str, *, confirm: bool) -> dict:
+async def trigger_seed(
+    db: AsyncSession,
+    env_name: str,
+    *,
+    mode: str,
+    organization_name: str,
+    rooftop_names: list[str],
+) -> dict:
     """Proxy a seed-run trigger to the target lokamspace environment."""
     env = await _get_env_or_raise(db, env_name)
     secrets = _decrypt_secrets(env.secrets)
     headers = _build_headers(secrets)
     url = f"{env.base_url}{SEED_PATH}"
+    payload = {"mode": mode, "organization_name": organization_name, "rooftop_names": rooftop_names}
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
-        response = await client.post(url, headers=headers, json={"confirm": confirm})
+        response = await client.post(url, headers=headers, json=payload)
         response.raise_for_status()
         return response.json()
 

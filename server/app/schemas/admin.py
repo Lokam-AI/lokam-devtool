@@ -10,7 +10,9 @@ class ACSToggleRequest(BaseModel):
 class SeedRunRequest(BaseModel):
     """Schema for triggering a seed run on a target lokamspace environment."""
 
-    confirm: bool = False
+    mode: str = "--check-and-seed"
+    organization_name: str
+    rooftop_names: list[str]
 
 
 class ProxyHealthResponse(BaseModel):
