@@ -1,0 +1,70 @@
+import { lazy, Suspense } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { RoleGuard } from "@/components/layout/RoleGuard";
+import LoginPage from "@/pages/LoginPage";
+
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const MyCallsPage = lazy(() => import("@/pages/MyCallsPage"));
+const EvalFormPage = lazy(() => import("@/pages/EvalFormPage"));
+const AdminPage = lazy(() => import("@/pages/AdminPage"));
+const TeamPage = lazy(() => import("@/pages/TeamPage"));
+const UserManagementPage = lazy(() => import("@/pages/UserManagementPage"));
+const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
+const AllCallsPage = lazy(() => import("@/pages/AllCallsPage"));
+
+const queryClient = new QueryClient();
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-32">
+      <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/change-password" element={<ChangePasswordPage />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route element={<AppLayout />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/calls" element={<MyCallsPage />} />
+              <Route path="/eval/:id" element={<EvalFormPage />} />
+              <Route
+                path="/all-calls"
+                element={<RoleGuard minRole="admin"><AllCallsPage /></RoleGuard>}
+              />
+              <Route
+                path="/admin"
+                element={<RoleGuard minRole="admin"><AdminPage /></RoleGuard>}
+              />
+              <Route
+                path="/team"
+                element={<RoleGuard minRole="admin"><TeamPage /></RoleGuard>}
+              />
+              <Route
+                path="/users"
+                element={<RoleGuard minRole="superadmin"><UserManagementPage /></RoleGuard>}
+              />
+            </Route>
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;

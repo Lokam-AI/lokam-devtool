@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* VAPI Dashboard Aesthetic */
+    /* Deep dark */
+    --background: 213 29% 6%;
+    /* Primary text #E6EDF3 */
+    --foreground: 208 30% 93%;
+
+    /* #151B23 */
+    --card: 214 25% 11%;
+    --card-foreground: 208 30% 93%;
+
+    /* Darker panels #11161C */
+    --popover: 213 24% 9%;
+    --popover-foreground: 208 30% 93%;
+
+    /* Acid green #bffc00 */
+    --primary: 74 100% 49%;
+    --primary-foreground: 0 0% 0%;
+
+    /* Match card or popover for secondary bg */
+    --secondary: 213 24% 9%;
+    /* Secondary text #9BA7B4 */
+    --secondary-foreground: 211 16% 66%;
+
+    --muted: 213 24% 9%;
+    /* Muted text #6B7683 */
+    --muted-foreground: 212 10% 47%;
+
+    /* Acid green secondary */
+    --accent: 74 100% 49%;
+    --accent-foreground: 0 0% 0%;
+
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 210 20% 95%;
+
+    /* Subtle borders */
+    --border: 217 13% 12%;
+    --input: 217 13% 12%;
+    /* Focus ring acid green */
+    --ring: 74 100% 49%;
+
+    --radius: 1rem; /* rounded-2xl */
+
+    --sidebar-background: 213 29% 6%;
+    --sidebar-foreground: 208 30% 93%;
+    --sidebar-primary: 74 100% 49%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 213 24% 9%;
+    --sidebar-accent-foreground: 208 30% 93%;
+    --sidebar-border: 217 13% 12%;
+    --sidebar-ring: 74 100% 49%;
+
+    --success: 150 80% 45%;
+    --success-foreground: 150 90% 10%;
+    --warning: 40 95% 55%;
+    --warning-foreground: 40 90% 10%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(74, 100%, 49%), hsl(67, 100%, 45%));
+    --gradient-surface: linear-gradient(180deg, hsl(214, 25%, 11%), hsl(213, 24%, 9%));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  .gradient-surface {
+    background: var(--gradient-surface);
+  }
+  
+  /* Text Gradients */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#bffc00] to-[#d9db4d];
+  }
+}
