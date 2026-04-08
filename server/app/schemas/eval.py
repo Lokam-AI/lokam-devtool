@@ -9,7 +9,7 @@ EvalStatus = Literal["pending", "in_progress", "completed"]
 class EvalCreate(BaseModel):
     """Schema for creating a new evaluation record during call assignment."""
 
-    call_id: int
+    call_id: int  # stores lokam_call_id from raw_calls
     assigned_to: int
     call_status: str | None = None
     raw_transcript: str | None = None

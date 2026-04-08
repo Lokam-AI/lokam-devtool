@@ -38,11 +38,11 @@ async def get_unassigned_for_date(db: AsyncSession, call_date: date, source_env:
     """Return RawCall rows with no corresponding Eval record for the given date."""
     from app.models.eval import Eval
 
-    assigned_ids_subq = select(Eval.call_id)
+    assigned_ids_subq = select(Eval.call_id)  # contains lokam_call_id values
     query = (
         select(RawCall)
         .where(RawCall.call_date == call_date)
-        .where(RawCall.id.not_in(assigned_ids_subq))
+        .where(RawCall.lokam_call_id.not_in(assigned_ids_subq))
     )
     if source_env is not None:
         query = query.where(RawCall.source_env == source_env)
@@ -85,6 +85,12 @@ async def count_all(
 
 
 async def get_by_id(db: AsyncSession, call_id: int) -> RawCall | None:
-    """Return the RawCall with the given id, or None if not found."""
+    """Return the RawCall with the given internal id, or None if not found."""
     result = await db.execute(select(RawCall).where(RawCall.id == call_id))
+    return result.scalar_one_or_none()
+
+
+async def get_by_lokam_call_id(db: AsyncSession, lokam_call_id: int) -> RawCall | None:
+    """Return the RawCall with the given lokam_call_id, or None if not found."""
+    result = await db.execute(select(RawCall).where(RawCall.lokam_call_id == lokam_call_id))
     return result.scalar_one_or_none()

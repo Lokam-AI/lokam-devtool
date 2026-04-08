@@ -56,8 +56,8 @@ async def get_call(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> RawCallRead:
-    """Return a single raw call by internal DB id; admin+ only."""
-    row = await raw_call_repo.get_by_id(db, call_id)
+    """Return a single raw call by lokam_call_id; admin+ only."""
+    row = await raw_call_repo.get_by_lokam_call_id(db, call_id)
     if not row:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Call not found")

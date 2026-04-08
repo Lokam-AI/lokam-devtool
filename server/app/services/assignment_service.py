@@ -88,7 +88,7 @@ async def _build_reviewer_load(db: AsyncSession, user_ids: list[int], call_date:
 
     result = await db.execute(
         select(Eval.assigned_to, func.count(Eval.id))
-        .join(RawCall, Eval.call_id == RawCall.id)
+        .join(RawCall, Eval.call_id == RawCall.lokam_call_id)
         .where(RawCall.call_date == call_date, Eval.assigned_to.in_(user_ids))
         .group_by(Eval.assigned_to)
     )
@@ -98,7 +98,7 @@ async def _build_reviewer_load(db: AsyncSession, user_ids: list[int], call_date:
 def _build_eval_create(call: RawCall, user_id: int) -> EvalCreate:
     """Build an EvalCreate record from a RawCall and a user id."""
     return EvalCreate(
-        call_id=call.id,
+        call_id=call.lokam_call_id,
         assigned_to=user_id,
         call_status=call.call_status,
         raw_transcript=call.raw_transcript,

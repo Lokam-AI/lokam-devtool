@@ -22,9 +22,7 @@ class Eval(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    call_id: Mapped[int] = mapped_column(
-        ForeignKey("raw_calls.id", ondelete="CASCADE"), nullable=False
-    )
+    call_id: Mapped[int] = mapped_column(Integer, nullable=False)  # stores lokam_call_id
     # Denormalized context
     call_status: Mapped[str | None] = mapped_column(String(20))
     raw_transcript: Mapped[str | None] = mapped_column(Text)

@@ -44,7 +44,7 @@ async def submit_eval(
     if requesting_role == "reviewer" and ev.assigned_to != requesting_user_id:
         raise PermissionError("You are not assigned to this evaluation")
 
-    raw_call = await raw_call_repo.get_by_id(db, ev.call_id)
+    raw_call = await raw_call_repo.get_by_lokam_call_id(db, ev.call_id)
     changes = payload.model_dump(exclude_none=True)
 
     has_corrections = _compute_has_corrections(raw_call, changes) if raw_call else False
