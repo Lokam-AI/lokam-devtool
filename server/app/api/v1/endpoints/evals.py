@@ -14,9 +14,9 @@ async def my_evals(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[EvalRead]:
-    """Return all pending evals assigned to the current reviewer."""
+    """Return all evals (pending and completed) assigned to the current reviewer."""
     from app.repositories import eval_repo
-    rows = await eval_repo.list_for_reviewer(db, current_user.id, status="pending")
+    rows = await eval_repo.list_for_reviewer(db, current_user.id)
     return [EvalRead.model_validate(r) for r in rows]
 
 
