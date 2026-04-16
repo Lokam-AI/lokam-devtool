@@ -3,7 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, require_admin
+from app.dependencies import get_current_user, get_db, require_admin
 from app.models.user import User
 from app.schemas.raw_call import RawCallRead
 from app.repositories import raw_call_repo
@@ -54,7 +54,7 @@ async def count_all_calls(
 async def get_call(
     call_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(get_current_user),
 ) -> RawCallRead:
     """Return a single raw call by lokam_call_id; admin+ only."""
     row = await raw_call_repo.get_by_lokam_call_id(db, call_id)

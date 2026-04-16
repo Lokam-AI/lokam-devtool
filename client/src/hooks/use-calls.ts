@@ -6,6 +6,7 @@ import {
   apiGetTeam,
   apiGetHealth,
   apiGetUsers,
+  apiCreateUser,
 } from "@/lib/api";
 import type { Eval } from "@/types";
 
@@ -45,4 +46,14 @@ export function useHealth() {
 
 export function useUsers() {
   return useQuery({ queryKey: ["users"], queryFn: apiGetUsers });
+}
+
+export function useCreateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: apiCreateUser,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
 }

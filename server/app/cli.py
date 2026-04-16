@@ -51,28 +51,28 @@ async def _create_superadmin(db: AsyncSession, email: str, name: str, password: 
     print(f"Created superadmin: {user.email} (id={user.id})")
 
 
-async def _seed_playground_env(db: AsyncSession) -> None:
-    """Upsert the 'playground' env_config row from PLAYGROUND_BASE_URL / PLAYGROUND_API_KEY settings."""
-    base_url = settings.PLAYGROUND_BASE_URL.strip()
-    api_key = settings.PLAYGROUND_API_KEY.strip()
+async def _seed_app_env(db: AsyncSession) -> None:
+    """Upsert the 'app' env_config row from APP_BASE_URL / APP_API_KEY settings."""
+    base_url = settings.APP_BASE_URL.strip()
+    api_key = settings.APP_API_KEY.strip()
 
     if not base_url:
-        print("PLAYGROUND_BASE_URL not set — skipping playground env seed.")
+        print("APP_BASE_URL not set — skipping app env seed.")
         return
 
     secrets: dict[str, str] = {}
     if api_key:
         secrets["api_key"] = encrypt_secret(api_key)
 
-    existing = await env_config_repo.get_by_name(db, "playground")
+    existing = await env_config_repo.get_by_name(db, "app")
     if existing is not None:
         await env_config_repo.update_env(db, existing, base_url=base_url, secrets=secrets, is_active=True)
-        print(f"Updated playground env → {base_url}")
+        print(f"Updated app env → {base_url}")
     else:
         env = await env_config_repo.create(
-            db, name="playground", base_url=base_url, secrets=secrets, is_active=True
+            db, name="app", base_url=base_url, secrets=secrets, is_active=True
         )
-        print(f"Created playground env → {env.base_url}")
+        print(f"Created app env → {env.base_url}")
 
 
 async def _run(email: str, name: str, password: str) -> None:
@@ -80,7 +80,7 @@ async def _run(email: str, name: str, password: str) -> None:
     async with AsyncSessionLocal() as session:
         async with session.begin():
             await _create_superadmin(session, email, name, password)
-            await _seed_playground_env(session)
+            await _seed_app_env(session)
 
 
 def main() -> None:

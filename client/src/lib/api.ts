@@ -237,6 +237,24 @@ export const apiSubmitEval = async (evalId: string, data: Partial<Eval>): Promis
   return mapEval(result);
 };
 
+/** POST /users — create a new user (admin+ only) */
+export const apiCreateUser = async (payload: {
+  email: string;
+  password: string;
+  name: string;
+  role: string;
+}): Promise<User> => {
+  const { data } = await api.post<BackendUser>("/users", payload);
+  return {
+    id: String(data.id),
+    email: data.email,
+    name: data.name,
+    role: data.role as User["role"],
+    is_active: data.is_active,
+    must_change_password: data.must_change_password,
+  };
+};
+
 /** GET /users — returns all users (admin+ only) */
 export const apiGetUsers = async (): Promise<User[]> => {
   const { data } = await api.get<BackendUser[]>("/users");

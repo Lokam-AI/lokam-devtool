@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useUsers } from "@/hooks/use-calls";
+import { useUsers, useCreateUser } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth-store";
@@ -14,11 +14,13 @@ const ROLE_CONFIG: Record<string, { label: string; bg: string; color: string }> 
 
 export default function UserManagementPage() {
   const { data, isLoading } = useUsers();
+  const createUser = useCreateUser();
   const isSuperadmin = useAuthStore((s) => s.hasRole)("superadmin");
   const [showCreate, setShowCreate] = useState(false);
-  const [newEmail, setNewEmail]     = useState("");
-  const [newName, setNewName]       = useState("");
-  const [newRole, setNewRole]       = useState<UserRole>("reviewer");
+  const [newEmail, setNewEmail]         = useState("");
+  const [newName, setNewName]           = useState("");
+  const [newPassword, setNewPassword]   = useState("");
+  const [newRole, setNewRole]           = useState<UserRole>("reviewer");
 
   const stats = useMemo(() => ({
     total:     data?.length ?? 0,
@@ -27,12 +29,20 @@ export default function UserManagementPage() {
     reviewers: data?.filter((u) => u.role === "reviewer").length ?? 0,
   }), [data]);
 
-  const handleCreate = () => {
-    if (!newEmail || !newName) return;
-    toast.success(`User ${newName} created as ${newRole}`);
-    setShowCreate(false);
-    setNewEmail("");
-    setNewName("");
+  const handleCreate = async () => {
+    if (!newEmail || !newName || !newPassword) return;
+    try {
+      await createUser.mutateAsync({ email: newEmail, name: newName, password: newPassword, role: newRole });
+      toast.success(`User ${newName} created as ${newRole}`);
+      setShowCreate(false);
+      setNewEmail("");
+      setNewName("");
+      setNewPassword("");
+      setNewRole("reviewer");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(msg ?? "Failed to create user");
+    }
   };
 
   return (
@@ -120,7 +130,7 @@ export default function UserManagementPage() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-6">
             {/* Full Name */}
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-bold uppercase tracking-widest pl-1" style={{ color: "#adaaaa" }}>
@@ -163,6 +173,27 @@ export default function UserManagementPage() {
               />
             </div>
 
+            {/* Password */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest pl-1" style={{ color: "#adaaaa" }}>
+                Password
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Temporary password"
+                className="rounded-xl px-5 py-3 text-sm border transition-all focus:outline-none"
+                style={{
+                  background: "#000000",
+                  color: "#ffffff",
+                  borderColor: "rgba(255,255,255,0.07)",
+                }}
+                onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "rgba(79,245,223,0.4)"; }}
+                onBlur={(e)  => { (e.target as HTMLInputElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+              />
+            </div>
+
             {/* Role */}
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-bold uppercase tracking-widest pl-1" style={{ color: "#adaaaa" }}>
@@ -193,7 +224,7 @@ export default function UserManagementPage() {
 
           <button
             onClick={handleCreate}
-            disabled={!newEmail || !newName}
+            disabled={!newEmail || !newName || !newPassword || createUser.isPending}
             className="px-8 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
             style={{
               background: "linear-gradient(135deg,#4ff5df,#22dbc6)",
@@ -201,7 +232,7 @@ export default function UserManagementPage() {
               boxShadow: "0 8px 24px rgba(79,245,223,0.2)",
             }}
           >
-            Create User
+            {createUser.isPending ? "Creating…" : "Create User"}
           </button>
         </div>
       )}

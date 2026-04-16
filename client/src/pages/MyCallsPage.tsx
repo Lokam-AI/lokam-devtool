@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCalls } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -11,7 +13,6 @@ import {
   ChevronRight,
   TrendingUp,
   Filter,
-  CalendarDays,
 } from "lucide-react";
 
 const PAGE_SIZE = 10;
@@ -20,7 +21,7 @@ export default function MyCallsPage() {
   const { data, isLoading } = useCalls();
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
@@ -29,7 +30,13 @@ export default function MyCallsPage() {
     setPage(1);
     return data?.filter((c) => {
       if (statusFilter !== "all" && c.eval.status !== statusFilter) return false;
-      if (dateFilter && !c.call.date.startsWith(dateFilter)) return false;
+      if (dateRange?.from) {
+        const callDate = new Date(c.call.date);
+        const from = new Date(dateRange.from); from.setHours(0, 0, 0, 0);
+        const to = dateRange.to ? new Date(dateRange.to) : new Date(from);
+        to.setHours(23, 59, 59, 999);
+        if (callDate < from || callDate > to) return false;
+      }
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         return (
@@ -41,7 +48,7 @@ export default function MyCallsPage() {
       }
       return true;
     });
-  }, [data, statusFilter, dateFilter, searchQuery]);
+  }, [data, statusFilter, dateRange, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil((filtered?.length ?? 0) / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -57,7 +64,7 @@ export default function MyCallsPage() {
     return { total, pending, completed, avgDuration };
   }, [data]);
 
-  const hasFilters = statusFilter !== "all" || dateFilter || searchQuery;
+  const hasFilters = statusFilter !== "all" || !!dateRange?.from || searchQuery;
 
   const visiblePages = useMemo(() => {
     if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -65,8 +72,6 @@ export default function MyCallsPage() {
     if (safePage >= totalPages - 2) return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
     return [safePage - 2, safePage - 1, safePage, safePage + 1, safePage + 2];
   }, [safePage, totalPages]);
-
-  const today = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-500">
@@ -82,14 +87,7 @@ export default function MyCallsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Date chip */}
-          <div
-            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm"
-            style={{ background: "#1a1919", color: "#adaaaa" }}
-          >
-            <CalendarDays className="h-4 w-4" />
-            {today}
-          </div>
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
 
           {/* Filters toggle */}
           <button
@@ -148,25 +146,13 @@ export default function MyCallsPage() {
             <option value="completed" style={{ background: "#1a1919" }}>Completed</option>
           </select>
 
-          <input
-            type="date"
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="px-4 py-2 rounded-xl text-xs focus:outline-none border"
-            style={{
-              background: "#000000",
-              color: "#adaaaa",
-              borderColor: "rgba(255,255,255,0.05)",
-            }}
-          />
-
           {hasFilters && (
             <button
               className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
               style={{ color: "#adaaaa" }}
               onMouseEnter={(e) => { (e.currentTarget).style.color = "#ffffff"; }}
               onMouseLeave={(e) => { (e.currentTarget).style.color = "#adaaaa"; }}
-              onClick={() => { setStatusFilter("all"); setDateFilter(""); setSearchQuery(""); }}
+              onClick={() => { setStatusFilter("all"); setDateRange(undefined); setSearchQuery(""); }}
             >
               Clear
             </button>
@@ -360,7 +346,7 @@ export default function MyCallsPage() {
               <button
                 className="mt-6 px-6 py-2 rounded-xl text-[10px] font-bold tracking-widest uppercase transition-all"
                 style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)" }}
-                onClick={() => { setStatusFilter("all"); setDateFilter(""); setSearchQuery(""); }}
+                onClick={() => { setStatusFilter("all"); setDateRange(undefined); setSearchQuery(""); }}
               >
                 Clear Filters
               </button>
