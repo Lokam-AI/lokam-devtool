@@ -2,15 +2,8 @@ import { useState, useEffect } from "react";
 import { useHealth } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import axios from "axios";
 import type { Environment, EnvConfig } from "@/types";
-import { apiGetEnvs } from "@/lib/api";
-
-const internalApi = axios.create({
-  baseURL: "/api/v1",
-  timeout: 10000,
-  withCredentials: true,
-});
+import api, { apiGetEnvs } from "@/lib/api";
 
 const SEED_MODES = [
   { value: "--check-and-seed", label: "Check & Seed" },
@@ -39,7 +32,7 @@ export default function AdminPage() {
 
   const handleAcsDisable = async () => {
     try {
-      await internalApi.post(`/admin/envs/${env}/acs`, { enabled: false });
+      await api.post(`/admin/envs/${env}/acs`, { enabled: false });
       toast.success(`ACS disabled on ${env}`);
     } catch {
       toast.error("Failed to disable ACS");
@@ -54,7 +47,7 @@ export default function AdminPage() {
     }
     setSeedRunning(true);
     try {
-      await internalApi.post(`/admin/envs/${env}/seed`, {
+      await api.post(`/admin/envs/${env}/seed`, {
         mode: seedMode,
         organization_name: seedOrg.trim(),
         rooftop_names: rooftopList,
@@ -92,7 +85,7 @@ export default function AdminPage() {
           </label>
           <div
             className="rounded-xl px-4 py-2 flex items-center gap-2 border"
-            style={{ background: "#1a1919", borderColor: "rgba(73,72,71,0.15)" }}
+            style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.15)" }}
           >
             <select
               value={env}
@@ -101,7 +94,7 @@ export default function AdminPage() {
               style={{ color: "#4ff5df" }}
             >
               {envs.map((e) => (
-                <option key={e.name} value={e.name} style={{ background: "#1a1919" }}>{e.name}</option>
+                <option key={e.name} value={e.name} style={{ background: "#1c1c1e" }}>{e.name}</option>
               ))}
             </select>
             <span className="text-xs select-none" style={{ color: "#4ff5df" }}>▾</span>
@@ -118,7 +111,7 @@ export default function AdminPage() {
           {/* ACS Toggle */}
           <div
             className="rounded-xl p-4 flex flex-col gap-3 border-l-4 shrink-0"
-            style={{ background: "#1a1919", borderLeftColor: "#4ff5df" }}
+            style={{ background: "#1c1c1e", borderLeftColor: "#4ff5df" }}
           >
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(79,245,223,0.1)" }}>
@@ -143,7 +136,7 @@ export default function AdminPage() {
           {/* Seed Runner */}
           <div
             className="rounded-xl p-4 flex flex-col gap-3 min-h-0 border-l-4"
-            style={{ background: "#1a1919", borderLeftColor: "rgba(79,245,223,0.3)" }}
+            style={{ background: "#1c1c1e", borderLeftColor: "rgba(79,245,223,0.3)" }}
           >
             <div className="flex items-center gap-2 shrink-0">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(79,245,223,0.1)" }}>
@@ -163,7 +156,7 @@ export default function AdminPage() {
                   style={{ color: "#ffffff" }}
                 >
                   {SEED_MODES.map((m) => (
-                    <option key={m.value} value={m.value} style={{ background: "#1a1919" }}>{m.label}</option>
+                    <option key={m.value} value={m.value} style={{ background: "#1c1c1e" }}>{m.label}</option>
                   ))}
                 </select>
                 <span className="text-xs select-none" style={{ color: "#adaaaa" }}>▾</span>
@@ -232,7 +225,7 @@ export default function AdminPage() {
           </div>
 
           {/* Waveform card */}
-          <div className="flex-1 min-h-0 rounded-xl p-4 relative overflow-hidden" style={{ background: "#1a1919" }}>
+          <div className="flex-1 min-h-0 rounded-xl p-4 relative overflow-hidden" style={{ background: "#1c1c1e" }}>
             <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 50%, rgba(79,245,223,0.05) 0%, transparent 70%)" }} />
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div className="flex justify-between items-center">
@@ -282,7 +275,7 @@ export default function AdminPage() {
       {/* ── ACS confirm modal ── */}
       {showAcsConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} onClick={() => setShowAcsConfirm(false)}>
-          <div className="w-full max-w-sm rounded-2xl p-6 border flex flex-col gap-4" style={{ background: "#1a1919", borderColor: "rgba(255,113,108,0.2)" }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-2xl p-6 border flex flex-col gap-4" style={{ background: "#1c1c1e", borderColor: "rgba(255,113,108,0.2)" }} onClick={(e) => e.stopPropagation()}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,113,108,0.1)" }}>
               <span className="material-symbols-outlined text-sm" style={{ color: "#ff716c", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>warning</span>
             </div>
@@ -313,7 +306,7 @@ function HealthCard({ icon, label, value, loading, max, emptyLabel }: {
   return (
     <div
       className="rounded-xl p-4 flex flex-col justify-between border transition-all"
-      style={{ background: "#1a1919", borderColor: "rgba(73,72,71,0.05)" }}
+      style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(79,245,223,0.2)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(73,72,71,0.05)"; }}
     >
