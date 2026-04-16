@@ -4,6 +4,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import decrypt_secret
+from app.core.http_helpers import build_auth_headers
 from app.repositories import env_config_repo, raw_call_repo
 from app.schemas.raw_call import RawCallCreate
 from app.services import assignment_service
@@ -26,7 +27,7 @@ async def sync_calls_for_date(db: AsyncSession, call_date: date) -> dict[str, in
 async def _sync_single_env(db: AsyncSession, client: httpx.AsyncClient, env: object, call_date: date) -> int:
     """Fetch, upsert, and assign calls for one environment; return count of upserted rows."""
     secrets = _decrypt_env_secrets(env.secrets)
-    headers = _build_auth_headers(secrets)
+    headers = build_auth_headers(secrets)
     url = f"{env.base_url}{CALLS_EXPORT_PATH}"
     params = {"date": call_date.isoformat()}
 
@@ -53,11 +54,3 @@ def _decrypt_env_secrets(secrets: dict) -> dict:
     return {k: decrypt_secret(v) if isinstance(v, str) else v for k, v in secrets.items()}
 
 
-def _build_auth_headers(secrets: dict) -> dict[str, str]:
-    """Build HTTP auth headers from the decrypted secrets dict."""
-    headers: dict[str, str] = {}
-    if "api_key" in secrets:
-        headers["Authorization"] = f"Bearer {secrets['api_key']}"
-    if "bearer_token" in secrets:
-        headers["Authorization"] = f"Bearer {secrets['bearer_token']}"
-    return headers

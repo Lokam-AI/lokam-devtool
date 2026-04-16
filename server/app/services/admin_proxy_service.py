@@ -2,6 +2,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import decrypt_secret
+from app.core.http_helpers import build_auth_headers
 from app.exceptions import NotFoundError
 from app.repositories import env_config_repo
 from app.schemas.admin import ProxyHealthResponse
@@ -16,7 +17,7 @@ async def toggle_acs(db: AsyncSession, env_name: str, *, enabled: bool) -> dict:
     """Proxy an ACS toggle request to the target lokamspace environment."""
     env = await _get_env_or_raise(db, env_name)
     secrets = _decrypt_secrets(env.secrets)
-    headers = _build_headers(secrets)
+    headers = build_auth_headers(secrets)
     url = f"{env.base_url}{ACS_PATH}"
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
         response = await client.post(url, headers=headers, json={"enabled": enabled})
@@ -35,7 +36,7 @@ async def trigger_seed(
     """Proxy a seed-run trigger to the target lokamspace environment."""
     env = await _get_env_or_raise(db, env_name)
     secrets = _decrypt_secrets(env.secrets)
-    headers = _build_headers(secrets)
+    headers = build_auth_headers(secrets)
     url = f"{env.base_url}{SEED_PATH}"
     payload = {"mode": mode, "organization_name": organization_name, "rooftop_names": rooftop_names}
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
@@ -48,7 +49,7 @@ async def check_health(db: AsyncSession, env_name: str) -> ProxyHealthResponse:
     """Return the health status of the target lokamspace environment."""
     env = await _get_env_or_raise(db, env_name)
     secrets = _decrypt_secrets(env.secrets)
-    headers = _build_headers(secrets)
+    headers = build_auth_headers(secrets)
     url = f"{env.base_url}{HEALTH_PATH}"
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
@@ -77,11 +78,3 @@ def _decrypt_secrets(secrets: dict) -> dict:
     return result
 
 
-def _build_headers(secrets: dict) -> dict[str, str]:
-    """Build HTTP auth headers from decrypted secrets."""
-    headers: dict[str, str] = {}
-    if "api_key" in secrets:
-        headers["Authorization"] = f"Bearer {secrets['api_key']}"
-    if "bearer_token" in secrets:
-        headers["Authorization"] = f"Bearer {secrets['bearer_token']}"
-    return headers
