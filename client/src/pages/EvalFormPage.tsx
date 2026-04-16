@@ -146,14 +146,30 @@ function EvalFormInner({
     const corrections: Record<string, { ai_value: unknown; gt_value: unknown }> = {};
     const evalUpdate: Partial<Eval> = {};
 
+    const GT_KEY_MAP: Record<string, keyof Eval> = {
+      nps_score:         "gt_nps_score",
+      call_summary:      "gt_call_summary",
+      overall_feedback:  "gt_overall_feedback",
+      positive_mentions: "gt_positive_mentions",
+      detractors:        "gt_detractors",
+    };
+    const AI_KEY_MAP: Record<string, keyof RawCall> = {
+      nps_score:         "ai_nps_score",
+      call_summary:      "ai_call_summary",
+      overall_feedback:  "ai_overall_feedback",
+      positive_mentions: "ai_positive_mentions",
+      detractors:        "ai_detractors",
+    };
+
     Object.entries(fields).forEach(([key, state]) => {
-      const aiKey = `ai_${key}` as keyof RawCall;
-      const gtKey = `gt_${key}` as keyof Eval;
+      const gtKey = GT_KEY_MAP[key];
+      const aiKey = AI_KEY_MAP[key];
+      if (!gtKey || !aiKey) return;
       const aiVal = callData[aiKey];
       if (state.correct) {
-        (evalUpdate as any)[gtKey] = aiVal;
+        (evalUpdate[gtKey] as unknown) = aiVal;
       } else {
-        (evalUpdate as any)[gtKey] = state.value;
+        (evalUpdate[gtKey] as unknown) = state.value;
         corrections[key] = { ai_value: aiVal, gt_value: state.value };
       }
     });
