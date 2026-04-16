@@ -37,7 +37,9 @@ export default function DashboardPage() {
     const buckets: Record<number, number> = {};
     for (let h = 0; h < 24; h++) buckets[h] = 0;
     calls?.forEach(({ call }) => {
-      const h = new Date(call.date).getHours();
+      // call.date is a date-only string (YYYY-MM-DD). Appending T12:00:00 prevents
+      // UTC midnight from being shifted into the previous day in negative-offset zones.
+      const h = new Date(`${call.date}T12:00:00`).getHours();
       buckets[h] = (buckets[h] || 0) + 1;
     });
     return Array.from({ length: 24 }, (_, h) => ({
