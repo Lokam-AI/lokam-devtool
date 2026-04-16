@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.rate_limit import RateLimitError
 from app.exceptions import AppError, AuthError, ConflictError, NotFoundError, PermissionDeniedError
 
 
@@ -55,6 +56,12 @@ async def permission_error_handler(request: Request, exc: PermissionDeniedError)
 async def conflict_error_handler(request: Request, exc: ConflictError) -> JSONResponse:
     """Return 409 for ConflictError domain exceptions."""
     return JSONResponse(status_code=409, content={"detail": exc.message})
+
+
+@app.exception_handler(RateLimitError)
+async def rate_limit_handler(request: Request, exc: RateLimitError) -> JSONResponse:
+    """Return 429 for rate limit violations."""
+    return JSONResponse(status_code=429, content={"detail": exc.message})
 
 
 @app.exception_handler(AppError)
