@@ -31,12 +31,19 @@ const EVAL_TAGS = [
 ══════════════════════════════════════════════════════════════════════ */
 export default function EvalFormPage() {
   const { id }    = useParams<{ id: string }>();
-  const { data, isLoading } = useCall(id!);
+  const { data, isLoading, isError } = useCall(id!);
   const { data: allCalls }  = useCalls();
   const submitEval = useSubmitEval();
   const navigate   = useNavigate();
 
   if (isLoading) return <EvalSkeleton />;
+  if (isError) return (
+    <div className="flex items-center justify-center h-full">
+      <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: "#ff716c" }}>
+        Failed to load call. Please go back and try again.
+      </p>
+    </div>
+  );
   if (!data) return (
     <div className="flex items-center justify-center h-full">
       <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.2)" }}>
@@ -197,7 +204,7 @@ function EvalFormInner({
         {/* ── Sticky call header ── */}
         <div
           className="shrink-0 px-8 py-5 border-b"
-          style={{ background: "#1a1919", borderColor: "rgba(73,72,71,0.15)" }}
+          style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.15)" }}
         >
           {/* Call ID + date */}
           <div className="flex items-center gap-3 mb-3">
@@ -270,7 +277,7 @@ function EvalFormInner({
         {callData.recording_url && (
           <div
             className="shrink-0 px-8 py-3 border-b flex items-center gap-4"
-            style={{ background: "#1a1919", borderColor: "rgba(255,255,255,0.08)" }}
+            style={{ background: "#1c1c1e", borderColor: "rgba(255,255,255,0.08)" }}
           >
             <button
               onClick={togglePlay}
@@ -332,7 +339,7 @@ function EvalFormInner({
             {callData.ai_call_summary && (
               <div
                 className="relative rounded-2xl p-5 border-l-4 overflow-hidden"
-                style={{ background: "#1a1919", borderLeftColor: "#4ff5df" }}
+                style={{ background: "#1c1c1e", borderLeftColor: "#4ff5df" }}
               >
                 {/* Aurora glow */}
                 <div
@@ -857,7 +864,7 @@ function formatTranscript(transcript: string): React.ReactNode {
         <div key={i} className="flex gap-3 max-w-[85%]">
           <div
             className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-            style={{ background: "#1a1919", border: "1px solid rgba(79,245,223,0.15)" }}
+            style={{ background: "#1c1c1e", border: "1px solid rgba(79,245,223,0.15)" }}
           >
             <Bot className="h-3.5 w-3.5" style={{ color: "#4ff5df" }} />
           </div>

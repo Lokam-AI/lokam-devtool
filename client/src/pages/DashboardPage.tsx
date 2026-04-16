@@ -23,7 +23,7 @@ const REVIEW_LOG = [
 
 export default function DashboardPage() {
   const isAdmin    = useAuthStore((s) => s.isAtLeast)("admin");
-  const { data: calls,  isLoading: callsLoading  } = useCalls();
+  const { data: calls,  isLoading: callsLoading, isError: callsError  } = useCalls();
   const { data: health, isLoading: healthLoading } = useHealth();
   const { data: team } = useTeam();
   const navigate = useNavigate();
@@ -66,6 +66,16 @@ export default function DashboardPage() {
   }, [calls]);
 
   const backendOnline = !healthLoading && health?.status === "ok";
+
+  if (callsError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: "#ff716c" }}>
+          Failed to load dashboard data. Please refresh the page.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in fade-in duration-500">

@@ -18,7 +18,7 @@ import {
 const PAGE_SIZE = 10;
 
 export default function MyCallsPage() {
-  const { data, isLoading } = useCalls();
+  const { data, isLoading, isError } = useCalls();
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
@@ -75,6 +75,16 @@ export default function MyCallsPage() {
     if (safePage >= totalPages - 2) return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
     return [safePage - 2, safePage - 1, safePage, safePage + 1, safePage + 2];
   }, [safePage, totalPages]);
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: "#ff716c" }}>
+          Failed to load calls. Please refresh the page.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-500">
