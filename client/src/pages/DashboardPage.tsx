@@ -189,7 +189,7 @@ export default function DashboardPage() {
                 task_alt
               </span>
               <span className="font-bold text-xs" style={{ color: "#4ff5df" }}>
-                {completed > 0 ? "98% Efficient" : "—"}
+                {completed > 0 ? `${Math.round((completed / Math.max(1, completed + pending)) * 100)}%` : "—"}
               </span>
             </div>
             <div>
