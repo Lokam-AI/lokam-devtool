@@ -184,17 +184,28 @@ export const apiGetCalls = async (): Promise<CallWithEval[]> => {
     .map((e) => ({ call: callMap.get(e.call_id)!, eval: mapEval(e) }));
 };
 
-/** GET single call with its eval by lokam_call_id */
+/** GET single call with its eval by lokam_call_id.
+ *  Fetches the call directly (1 request) then scans /evals/my to match (1 request).
+ *  Total: 2 requests regardless of how many evals the user has.
+ */
 export const apiGetCall = async (id: string): Promise<CallWithEval | undefined> => {
-  // First try to find via assigned evals
-  const allCalls = await apiGetCalls();
-  const found = allCalls.find((c) => c.call.id === id);
-  if (found) return found;
-
-  // Fallback: fetch the call directly (admin+ only, for All Calls page)
   try {
-    const { data: raw } = await api.get<BackendRawCall>(`/calls/${id}`);
-    const call = mapCall(raw);
+    // Fetch call and evals concurrently
+    const [callRes, evalsRes] = await Promise.all([
+      api.get<BackendRawCall>(`/calls/${id}`).catch(() => null),
+      api.get<BackendEval[]>("/evals/my").catch(() => ({ data: [] as BackendEval[] })),
+    ]);
+
+    if (!callRes) return undefined;
+    const call = mapCall(callRes.data);
+    const callIdNum = Number(id);
+    const matchedEval = evalsRes.data.find((e) => e.call_id === callIdNum);
+
+    if (matchedEval) {
+      return { call, eval: mapEval(matchedEval) };
+    }
+
+    // Admin fallback — no eval assigned for this call
     const placeholderEval: Eval = {
       id: "",
       call_id: call.id,
