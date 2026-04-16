@@ -58,7 +58,7 @@ export default function LoginPage() {
       <div className="hidden lg:block fixed right-10 top-1/2 -translate-y-1/2 rotate-90 origin-right pointer-events-none select-none">
         <span
           className="font-black text-[10rem] leading-none tracking-tighter"
-          style={{ color: "#1a1919", opacity: 0.8 }}
+          style={{ color: "#1c1c1e", opacity: 0.8 }}
         >
           LOKAM
         </span>
@@ -88,7 +88,7 @@ export default function LoginPage() {
         <div
           className="rounded-3xl p-8 relative overflow-hidden"
           style={{
-            background: "#1a1919",
+            background: "#1c1c1e",
             boxShadow: "0px 24px 64px rgba(0,0,0,0.6)",
           }}
         >
@@ -140,19 +140,13 @@ export default function LoginPage() {
 
             {/* Password */}
             <div className="space-y-2">
-              <div className="flex justify-between items-center px-1">
+              <div className="flex items-center px-1">
                 <label
                   className="block text-[10px] tracking-[0.1em] uppercase font-bold"
                   style={{ color: "#adaaaa" }}
                 >
                   Password
                 </label>
-                <span
-                  className="text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-colors hover:underline"
-                  style={{ color: "#4ff5df" }}
-                >
-                  Forgot Password?
-                </span>
               </div>
               <div className="relative">
                 <span
