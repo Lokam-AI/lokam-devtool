@@ -58,8 +58,10 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "lokam-auth",
-      // Only persist the user object (no tokens — cookies handle auth)
-      partialize: (state) => ({ user: state.user, initialized: state.initialized }),
+      // Persist only the user object for UI hints (role display etc.).
+      // Never persist `initialized` — AppLayout must always re-validate the
+      // session on mount so a stale role change is picked up immediately.
+      partialize: (state) => ({ user: state.user }),
     }
   )
 );
