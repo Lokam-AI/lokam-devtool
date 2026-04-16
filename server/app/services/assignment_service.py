@@ -42,7 +42,7 @@ def _categorize_calls(calls: list[RawCall]) -> dict[str, list[RawCall]]:
     for call in calls:
         if call.call_status != "Completed":
             buckets["missed"].append(call)
-        elif call.nps_score is None or call.nps_score > DETRACTOR_NPS_MAX and call.nps_score < PROMOTER_NPS_MIN:
+        elif call.nps_score is None or (call.nps_score > DETRACTOR_NPS_MAX and call.nps_score < PROMOTER_NPS_MIN):
             buckets["na"].append(call)
         elif call.nps_score >= PROMOTER_NPS_MIN:
             buckets["promoter"].append(call)

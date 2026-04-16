@@ -35,10 +35,16 @@ async def list_by_date(db: AsyncSession, call_date: date, source_env: str | None
 
 
 async def get_unassigned_for_date(db: AsyncSession, call_date: date, source_env: str | None = None) -> list[RawCall]:
-    """Return RawCall rows with no corresponding Eval record for the given date."""
+    """Return RawCall rows with no Eval assigned for the given date."""
     from app.models.eval import Eval
 
-    assigned_ids_subq = select(Eval.call_id)  # contains lokam_call_id values
+    # Scope the exclusion to evals whose linked call falls on call_date only,
+    # so calls on other dates don't block assignment for this date.
+    assigned_ids_subq = (
+        select(Eval.call_id)
+        .join(RawCall, Eval.call_id == RawCall.lokam_call_id)
+        .where(RawCall.call_date == call_date)
+    )
     query = (
         select(RawCall)
         .where(RawCall.call_date == call_date)
