@@ -15,7 +15,7 @@ class AuthError(AppError):
     """Raised when authentication fails or credentials are invalid."""
 
 
-class PermissionError(AppError):
+class PermissionDeniedError(AppError):
     """Raised when a user lacks permission to perform an action."""
 
 
@@ -23,5 +23,5 @@ class ConflictError(AppError):
     """Raised when an operation conflicts with existing state."""
 
 
-class ValidationError(AppError):
+class DomainValidationError(AppError):
     """Raised when input data fails domain-level validation."""

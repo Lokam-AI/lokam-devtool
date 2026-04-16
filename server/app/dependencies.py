@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
 from app.core.security import decode_access_token
-from app.exceptions import AuthError, PermissionError
+from app.exceptions import AuthError, PermissionDeniedError
 from app.models.user import User
 from app.repositories import user_repo
 
@@ -37,12 +37,12 @@ async def get_current_user(
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Raise PermissionError unless the current user is admin or superadmin."""
     if current_user.role not in ("admin", "superadmin"):
-        raise PermissionError("Admin access required")
+        raise PermissionDeniedError("Admin access required")
     return current_user
 
 
 async def require_superadmin(current_user: User = Depends(get_current_user)) -> User:
     """Raise PermissionError unless the current user is superadmin."""
     if current_user.role != "superadmin":
-        raise PermissionError("Superadmin access required")
+        raise PermissionDeniedError("Superadmin access required")
     return current_user

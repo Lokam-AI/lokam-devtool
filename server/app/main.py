@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.exceptions import AppError, AuthError, NotFoundError, PermissionError
+from app.exceptions import AppError, AuthError, ConflictError, NotFoundError, PermissionDeniedError
 
 
 @asynccontextmanager
@@ -45,10 +45,16 @@ async def auth_error_handler(request: Request, exc: AuthError) -> JSONResponse:
     return JSONResponse(status_code=401, content={"detail": exc.message})
 
 
-@app.exception_handler(PermissionError)
-async def permission_error_handler(request: Request, exc: PermissionError) -> JSONResponse:
-    """Return 403 for PermissionError domain exceptions."""
+@app.exception_handler(PermissionDeniedError)
+async def permission_error_handler(request: Request, exc: PermissionDeniedError) -> JSONResponse:
+    """Return 403 for PermissionDeniedError domain exceptions."""
     return JSONResponse(status_code=403, content={"detail": exc.message})
+
+
+@app.exception_handler(ConflictError)
+async def conflict_error_handler(request: Request, exc: ConflictError) -> JSONResponse:
+    """Return 409 for ConflictError domain exceptions."""
+    return JSONResponse(status_code=409, content={"detail": exc.message})
 
 
 @app.exception_handler(AppError)

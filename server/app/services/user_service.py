@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
-from app.exceptions import ConflictError, NotFoundError, PermissionError
+from app.exceptions import ConflictError, NotFoundError, PermissionDeniedError
 from app.models.user import User
 from app.repositories import user_repo
 from app.schemas.user import UserCreate, UserRead, UserUpdate
@@ -13,7 +13,7 @@ ADMIN_ROLE = "admin"
 async def create_user(db: AsyncSession, payload: UserCreate, *, created_by_role: str) -> UserRead:
     """Create a new user; only superadmin may create admin or superadmin accounts."""
     if payload.role in (SUPERADMIN_ROLE, ADMIN_ROLE) and created_by_role != SUPERADMIN_ROLE:
-        raise PermissionError(f"Only superadmin can create a user with role '{payload.role}'")
+        raise PermissionDeniedError(f"Only superadmin can create a user with role '{payload.role}'")
     existing = await user_repo.get_by_email(db, payload.email)
     if existing is not None:
         raise ConflictError(f"Email '{payload.email}' is already registered")
@@ -33,7 +33,7 @@ async def update_user(db: AsyncSession, user_id: int, payload: UserUpdate, *, up
     if user is None:
         raise NotFoundError(f"User {user_id} not found")
     if payload.role == SUPERADMIN_ROLE and updated_by_role != SUPERADMIN_ROLE:
-        raise PermissionError("Only superadmin can assign the superadmin role")
+        raise PermissionDeniedError("Only superadmin can assign the superadmin role")
     changes = payload.model_dump(exclude_none=True)
     updated = await user_repo.update_user(db, user, **changes)
     return UserRead.model_validate(updated)

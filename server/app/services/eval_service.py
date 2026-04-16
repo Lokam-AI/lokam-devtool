@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import NotFoundError, PermissionError
+from app.exceptions import NotFoundError, PermissionDeniedError
 from app.repositories import eval_repo, raw_call_repo
 from app.schemas.eval import EvalRead, EvalUpdate
 
@@ -25,7 +25,7 @@ async def get_eval_form(db: AsyncSession, eval_id: int, *, requesting_user_id: i
     if ev is None:
         raise NotFoundError(f"Eval {eval_id} not found")
     if requesting_role == "reviewer" and ev.assigned_to != requesting_user_id:
-        raise PermissionError("You are not assigned to this evaluation")
+        raise PermissionDeniedError("You are not assigned to this evaluation")
     return EvalRead.model_validate(ev)
 
 
@@ -42,7 +42,7 @@ async def submit_eval(
     if ev is None:
         raise NotFoundError(f"Eval {eval_id} not found")
     if requesting_role == "reviewer" and ev.assigned_to != requesting_user_id:
-        raise PermissionError("You are not assigned to this evaluation")
+        raise PermissionDeniedError("You are not assigned to this evaluation")
 
     raw_call = await raw_call_repo.get_by_lokam_call_id(db, ev.call_id)
     changes = payload.model_dump(exclude_none=True)

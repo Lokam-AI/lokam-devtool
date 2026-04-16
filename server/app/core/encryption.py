@@ -1,7 +1,7 @@
 from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.config import settings
-from app.exceptions import ValidationError
+from app.exceptions import DomainValidationError
 
 _fernet: Fernet | None = None
 
@@ -11,7 +11,7 @@ def _get_fernet() -> Fernet:
     global _fernet
     if _fernet is None:
         if not settings.FERNET_KEY:
-            raise ValidationError("FERNET_KEY is not configured")
+            raise DomainValidationError("FERNET_KEY is not configured")
         _fernet = Fernet(settings.FERNET_KEY.encode())
     return _fernet
 
@@ -26,4 +26,4 @@ def decrypt_secret(ciphertext: str) -> str:
     try:
         return _get_fernet().decrypt(ciphertext.encode()).decode()
     except InvalidToken as exc:
-        raise ValidationError("Failed to decrypt secret: invalid token") from exc
+        raise DomainValidationError("Failed to decrypt secret: invalid token") from exc
