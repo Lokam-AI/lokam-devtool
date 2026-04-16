@@ -13,7 +13,7 @@ export function AppLayout() {
 
   useEffect(() => {
     if (!initialized) refreshMe();
-  }, []);
+  }, [initialized, refreshMe]);
 
   if (!initialized) {
     return (
