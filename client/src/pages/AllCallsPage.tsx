@@ -225,9 +225,9 @@ export default function AllCallsPage() {
         {/* Right icon actions */}
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-medium uppercase tracking-widest mr-2" style={{ color: "rgba(173,170,170,0.4)" }}>
-            {totalCount !== undefined
+            {totalCount
               ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, totalCount)} of ${totalCount.toLocaleString()}`
-              : "—"
+              : totalCount === 0 ? "0 results" : "—"
             }
           </span>
           <button
@@ -330,7 +330,10 @@ export default function AllCallsPage() {
           }}
         >
           <span className="text-xs font-medium" style={{ color: "#adaaaa" }}>
-            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount ?? 0)} of {totalCount?.toLocaleString() ?? "—"} calls
+            {totalCount
+              ? `Showing ${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, totalCount)} of ${totalCount.toLocaleString()} calls`
+              : "No calls found"
+            }
           </span>
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
