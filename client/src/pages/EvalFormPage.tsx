@@ -902,7 +902,12 @@ function formatTranscript(transcript: string): React.ReactNode {
       );
     }
 
-    return null;
+    // Unrecognised line format — render as a plain system note rather than dropping it.
+    return (
+      <div key={i} className="px-4 py-2 text-xs" style={{ color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>
+        {line}
+      </div>
+    );
   });
 }
 
