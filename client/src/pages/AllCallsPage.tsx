@@ -251,21 +251,21 @@ export default function AllCallsPage() {
 
       {/* ── Table ────────────────────────────────────────────────────── */}
       <div
-        className="rounded-3xl overflow-hidden border flex flex-col"
+        className="flex-1 rounded-xl flex flex-col overflow-hidden border"
         style={{
-          background: "#1c1c1e",
-          borderColor: "rgba(73,72,71,0.05)",
-          boxShadow: "0px 24px 48px rgba(0,0,0,0.5)",
+          background: "#131313",
+          borderColor: "rgba(73,72,71,0.1)",
+          boxShadow: "0px 24px 48px rgba(255,255,255,0.06)",
         }}
       >
-        <ScrollArea>
+        <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr style={{ background: "rgba(32,31,31,0.5)" }}>
-                {["Call ID", "Organization", "Campaign", "Date", "Status", "Direction", "Duration", "NPS", ""].map((h) => (
+                {["Call ID", "Organization", "Campaign", "Date", "Status", "Direction", "Duration", "NPS", "Action"].map((h) => (
                   <th
                     key={h}
-                    className={`px-6 py-5 text-[10px] font-bold uppercase tracking-[0.1em] whitespace-nowrap ${h === "Duration" || h === "NPS" ? "text-center" : ""} ${h === "" ? "text-right" : ""}`}
+                    className="px-6 py-4 text-[0.6875rem] uppercase tracking-widest font-bold whitespace-nowrap"
                     style={{ color: "#adaaaa" }}
                   >
                     {h}
@@ -273,12 +273,12 @@ export default function AllCallsPage() {
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
               {isLoading
                 ? Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid rgba(73,72,71,0.05)" }}>
+                    <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                       {Array.from({ length: 9 }).map((_, j) => (
-                        <td key={j} className="px-6 py-5">
+                        <td key={j} className="px-6 py-4">
                           <Skeleton className="h-3.5 w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
                         </td>
                       ))}
@@ -290,7 +290,7 @@ export default function AllCallsPage() {
               }
             </tbody>
           </table>
-        </ScrollArea>
+        </div>
 
         {/* Empty state */}
         {!isLoading && filtered.length === 0 && (
@@ -323,10 +323,10 @@ export default function AllCallsPage() {
 
         {/* Pagination */}
         <div
-          className="flex items-center justify-between px-6 py-4 border-t"
+          className="px-8 py-4 border-t flex items-center justify-between"
           style={{
             background: "rgba(32,31,31,0.3)",
-            borderColor: "rgba(73,72,71,0.05)",
+            borderColor: "rgba(255,255,255,0.03)",
           }}
         >
           <span className="text-xs font-medium" style={{ color: "#adaaaa" }}>
@@ -464,127 +464,97 @@ function MetricCard({
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  Call row                                                            */
+/*  Call row — matches MyCallsPage style                                */
 /* ──────────────────────────────────────────────────────────────────── */
 
 function CallRow({ call, onView }: { call: RawCall; onView: () => void }) {
-  const initials = call.organization_name
-    ? call.organization_name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
-    : "?";
-
   return (
     <tr
       className="group cursor-pointer transition-colors"
-      style={{ borderBottom: "1px solid rgba(73,72,71,0.05)" }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "#262626"; }}
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "rgba(255,255,255,0.02)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent"; }}
       onClick={onView}
     >
       {/* Call ID */}
-      <td className="px-6 py-5 font-mono text-sm font-bold" style={{ color: "#4ff5df" }}>
+      <td className="px-6 py-4 font-mono text-xs" style={{ color: "#4ff5df" }}>
         #{call.call_id}
       </td>
 
-      {/* Organization with letter avatar */}
-      <td className="px-6 py-5">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border text-[10px] font-bold"
-            style={{ background: "#000000", borderColor: "rgba(73,72,71,0.1)", color: "#4ff5df" }}
-          >
-            {initials}
-          </div>
-          <div>
-            <span className="text-sm font-semibold" style={{ color: "#ffffff" }}>
-              {call.organization_name || "—"}
+      {/* Organization */}
+      <td className="px-6 py-4">
+        <div className="flex flex-col">
+          <span className="text-sm font-medium" style={{ color: "#ffffff" }}>
+            {call.organization_name || "—"}
+          </span>
+          {call.rooftop_name && (
+            <span className="text-[10px]" style={{ color: "#adaaaa" }}>
+              {call.rooftop_name}
             </span>
-            {call.rooftop_name && (
-              <p className="text-[10px] mt-0.5" style={{ color: "#adaaaa" }}>
-                {call.rooftop_name}
-              </p>
-            )}
-          </div>
+          )}
         </div>
       </td>
 
       {/* Campaign */}
-      <td className="px-6 py-5 text-sm" style={{ color: "#adaaaa" }}>
+      <td className="px-6 py-4 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
         {call.campaign || "—"}
       </td>
 
       {/* Date */}
-      <td className="px-6 py-5 text-sm" style={{ color: "#adaaaa" }}>
+      <td className="px-6 py-4 text-sm" style={{ color: "#adaaaa" }}>
         {new Date(call.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })},{" "}
         {new Date(call.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
       </td>
 
       {/* Status */}
-      <td className="px-6 py-5">
+      <td className="px-6 py-4">
         <CallStatusBadge status={call.call_status} />
       </td>
 
       {/* Direction */}
-      <td className="px-6 py-5">
+      <td className="px-6 py-4">
         <DirectionIndicator direction={call.direction} />
       </td>
 
       {/* Duration */}
-      <td className="px-6 py-5 text-sm text-center" style={{ color: "#adaaaa" }}>
+      <td className="px-6 py-4 text-sm" style={{ color: "#adaaaa" }}>
         {formatDuration(call.duration)}
       </td>
 
       {/* NPS */}
-      <td className="px-6 py-5 text-center">
+      <td className="px-6 py-4 text-sm font-bold">
         {call.ai_nps_score !== null
           ? <NpsValue score={call.ai_nps_score} />
-          : <span className="text-sm font-bold" style={{ color: "#adaaaa" }}>--</span>
+          : <span style={{ color: "#adaaaa" }}>--</span>
         }
       </td>
 
       {/* Action */}
-      <td className="px-6 py-5 text-right">
-        <ViewButton onView={(e) => { e.stopPropagation(); onView(); }} />
+      <td className="px-6 py-4">
+        <button
+          className="px-4 py-1.5 text-[11px] font-bold rounded-full uppercase tracking-wider transition-colors active:scale-95"
+          style={{ background: "rgba(255,255,255,0.05)", color: "#adaaaa" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.1)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+          onClick={(e) => { e.stopPropagation(); onView(); }}
+        >
+          View
+        </button>
       </td>
     </tr>
   );
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  View button — border + hover fill                                   */
-/* ──────────────────────────────────────────────────────────────────── */
-
-function ViewButton({ onView }: { onView: (e: React.MouseEvent) => void }) {
-  return (
-    <button
-      className="px-4 py-1.5 rounded-lg text-xs font-bold border transition-all active:scale-95"
-      style={{ background: "#262626", color: "#4ff5df", borderColor: "rgba(79,245,223,0.1)" }}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget as HTMLButtonElement;
-        el.style.background = "#4ff5df";
-        el.style.color = "#00594f";
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget as HTMLButtonElement;
-        el.style.background = "#262626";
-        el.style.color = "#4ff5df";
-      }}
-      onClick={onView}
-    >
-      View
-    </button>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────── */
-/*  Status badge                                                        */
+/*  Status badge — matches MyCallsPage pill style                       */
 /* ──────────────────────────────────────────────────────────────────── */
 
 function CallStatusBadge({ status }: { status: string }) {
   if (status === "Completed") {
     return (
       <span
-        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-        style={{ background: "#0b5345", color: "#a1e1cf" }}
+        className="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
+        style={{ background: "rgba(79,245,223,0.2)", color: "#4ff5df" }}
       >
         Completed
       </span>
@@ -593,24 +563,20 @@ function CallStatusBadge({ status }: { status: string }) {
   if (status === "Missed") {
     return (
       <span
-        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-        style={{ background: "rgba(159,5,25,0.2)", color: "#ff716c" }}
+        className="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
+        style={{ background: "rgba(255,113,108,0.2)", color: "#ff716c" }}
       >
         Missed
       </span>
     );
   }
-  // In Progress / other
   return (
-    <div className="flex items-center gap-2">
-      <div
-        className="w-1.5 h-1.5 rounded-full animate-pulse"
-        style={{ background: "#4ff5df" }}
-      />
-      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#4ff5df" }}>
-        {status || "Unknown"}
-      </span>
-    </div>
+    <span
+      className="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
+      style={{ background: "rgba(234,179,8,0.2)", color: "#eab308" }}
+    >
+      {status || "Unknown"}
+    </span>
   );
 }
 
@@ -625,7 +591,7 @@ function DirectionIndicator({ direction }: { direction: string }) {
   if (direction === "inbound") {
     return <ArrowDownLeft className="h-[18px] w-[18px]" style={{ color: "#adaaaa" }} />;
   }
-  return <span className="text-sm" style={{ color: "#adaaaa" }}>—</span>;
+  return <span style={{ color: "#adaaaa" }}>—</span>;
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
