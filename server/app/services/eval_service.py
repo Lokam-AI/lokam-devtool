@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,7 +50,7 @@ async def submit_eval(
     has_corrections = _compute_has_corrections(raw_call, changes) if raw_call else False
     changes["has_corrections"] = has_corrections
     changes["eval_status"] = "completed"
-    changes["completed_at"] = datetime.now(timezone.utc)
+    changes["completed_at"] = datetime.utcnow()
 
     updated = await eval_repo.update_eval(db, ev, **changes)
     return EvalRead.model_validate(updated)
