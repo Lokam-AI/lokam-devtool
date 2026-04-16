@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCalls } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,8 +26,11 @@ export default function MyCallsPage() {
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
 
-  const filtered = useMemo(() => {
+  useEffect(() => {
     setPage(1);
+  }, [statusFilter, dateRange, searchQuery]);
+
+  const filtered = useMemo(() => {
     return data?.filter((c) => {
       if (statusFilter !== "all" && c.eval.status !== statusFilter) return false;
       if (dateRange?.from) {
@@ -141,9 +144,9 @@ export default function MyCallsPage() {
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
           >
-            <option value="all"       style={{ background: "#1a1919" }}>All Status</option>
-            <option value="pending"   style={{ background: "#1a1919" }}>Pending</option>
-            <option value="completed" style={{ background: "#1a1919" }}>Completed</option>
+            <option value="all"       style={{ background: "#1c1c1e" }}>All Status</option>
+            <option value="pending"   style={{ background: "#1c1c1e" }}>Pending</option>
+            <option value="completed" style={{ background: "#1c1c1e" }}>Completed</option>
           </select>
 
           {hasFilters && (

@@ -122,7 +122,7 @@ export default function AllCallsPage() {
             style={{ color: "#ffffff" }}
             placeholder="Search by ID or Organization..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
           />
         </div>
       </div>
@@ -178,9 +178,9 @@ export default function AllCallsPage() {
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
             >
-              <option value="all"       style={{ background: "#1a1919" }}>Status: All</option>
-              <option value="Completed" style={{ background: "#1a1919" }}>Status: Completed</option>
-              <option value="Missed"    style={{ background: "#1a1919" }}>Status: Missed</option>
+              <option value="all"       style={{ background: "#1c1c1e" }}>Status: All</option>
+              <option value="Completed" style={{ background: "#1c1c1e" }}>Status: Completed</option>
+              <option value="Missed"    style={{ background: "#1c1c1e" }}>Status: Missed</option>
             </select>
           </div>
 
@@ -195,10 +195,10 @@ export default function AllCallsPage() {
               value={envFilter}
               onChange={(e) => { setEnvFilter(e.target.value); setPage(0); }}
             >
-              <option value="all"        style={{ background: "#1a1919" }}>Env: All</option>
-              <option value="playground" style={{ background: "#1a1919" }}>Playground</option>
-              <option value="staging"    style={{ background: "#1a1919" }}>Staging</option>
-              <option value="prod"       style={{ background: "#1a1919" }}>Production</option>
+              <option value="all"        style={{ background: "#1c1c1e" }}>Env: All</option>
+              <option value="playground" style={{ background: "#1c1c1e" }}>Playground</option>
+              <option value="staging"    style={{ background: "#1c1c1e" }}>Staging</option>
+              <option value="prod"       style={{ background: "#1c1c1e" }}>Production</option>
             </select>
           </div>
 
@@ -246,7 +246,7 @@ export default function AllCallsPage() {
       <div
         className="rounded-3xl overflow-hidden border flex flex-col"
         style={{
-          background: "#1a1919",
+          background: "#1c1c1e",
           borderColor: "rgba(73,72,71,0.05)",
           boxShadow: "0px 24px 48px rgba(0,0,0,0.5)",
         }}
@@ -408,7 +408,7 @@ function MetricCard({
     <div
       className="relative overflow-hidden rounded-xl p-5 border"
       style={{
-        background: "#1a1919",
+        background: "#1c1c1e",
         borderColor: "rgba(73,72,71,0.05)",
         boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
       }}
