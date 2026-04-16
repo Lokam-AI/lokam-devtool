@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -17,8 +17,6 @@ const UserManagementPage = lazy(() => import("@/pages/UserManagementPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 const AllCallsPage = lazy(() => import("@/pages/AllCallsPage"));
 
-const queryClient = new QueryClient();
-
 function PageLoader() {
   return (
     <div className="flex items-center justify-center h-32">
@@ -27,7 +25,9 @@ function PageLoader() {
   );
 }
 
-const App = () => (
+const App = () => {
+  const [queryClient] = useState(() => new QueryClient());
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -65,6 +65,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
