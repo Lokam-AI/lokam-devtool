@@ -49,17 +49,8 @@ async def _sync_single_env(db: AsyncSession, client: httpx.AsyncClient, env: obj
 
 
 def _decrypt_env_secrets(secrets: dict) -> dict:
-    """Decrypt all string values in the secrets dict using Fernet."""
-    decrypted: dict = {}
-    for key, value in secrets.items():
-        if isinstance(value, str):
-            try:
-                decrypted[key] = decrypt_secret(value)
-            except Exception:
-                decrypted[key] = value
-        else:
-            decrypted[key] = value
-    return decrypted
+    """Decrypt all string values in the secrets dict using Fernet; raise on failure."""
+    return {k: decrypt_secret(v) if isinstance(v, str) else v for k, v in secrets.items()}
 
 
 def _build_auth_headers(secrets: dict) -> dict[str, str]:

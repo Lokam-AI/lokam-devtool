@@ -70,16 +70,10 @@ async def _get_env_or_raise(db: AsyncSession, env_name: str) -> object:
 
 
 def _decrypt_secrets(secrets: dict) -> dict:
-    """Decrypt all string values in the secrets dict."""
+    """Decrypt all string values in the secrets dict; raise on failure."""
     result: dict = {}
     for key, value in secrets.items():
-        if isinstance(value, str):
-            try:
-                result[key] = decrypt_secret(value)
-            except Exception:
-                result[key] = value
-        else:
-            result[key] = value
+        result[key] = decrypt_secret(value) if isinstance(value, str) else value
     return result
 
 
