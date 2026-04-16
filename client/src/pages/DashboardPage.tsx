@@ -241,16 +241,10 @@ export default function DashboardPage() {
 
         {/* System Performance / Traffic — 7 cols */}
         <div className="col-span-12 lg:col-span-7">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center mb-6">
             <h4 className="text-xl font-bold tracking-tight" style={{ color: "#ffffff" }}>
               System Performance
             </h4>
-            <button
-              className="text-[10px] uppercase tracking-widest font-bold hover:underline transition-colors"
-              style={{ color: "#4ff5df" }}
-            >
-              Export
-            </button>
           </div>
           <div
             className="rounded-3xl p-8 border flex flex-col justify-end relative overflow-hidden min-h-[300px]"

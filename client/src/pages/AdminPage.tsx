@@ -257,17 +257,7 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-4">
-              <button className="text-[10px] font-bold uppercase tracking-widest hover:underline" style={{ color: "#4ff5df" }}>View System Logs</button>
-              <button
-                className="text-[10px] font-bold uppercase tracking-widest transition-colors"
-                style={{ color: "rgba(255,255,255,0.3)" }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = "#ffffff"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.3)"; }}
-              >
-                Clear Cache
-              </button>
-            </div>
+            <div />
           </div>
         </div>
       </div>
