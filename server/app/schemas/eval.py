@@ -38,12 +38,20 @@ class EvalUpdate(BaseModel):
     scenario_tags_str: str | None = None
 
 
-class EvalRead(EvalCreate):
+class EvalRead(BaseModel):
     """Schema for returning eval data to API consumers."""
 
     model_config = {"from_attributes": True}
 
     id: int
+    call_id: int
+    assigned_to: int
+    call_status: str | None = None
+    raw_transcript: str | None = None
+    formatted_transcript: str | None = None
+    recording_url: str | None = None
+    service_record_json: Any | None = None
+    organization_json: Any | None = None
     eval_status: EvalStatus
     has_corrections: bool
     completed_at: datetime | None = None
