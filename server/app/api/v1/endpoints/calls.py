@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db, require_admin
+from app.exceptions import NotFoundError
 from app.models.user import User
 from app.schemas.raw_call import RawCallRead
 from app.repositories import raw_call_repo
@@ -59,8 +60,7 @@ async def get_call(
     """Return a single raw call by lokam_call_id; admin+ only."""
     row = await raw_call_repo.get_by_lokam_call_id(db, call_id)
     if not row:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Call not found")
+        raise NotFoundError(f"Call {call_id} not found")
     return RawCallRead.model_validate(row)
 
 
