@@ -61,7 +61,7 @@ export default function TeamPage() {
             key={s.label}
             className="relative overflow-hidden rounded-xl p-5 border"
             style={{
-              background: "#1a1919",
+              background: "#1c1c1e",
               borderColor: s.accent ? "rgba(79,245,223,0.15)" : "rgba(73,72,71,0.05)",
             }}
           >
@@ -104,7 +104,7 @@ export default function TeamPage() {
         {/* Performance table — 8 cols */}
         <div
           className="col-span-12 lg:col-span-8 rounded-2xl p-8 border"
-          style={{ background: "#1a1919", borderColor: "rgba(73,72,71,0.05)" }}
+          style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
         >
           <div className="flex justify-between items-center mb-8">
             <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#adaaaa" }}>
@@ -262,7 +262,7 @@ export default function TeamPage() {
           {/* Team efficiency */}
           <div
             className="flex-1 rounded-2xl p-6 border relative overflow-hidden"
-            style={{ background: "#1a1919", borderColor: "rgba(73,72,71,0.05)" }}
+            style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
           >
             {/* Aurora glow */}
             <div
@@ -316,7 +316,7 @@ export default function TeamPage() {
           {/* Queue load */}
           <div
             className="flex-1 rounded-2xl p-6 border relative overflow-hidden"
-            style={{ background: "#1a1919", borderColor: "rgba(73,72,71,0.05)" }}
+            style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
           >
             <span className="text-[10px] font-bold uppercase tracking-[0.05em] relative z-10" style={{ color: "#adaaaa" }}>
               Queue Load
@@ -371,7 +371,7 @@ export default function TeamPage() {
         {/* Active assignments — 4 cols */}
         <div
           className="col-span-12 lg:col-span-4 rounded-2xl p-8 border"
-          style={{ background: "#1a1919", borderColor: "rgba(73,72,71,0.05)" }}
+          style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
         >
           <h3 className="text-xs font-bold uppercase tracking-widest mb-6" style={{ color: "#adaaaa" }}>
             Active Assignments
@@ -419,7 +419,7 @@ export default function TeamPage() {
         {/* Operational status banner — 8 cols */}
         <div
           className="col-span-12 lg:col-span-8 rounded-2xl border relative overflow-hidden p-8 flex flex-col justify-between"
-          style={{ background: "#1a1919", borderColor: "rgba(73,72,71,0.05)" }}
+          style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
         >
           {/* Aurora tint */}
           <div

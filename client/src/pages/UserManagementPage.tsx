@@ -83,7 +83,7 @@ export default function UserManagementPage() {
           <div
             key={s.label}
             className="relative overflow-hidden rounded-xl p-5 border"
-            style={{ background: "#1a1919", borderColor: "rgba(73,72,71,0.05)", boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
+            style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)", boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
           >
             {s.aurora && (
               <div
@@ -116,7 +116,7 @@ export default function UserManagementPage() {
       {showCreate && (
         <div
           className="rounded-2xl p-8 animate-in slide-in-from-top-2 duration-200 border-l-4"
-          style={{ background: "#1a1919", borderLeftColor: "#4ff5df" }}
+          style={{ background: "#1c1c1e", borderLeftColor: "#4ff5df" }}
         >
           <div className="flex items-center gap-3 mb-6">
             <div
@@ -241,7 +241,7 @@ export default function UserManagementPage() {
       <div
         className="rounded-3xl overflow-hidden border"
         style={{
-          background: "#1a1919",
+          background: "#1c1c1e",
           borderColor: "rgba(73,72,71,0.05)",
           boxShadow: "0px 24px 48px rgba(0,0,0,0.5)",
         }}

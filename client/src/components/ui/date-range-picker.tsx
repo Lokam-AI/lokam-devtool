@@ -79,7 +79,7 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
             className
           )}
           style={{
-            background: open ? "rgba(79,245,223,0.08)" : "#1a1919",
+            background: open ? "rgba(79,245,223,0.08)" : "#1c1c1e",
             color: value?.from ? "#ffffff" : "#adaaaa",
             borderColor: open ? "rgba(79,245,223,0.3)" : "rgba(73,72,71,0.2)",
           }}
@@ -91,7 +91,7 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
       <PopoverContent
         align="end"
         className="w-auto p-0 border"
-        style={{ background: "#1a1919", borderColor: "rgba(73,72,71,0.3)" }}
+        style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.3)" }}
       >
         <div className="flex">
           {/* Presets */}

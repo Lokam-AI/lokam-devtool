@@ -4,64 +4,65 @@
 
 @layer base {
   :root {
-    /* VAPI Dashboard Aesthetic */
-    /* Deep dark */
-    --background: 213 29% 6%;
-    /* Primary text #E6EDF3 */
-    --foreground: 208 30% 93%;
+    /* ── Architectural Curator — Dark Teal Design System ── */
 
-    /* #151B23 */
-    --card: 214 25% 11%;
-    --card-foreground: 208 30% 93%;
+    /* Surface hierarchy — deep teal-blacks */
+    --background: 180 15% 5%;           /* #0b0f0f  surface-container-lowest */
+    --foreground: 174 18% 88%;          /* #daeae8  on_surface                */
 
-    /* Darker panels #11161C */
-    --popover: 213 24% 9%;
-    --popover-foreground: 208 30% 93%;
+    --card: 180 12% 9%;                 /* #131a1a  surface-container-low     */
+    --card-foreground: 174 18% 88%;
 
-    /* Acid green #bffc00 */
-    --primary: 74 100% 49%;
-    --primary-foreground: 0 0% 0%;
+    --popover: 180 12% 9%;              /* same as card                        */
+    --popover-foreground: 174 18% 88%;
 
-    /* Match card or popover for secondary bg */
-    --secondary: 213 24% 9%;
-    /* Secondary text #9BA7B4 */
-    --secondary-foreground: 211 16% 66%;
+    /* Primary — deep teal #095857 → teal-mint gradient CTA */
+    --primary: 179 83% 19%;             /* #095857 */
+    --primary-foreground: 174 60% 92%; /* near-white on teal */
 
-    --muted: 213 24% 9%;
-    /* Muted text #6B7683 */
-    --muted-foreground: 212 10% 47%;
+    /* Primary container (gradient endpoint) */
+    --primary-container: 174 50% 28%;  /* #236d6a */
 
-    /* Acid green secondary */
-    --accent: 74 100% 49%;
-    --accent-foreground: 0 0% 0%;
+    /* Secondary surface */
+    --secondary: 180 10% 13%;          /* #1a2222 */
+    --secondary-foreground: 174 14% 67%; /* #9abfbd  on_surface_variant */
 
-    --destructive: 0 85% 60%;
-    --destructive-foreground: 210 20% 95%;
+    --muted: 180 10% 13%;
+    --muted-foreground: 174 10% 47%;   /* #6b8a88 */
 
-    /* Subtle borders */
-    --border: 217 13% 12%;
-    --input: 217 13% 12%;
-    /* Focus ring acid green */
-    --ring: 74 100% 49%;
+    /* Accent — aquatic mint #4ff5df */
+    --accent: 173 88% 64%;             /* #4ff5df */
+    --accent-foreground: 180 50% 8%;   /* near-black on mint */
 
-    --radius: 1rem; /* rounded-2xl */
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 98%;
 
-    --sidebar-background: 213 29% 6%;
-    --sidebar-foreground: 208 30% 93%;
-    --sidebar-primary: 74 100% 49%;
-    --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 213 24% 9%;
-    --sidebar-accent-foreground: 208 30% 93%;
-    --sidebar-border: 217 13% 12%;
-    --sidebar-ring: 74 100% 49%;
+    /* Ghost borders — felt not seen (15% opacity applied in components) */
+    --border: 174 20% 18%;             /* #1f3533 */
+    --input: 174 20% 18%;
+    --ring: 173 88% 64%;               /* mint focus ring */
 
-    --success: 150 80% 45%;
-    --success-foreground: 150 90% 10%;
-    --warning: 40 95% 55%;
-    --warning-foreground: 40 90% 10%;
+    --radius: 0.5rem;                  /* Level 1 — precision rounded */
 
-    --gradient-primary: linear-gradient(135deg, hsl(74, 100%, 49%), hsl(67, 100%, 45%));
-    --gradient-surface: linear-gradient(180deg, hsl(214, 25%, 11%), hsl(213, 24%, 9%));
+    /* Sidebar inherits surface hierarchy */
+    --sidebar-background: 180 15% 5%;
+    --sidebar-foreground: 174 18% 88%;
+    --sidebar-primary: 173 88% 64%;
+    --sidebar-primary-foreground: 180 50% 8%;
+    --sidebar-accent: 180 10% 13%;
+    --sidebar-accent-foreground: 174 18% 88%;
+    --sidebar-border: 174 20% 18%;
+    --sidebar-ring: 173 88% 64%;
+
+    --success: 150 70% 42%;
+    --success-foreground: 150 80% 10%;
+    --warning: 40 90% 52%;
+    --warning-foreground: 40 80% 10%;
+
+    /* Signature gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(179, 83%, 19%), hsl(174, 50%, 28%));
+    --gradient-surface: linear-gradient(180deg, hsl(180, 12%, 9%), hsl(180, 15%, 5%));
+    --gradient-cta: linear-gradient(135deg, #4ff5df, #22dbc6);
   }
 }
 
@@ -71,7 +72,11 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  /* Technical data labels use Inter */
+  code, kbd, samp, .font-mono {
+    font-family: 'Inter', monospace;
   }
 }
 
@@ -82,9 +87,11 @@
   .gradient-surface {
     background: var(--gradient-surface);
   }
-  
-  /* Text Gradients */
+  .gradient-cta {
+    background: var(--gradient-cta);
+  }
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#bffc00] to-[#d9db4d];
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-cta);
   }
 }
