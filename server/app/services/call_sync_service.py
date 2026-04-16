@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date
 
 import httpx
@@ -14,14 +15,15 @@ HTTP_TIMEOUT_SECONDS = 30
 
 
 async def sync_calls_for_date(db: AsyncSession, call_date: date) -> dict[str, int]:
-    """Fetch calls from all active envs for a date, upsert them, and assign to reviewers."""
+    """Fetch calls from all active envs for a date concurrently, upsert, and assign."""
     envs = await env_config_repo.list_active(db)
-    summary: dict[str, int] = {}
+    if not envs:
+        return {}
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
-        for env in envs:
-            count = await _sync_single_env(db, client, env, call_date)
-            summary[env.name] = count
-    return summary
+        counts = await asyncio.gather(
+            *[_sync_single_env(db, client, env, call_date) for env in envs]
+        )
+    return {env.name: count for env, count in zip(envs, counts)}
 
 
 async def _sync_single_env(db: AsyncSession, client: httpx.AsyncClient, env: object, call_date: date) -> int:
