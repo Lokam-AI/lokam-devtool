@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 export default function ChangePasswordPage() {
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
+  const refreshMe = useAuthStore((s) => s.refreshMe);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
 
@@ -19,6 +20,11 @@ export default function ChangePasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // This page sits outside AppLayout so we must validate the session ourselves.
+  useEffect(() => {
+    if (!initialized) refreshMe();
+  }, [initialized, refreshMe]);
 
   useEffect(() => {
     if (initialized && !user) navigate("/login", { replace: true });
