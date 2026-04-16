@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { apiGetAllCalls, apiGetAllCallsCount } from "@/lib/api";
+import { apiGetAllCalls, apiGetAllCallsCount, apiGetEnvs } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -49,6 +49,11 @@ export default function AllCallsPage() {
   const { data: totalCount } = useQuery({
     queryKey: ["all-calls-count", countParams],
     queryFn: () => apiGetAllCallsCount(countParams),
+  });
+
+  const { data: envs = [] } = useQuery({
+    queryKey: ["envs"],
+    queryFn: apiGetEnvs,
   });
 
   const filtered = useMemo(() => {
@@ -195,10 +200,12 @@ export default function AllCallsPage() {
               value={envFilter}
               onChange={(e) => { setEnvFilter(e.target.value); setPage(0); }}
             >
-              <option value="all"        style={{ background: "#1c1c1e" }}>Env: All</option>
-              <option value="playground" style={{ background: "#1c1c1e" }}>Playground</option>
-              <option value="staging"    style={{ background: "#1c1c1e" }}>Staging</option>
-              <option value="prod"       style={{ background: "#1c1c1e" }}>Production</option>
+              <option value="all" style={{ background: "#1c1c1e" }}>Env: All</option>
+              {envs.map((e) => (
+                <option key={e.name} value={e.name} style={{ background: "#1c1c1e" }}>
+                  {e.name}
+                </option>
+              ))}
             </select>
           </div>
 
