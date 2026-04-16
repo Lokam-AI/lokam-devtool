@@ -47,3 +47,13 @@ async def update_user(
 ) -> UserRead:
     """Update an existing user; admin+ only."""
     return await user_service.update_user(db, user_id, body, updated_by_role=current_user.role)
+
+
+@router.delete("/{user_id}", status_code=204)
+async def deactivate_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> None:
+    """Soft-delete (deactivate) a user; admin+ only."""
+    await user_service.deactivate_user(db, user_id, requesting_role=current_user.role)

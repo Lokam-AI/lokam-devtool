@@ -51,3 +51,13 @@ async def get_user(db: AsyncSession, user_id: int) -> UserRead:
     if user is None:
         raise NotFoundError(f"User {user_id} not found")
     return UserRead.model_validate(user)
+
+
+async def deactivate_user(db: AsyncSession, user_id: int, *, requesting_role: str) -> None:
+    """Soft-delete a user; only superadmin may deactivate an admin or superadmin."""
+    user = await user_repo.get_by_id(db, user_id)
+    if user is None:
+        raise NotFoundError(f"User {user_id} not found")
+    if user.role in (SUPERADMIN_ROLE, ADMIN_ROLE) and requesting_role != SUPERADMIN_ROLE:
+        raise PermissionDeniedError(f"Only superadmin can deactivate a user with role '{user.role}'")
+    await user_repo.soft_delete(db, user)
