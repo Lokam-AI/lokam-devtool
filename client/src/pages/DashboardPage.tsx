@@ -63,13 +63,7 @@ export default function DashboardPage() {
       .slice(0, 4);
   }, [calls]);
 
-  // Progress bar width for infrastructure metrics
-  const activeCalls  = health?.active_calls ?? 0;
-  const queueDepth   = health?.queue_depth  ?? 0;
-  const workers      = health?.workers      ?? 0;
-  const MAX_CALLS    = 1500;
-  const MAX_QUEUE    = 50;
-  const MAX_WORKERS  = 200;
+  const backendOnline = !healthLoading && health?.status === "ok";
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -80,7 +74,7 @@ export default function DashboardPage() {
         {/* Featured action card — 8 cols */}
         <div
           className="col-span-12 lg:col-span-8 rounded-3xl p-8 relative overflow-hidden group"
-          style={{ background: "#1a1919" }}
+          style={{ background: "#1c1c1e" }}
         >
           {/* Aurora glow behind card */}
           <div
@@ -217,56 +211,27 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── System Infrastructure ──────────────────────────────────────── */}
-      <div className="mb-6 flex items-center justify-between">
+      {/* ── System Status ─────────────────────────────────────────────── */}
+      <div className="mb-10 flex items-center gap-3">
         <h4 className="text-xl font-bold tracking-tight" style={{ color: "#ffffff" }}>
-          System Infrastructure
+          System Status
         </h4>
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#4ff5df" }} />
-          <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "#adaaaa" }}>
-            Real-time Telemetry
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        {/* Active Calls */}
-        <InfraCard
-          icon="call"
-          iconBg="rgba(79,245,223,0.1)"
-          iconColor="#4ff5df"
-          label="Active Calls"
-          value={healthLoading ? null : activeCalls}
-          subLabel="Currently connected"
-          pct={Math.min(100, Math.round((activeCalls / MAX_CALLS) * 100))}
-          barColor="#4ff5df"
-          barGlow="rgba(79,245,223,0.5)"
-        />
-        {/* Queue Depth */}
-        <InfraCard
-          icon="reorder"
-          iconBg="rgba(11,83,69,0.3)"
-          iconColor="#afefdd"
-          label="Queue Depth"
-          value={healthLoading ? null : queueDepth}
-          subLabel="Jobs in queue"
-          pct={Math.min(100, Math.round((queueDepth / MAX_QUEUE) * 100))}
-          barColor="#afefdd"
-          barGlow="rgba(175,239,221,0.5)"
-        />
-        {/* Active Workers */}
-        <InfraCard
-          icon="memory"
-          iconBg="rgba(214,255,246,0.06)"
-          iconColor="#d6fff6"
-          label="Active Workers"
-          value={healthLoading ? null : workers}
-          subLabel={workers > 100 ? "High Load" : "Optimal Load"}
-          pct={Math.min(100, Math.round((workers / MAX_WORKERS) * 100))}
-          barColor="#d6fff6"
-          barGlow="rgba(214,255,246,0.5)"
-        />
+        {healthLoading ? (
+          <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "#adaaaa" }}>Checking…</span>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{ background: backendOnline ? "#4ff5df" : "#ff716c" }}
+            />
+            <span
+              className="text-[10px] uppercase tracking-widest font-bold"
+              style={{ color: backendOnline ? "#4ff5df" : "#ff716c" }}
+            >
+              {backendOnline ? "Backend Online" : "Backend Unreachable"}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Bottom asymmetric row ─────────────────────────────────────── */}
@@ -287,7 +252,7 @@ export default function DashboardPage() {
           </div>
           <div
             className="rounded-3xl p-8 border flex flex-col justify-end relative overflow-hidden min-h-[300px]"
-            style={{ background: "#1a1919", borderColor: "rgba(255,255,255,0.05)" }}
+            style={{ background: "#1c1c1e", borderColor: "rgba(255,255,255,0.05)" }}
           >
             {/* Subtle grid background texture */}
             <div
@@ -428,7 +393,7 @@ export default function DashboardPage() {
           {!isAdmin && team && team.length > 0 && (
             <div
               className="mt-6 rounded-2xl p-6 border"
-              style={{ background: "#1a1919", borderColor: "rgba(255,255,255,0.05)" }}
+              style={{ background: "#1c1c1e", borderColor: "rgba(255,255,255,0.05)" }}
             >
               <p className="text-[10px] uppercase tracking-widest font-bold mb-4" style={{ color: "#adaaaa" }}>
                 Team Progress
@@ -471,85 +436,6 @@ export default function DashboardPage() {
 /* ──────────────────────────────────────────────────────────────────── */
 /*  InfraCard                                                           */
 /* ──────────────────────────────────────────────────────────────────── */
-
-function InfraCard({
-  icon,
-  iconBg,
-  iconColor,
-  label,
-  value,
-  subLabel,
-  pct,
-  barColor,
-  barGlow,
-}: {
-  icon: string;
-  iconBg: string;
-  iconColor: string;
-  label: string;
-  value: number | null;
-  subLabel: string;
-  pct: number;
-  barColor: string;
-  barGlow: string;
-}) {
-  return (
-    <div
-      className="rounded-2xl p-6 border transition-colors duration-300"
-      style={{
-        background: "#131313",
-        borderColor: "rgba(255,255,255,0.05)",
-      }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#1a1919"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#131313"; }}
-    >
-      <div className="flex items-center gap-4 mb-4">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: iconBg }}
-        >
-          <span
-            className="material-symbols-outlined text-xl"
-            style={{ color: iconColor, fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
-          >
-            {icon}
-          </span>
-        </div>
-        <div>
-          <p
-            className="text-[10px] uppercase tracking-widest font-bold"
-            style={{ color: "#adaaaa" }}
-          >
-            {label}
-          </p>
-          <p className="text-xl font-bold tracking-tight" style={{ color: "#ffffff" }}>
-            {value === null ? (
-              <span className="inline-block h-6 w-16 rounded animate-pulse" style={{ background: "rgba(255,255,255,0.08)" }} />
-            ) : (
-              <>
-                {value.toLocaleString()}{" "}
-                <span className="text-sm font-normal" style={{ color: "#adaaaa" }}>{subLabel}</span>
-              </>
-            )}
-          </p>
-        </div>
-      </div>
-      <div
-        className="w-full h-1.5 rounded-full overflow-hidden"
-        style={{ background: "#000000" }}
-      >
-        <div
-          className="h-full rounded-full transition-all duration-1000"
-          style={{
-            width: `${pct}%`,
-            background: barColor,
-            boxShadow: `0 0 8px ${barGlow}`,
-          }}
-        />
-      </div>
-    </div>
-  );
-}
 
 /* ──────────────────────────────────────────────────────────────────── */
 /*  ReviewLogItem                                                       */

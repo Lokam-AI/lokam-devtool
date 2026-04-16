@@ -68,10 +68,8 @@ export interface TeamMember {
 }
 
 export interface SystemHealth {
-  active_calls: number;
-  queue_depth: number;
-  workers: number;
-  uptime: string;
+  /** "ok" when the backend is reachable, "unreachable" otherwise. */
+  status: string;
 }
 
 export type Environment = string;

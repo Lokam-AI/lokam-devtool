@@ -288,9 +288,14 @@ interface BackendUser {
   must_change_password: boolean;
 }
 
-/** GET /health — system health (backend only returns {status: "ok"}) */
+/** GET /health — returns backend liveness status */
 export const apiGetHealth = async (): Promise<SystemHealth> => {
-  return { active_calls: 0, queue_depth: 0, workers: 0, uptime: "—" };
+  try {
+    const { data } = await api.get<{ status: string }>("/health");
+    return { status: data.status ?? "ok" };
+  } catch {
+    return { status: "unreachable" };
+  }
 };
 
 /** Placeholder — backend doesn't have a team endpoint yet */
