@@ -15,7 +15,7 @@ import {
   Filter,
 } from "lucide-react";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 
 export default function MyCallsPage() {
   const { data, isLoading, isError } = useCalls();
