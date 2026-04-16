@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.schemas.auth import ChangePasswordRequest, LoginRequest, TokenResponse, UserMeResponse
@@ -41,7 +42,7 @@ async def login(
         httponly=True,
         max_age=COOKIE_MAX_AGE,
         samesite="lax",
-        secure=False,
+        secure=settings.ENVIRONMENT != "development",
     )
     return token_response
 

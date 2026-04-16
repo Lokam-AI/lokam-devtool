@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -6,13 +7,22 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
+    @model_validator(mode="after")
+    def _validate_secrets(self) -> "Settings":
+        """Raise at startup if any required secret is missing or still set to a known-weak default."""
+        if not self.SECRET_KEY:
+            raise ValueError("SECRET_KEY must be set")
+        if not self.FERNET_KEY:
+            raise ValueError("FERNET_KEY must be set")
+        return self
+
     DB_HOST: str
     DB_PORT: int = 5432
     DB_USER: str
     DB_PASSWORD: str
     DB_NAME: str
-    SECRET_KEY: str = "insecure-dev-key"
-    FERNET_KEY: str = ""
+    SECRET_KEY: str
+    FERNET_KEY: str
     ENVIRONMENT: str = "development"
 
     # App (lokamspace) env — used to auto-seed the env_config row
