@@ -265,7 +265,7 @@ export default function AllCallsPage() {
                 {["Call ID", "Organization", "Campaign", "Date", "Status", "Direction", "Duration", "NPS", "Action"].map((h) => (
                   <th
                     key={h}
-                    className="px-6 py-4 text-[0.6875rem] uppercase tracking-widest font-bold whitespace-nowrap"
+                    className="px-4 py-3 text-[0.6875rem] uppercase tracking-widest font-bold whitespace-nowrap"
                     style={{ color: "#adaaaa" }}
                   >
                     {h}
@@ -278,7 +278,7 @@ export default function AllCallsPage() {
                 ? Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                       {Array.from({ length: 9 }).map((_, j) => (
-                        <td key={j} className="px-6 py-4">
+                        <td key={j} className="px-4 py-4">
                           <Skeleton className="h-3.5 w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
                         </td>
                       ))}
@@ -477,12 +477,12 @@ function CallRow({ call, onView }: { call: RawCall; onView: () => void }) {
       onClick={onView}
     >
       {/* Call ID */}
-      <td className="px-6 py-4 font-mono text-xs" style={{ color: "#4ff5df" }}>
+      <td className="px-4 py-3 font-mono text-xs" style={{ color: "#4ff5df" }}>
         #{call.call_id}
       </td>
 
       {/* Organization */}
-      <td className="px-6 py-4">
+      <td className="px-4 py-3">
         <div className="flex flex-col">
           <span className="text-sm font-medium" style={{ color: "#ffffff" }}>
             {call.organization_name || "—"}
@@ -496,33 +496,33 @@ function CallRow({ call, onView }: { call: RawCall; onView: () => void }) {
       </td>
 
       {/* Campaign */}
-      <td className="px-6 py-4 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
+      <td className="px-4 py-3 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
         {call.campaign || "—"}
       </td>
 
       {/* Date */}
-      <td className="px-6 py-4 text-sm" style={{ color: "#adaaaa" }}>
+      <td className="px-4 py-3 text-sm" style={{ color: "#adaaaa" }}>
         {new Date(call.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })},{" "}
         {new Date(call.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
       </td>
 
       {/* Status */}
-      <td className="px-6 py-4">
+      <td className="px-4 py-3">
         <CallStatusBadge status={call.call_status} />
       </td>
 
       {/* Direction */}
-      <td className="px-6 py-4">
+      <td className="px-4 py-3">
         <DirectionIndicator direction={call.direction} />
       </td>
 
       {/* Duration */}
-      <td className="px-6 py-4 text-sm" style={{ color: "#adaaaa" }}>
+      <td className="px-4 py-3 text-sm" style={{ color: "#adaaaa" }}>
         {formatDuration(call.duration)}
       </td>
 
       {/* NPS */}
-      <td className="px-6 py-4 text-sm font-bold">
+      <td className="px-4 py-3 text-sm font-bold">
         {call.ai_nps_score !== null
           ? <NpsValue score={call.ai_nps_score} />
           : <span style={{ color: "#adaaaa" }}>--</span>
@@ -530,7 +530,7 @@ function CallRow({ call, onView }: { call: RawCall; onView: () => void }) {
       </td>
 
       {/* Action */}
-      <td className="px-6 py-4">
+      <td className="px-4 py-3">
         <button
           className="px-4 py-1.5 text-[11px] font-bold rounded-full uppercase tracking-wider transition-colors active:scale-95"
           style={{ background: "rgba(255,255,255,0.05)", color: "#adaaaa" }}
