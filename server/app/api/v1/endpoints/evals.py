@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
@@ -11,12 +11,14 @@ router = APIRouter(prefix="/evals", tags=["evals"])
 
 @router.get("/my", response_model=list[EvalRead])
 async def my_evals(
+    limit: int = Query(default=100, le=500),
+    offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[EvalRead]:
-    """Return all evals (pending and completed) assigned to the current reviewer."""
+    """Return evals assigned to the current reviewer with optional pagination."""
     from app.repositories import eval_repo
-    rows = await eval_repo.list_for_reviewer(db, current_user.id)
+    rows = await eval_repo.list_for_reviewer(db, current_user.id, limit=limit, offset=offset)
     return [EvalRead.model_validate(r) for r in rows]
 
 

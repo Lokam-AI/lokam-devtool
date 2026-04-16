@@ -23,12 +23,18 @@ async def get_by_id(db: AsyncSession, eval_id: int) -> Eval | None:
     return result.scalar_one_or_none()
 
 
-async def list_for_reviewer(db: AsyncSession, user_id: int, status: str | None = None) -> list[Eval]:
-    """Return all Eval rows assigned to the given reviewer, optionally filtered by status."""
+async def list_for_reviewer(
+    db: AsyncSession,
+    user_id: int,
+    status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[Eval]:
+    """Return Eval rows assigned to the given reviewer with optional status filter and pagination."""
     query = select(Eval).where(Eval.assigned_to == user_id)
     if status is not None:
         query = query.where(Eval.eval_status == status)
-    result = await db.execute(query.order_by(Eval.id))
+    result = await db.execute(query.order_by(Eval.id).limit(limit).offset(offset))
     return list(result.scalars().all())
 
 
