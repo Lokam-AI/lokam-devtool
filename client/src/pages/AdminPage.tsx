@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { useHealth } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { toast } from "sonner";
 import type { Environment, EnvConfig } from "@/types";
 import api, { apiGetEnvs } from "@/lib/api";
+
+const FF = '"cv01", "ss03"' as const;
 
 const SEED_MODES = [
   { value: "--check-and-seed", label: "Check & Seed" },
@@ -71,34 +74,40 @@ export default function AdminPage() {
       {/* ── Header ── */}
       <div className="flex justify-between items-center shrink-0">
         <div>
-          <h1 className="text-2xl font-bold tracking-[0.02em]" style={{ color: "#ffffff" }}>
+          <h1
+            className="text-2xl"
+            style={{
+              color: "#f7f8f8",
+              fontWeight: 510,
+              letterSpacing: "-0.288px",
+              fontFeatureSettings: FF,
+            }}
+          >
             Admin Controls
           </h1>
-          <p className="text-xs flex items-center gap-1.5 mt-0.5" style={{ color: "#adaaaa" }}>
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse inline-block" style={{ background: "#4ff5df" }} />
+          <p
+            className="text-xs flex items-center gap-1.5 mt-0.5"
+            style={{ color: "#62666d", fontFeatureSettings: FF }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full animate-pulse inline-block"
+              style={{ background: "#10b981" }}
+            />
             Administration Console
           </p>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[9px] font-bold uppercase tracking-widest pl-1" style={{ color: "#adaaaa" }}>
+          <label
+            className="text-[9px] uppercase tracking-widest pl-1"
+            style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+          >
             Environment
           </label>
-          <div
-            className="rounded-xl px-4 py-2 flex items-center gap-2 border"
-            style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.15)" }}
-          >
-            <select
-              value={env}
-              onChange={(e) => setEnv(e.target.value as Environment)}
-              className="bg-transparent border-none focus:outline-none text-sm font-semibold cursor-pointer appearance-none"
-              style={{ color: "#4ff5df" }}
-            >
-              {envs.map((e) => (
-                <option key={e.name} value={e.name} style={{ background: "#1c1c1e" }}>{e.name}</option>
-              ))}
-            </select>
-            <span className="text-xs select-none" style={{ color: "#4ff5df" }}>▾</span>
-          </div>
+          <DropdownSelect
+            value={env}
+            onChange={(v) => setEnv(v as Environment)}
+            options={envs.map((e) => ({ value: e.name, label: e.name }))}
+          />
         </div>
       </div>
 
@@ -110,23 +119,50 @@ export default function AdminPage() {
 
           {/* ACS Toggle */}
           <div
-            className="rounded-xl p-4 flex flex-col gap-3 border-l-4 shrink-0"
-            style={{ background: "#1c1c1e", borderLeftColor: "#4ff5df" }}
+            className="rounded-lg p-4 flex flex-col gap-3 border-l-2 shrink-0 border"
+            style={{
+              background: "#191a1b",
+              borderLeftColor: "#7170ff",
+              borderColor: "rgba(255,255,255,0.08)",
+              borderLeftWidth: "2px",
+            }}
           >
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(79,245,223,0.1)" }}>
-                <span className="material-symbols-outlined text-sm" style={{ color: "#4ff5df", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>security</span>
+              <div
+                className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                style={{ background: "rgba(113,112,255,0.1)" }}
+              >
+                <span
+                  className="material-symbols-outlined text-sm"
+                  style={{ color: "#7170ff", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                >
+                  security
+                </span>
               </div>
-              <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#ffffff" }}>ACS Toggle</h2>
+              <h2
+                className="text-xs uppercase tracking-widest"
+                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+              >
+                ACS Toggle
+              </h2>
             </div>
-            <p className="text-xs leading-relaxed" style={{ color: "#adaaaa" }}>
+            <p
+              className="text-xs leading-relaxed"
+              style={{ color: "#8a8f98", fontFeatureSettings: FF }}
+            >
               Real-time monitoring and scoring for active communications.
             </p>
             <button
               onClick={() => setShowAcsConfirm(true)}
-              className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all active:scale-[0.98] border"
-              style={{ background: "rgba(255,113,108,0.08)", color: "#ff716c", borderColor: "rgba(255,113,108,0.25)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,113,108,0.15)"; }}
+              className="w-full py-2 rounded-md text-xs uppercase tracking-widest transition-all active:scale-[0.98] border"
+              style={{
+                background: "rgba(255,113,108,0.08)",
+                color: "#ff716c",
+                borderColor: "rgba(255,113,108,0.2)",
+                fontWeight: 510,
+                fontFeatureSettings: FF,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,113,108,0.14)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,113,108,0.08)"; }}
             >
               Disable ACS
@@ -135,65 +171,96 @@ export default function AdminPage() {
 
           {/* Seed Runner */}
           <div
-            className="rounded-xl p-4 flex flex-col gap-3 min-h-0 border-l-4"
-            style={{ background: "#1c1c1e", borderLeftColor: "rgba(79,245,223,0.3)" }}
+            className="rounded-lg p-4 flex flex-col gap-3 min-h-0 border"
+            style={{
+              background: "#191a1b",
+              borderColor: "rgba(255,255,255,0.08)",
+              borderLeft: "2px solid rgba(113,112,255,0.3)",
+            }}
           >
             <div className="flex items-center gap-2 shrink-0">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(79,245,223,0.1)" }}>
-                <span className="material-symbols-outlined text-sm" style={{ color: "#4ff5df", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>rocket_launch</span>
+              <div
+                className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                style={{ background: "rgba(113,112,255,0.1)" }}
+              >
+                <span
+                  className="material-symbols-outlined text-sm"
+                  style={{ color: "#7170ff", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                >
+                  rocket_launch
+                </span>
               </div>
-              <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#ffffff" }}>Seed Runner</h2>
+              <h2
+                className="text-xs uppercase tracking-widest"
+                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+              >
+                Seed Runner
+              </h2>
             </div>
 
             <div className="flex flex-col gap-2 min-h-0">
               {/* Mode */}
-              <div className="rounded-lg px-4 py-2 flex items-center justify-between border shrink-0" style={{ background: "rgba(0,0,0,0.4)", borderColor: "rgba(73,72,71,0.1)" }}>
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#adaaaa" }}>Mode</span>
-                <select
-                  value={seedMode}
-                  onChange={(e) => setSeedMode(e.target.value)}
-                  className="bg-transparent border-none focus:outline-none text-xs font-semibold cursor-pointer appearance-none"
-                  style={{ color: "#ffffff" }}
-                >
-                  {SEED_MODES.map((m) => (
-                    <option key={m.value} value={m.value} style={{ background: "#1c1c1e" }}>{m.label}</option>
-                  ))}
-                </select>
-                <span className="text-xs select-none" style={{ color: "#adaaaa" }}>▾</span>
-              </div>
+              <DropdownSelect
+                value={seedMode}
+                onChange={setSeedMode}
+                options={SEED_MODES.map((m) => ({ value: m.value, label: m.label }))}
+                fullWidth
+                size="sm"
+              />
 
-              {/* Org name */}
               <input
                 type="text"
                 placeholder="Organization name"
                 value={seedOrg}
                 onChange={(e) => setSeedOrg(e.target.value)}
-                className="w-full rounded-lg px-4 py-2 text-xs border focus:outline-none shrink-0"
-                style={{ background: "rgba(0,0,0,0.4)", borderColor: "rgba(73,72,71,0.1)", color: "#ffffff" }}
+                className="w-full rounded-md px-3 py-2 text-xs border focus:outline-none shrink-0 placeholder:text-[#62666d] transition-colors"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  borderColor: "rgba(255,255,255,0.08)",
+                  color: "#d0d6e0",
+                  fontFeatureSettings: FF,
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(113,112,255,0.4)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
               />
 
-              {/* Rooftops */}
               <textarea
                 placeholder="Rooftop names (one per line)"
                 value={seedRooftops}
                 onChange={(e) => setSeedRooftops(e.target.value)}
                 rows={2}
-                className="w-full rounded-lg px-4 py-2 text-xs border focus:outline-none resize-none"
-                style={{ background: "rgba(0,0,0,0.4)", borderColor: "rgba(73,72,71,0.1)", color: "#ffffff" }}
+                className="w-full rounded-md px-3 py-2 text-xs border focus:outline-none resize-none placeholder:text-[#62666d] transition-colors"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  borderColor: "rgba(255,255,255,0.08)",
+                  color: "#d0d6e0",
+                  fontFeatureSettings: FF,
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(113,112,255,0.4)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
               />
 
-              {/* Run button */}
               <button
                 onClick={handleRunSeed}
                 disabled={seedRunning}
-                className="w-full py-2.5 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                className="w-full py-2.5 rounded-md text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                 style={{
-                  background: seedRunning ? "rgba(79,245,223,0.15)" : "linear-gradient(135deg,#4ff5df,#22dbc6)",
-                  color: seedRunning ? "#4ff5df" : "#00594f",
-                  boxShadow: seedRunning ? "none" : "0 4px 16px rgba(79,245,223,0.2)",
+                  background: seedRunning ? "rgba(94,106,210,0.15)" : "#5e6ad2",
+                  color: seedRunning ? "#7170ff" : "#f7f8f8",
+                  fontWeight: 510,
+                  fontFeatureSettings: FF,
+                }}
+                onMouseEnter={(e) => {
+                  if (!seedRunning) (e.currentTarget as HTMLButtonElement).style.background = "#828fff";
+                }}
+                onMouseLeave={(e) => {
+                  if (!seedRunning) (e.currentTarget as HTMLButtonElement).style.background = "#5e6ad2";
                 }}
               >
-                <span className={`material-symbols-outlined text-sm ${seedRunning ? "animate-spin" : ""}`} style={{ fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>
+                <span
+                  className={`material-symbols-outlined text-sm ${seedRunning ? "animate-spin" : ""}`}
+                  style={{ fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                >
                   {seedRunning ? "refresh" : "play_arrow"}
                 </span>
                 {seedRunning ? "Running…" : "Run Seed"}
@@ -205,15 +272,29 @@ export default function AdminPage() {
         {/* ── Right: System Health ── */}
         <div className="col-span-12 lg:col-span-8 flex flex-col gap-3 min-h-0">
 
-          {/* Section header */}
           <div className="flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-base" style={{ color: "#4ff5df", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>analytics</span>
-              <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#ffffff" }}>System Health Monitoring</h3>
+              <span
+                className="material-symbols-outlined text-base"
+                style={{ color: "#62666d", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+              >
+                analytics
+              </span>
+              <h3
+                className="text-xs uppercase tracking-widest"
+                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+              >
+                System Health Monitoring
+              </h3>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(173,170,170,0.4)" }}>Auto-refresh active</span>
-              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#4ff5df" }} />
+              <span
+                className="text-[10px] uppercase tracking-widest"
+                style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+              >
+                Auto-refresh active
+              </span>
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#10b981" }} />
             </div>
           </div>
 
@@ -225,21 +306,58 @@ export default function AdminPage() {
           </div>
 
           {/* Waveform card */}
-          <div className="flex-1 min-h-0 rounded-xl p-4 relative overflow-hidden" style={{ background: "#1c1c1e" }}>
-            <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 50%, rgba(79,245,223,0.05) 0%, transparent 70%)" }} />
+          <div
+            className="flex-1 min-h-0 rounded-lg p-4 relative overflow-hidden border"
+            style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
+          >
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: "radial-gradient(circle at 50% 50%, rgba(94,106,210,0.05) 0%, transparent 70%)" }}
+            />
             <div className="relative z-10 h-full flex flex-col justify-between">
               <div className="flex justify-between items-center">
-                <h4 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#4ff5df" }}>Global Cluster Load</h4>
-                <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.2)" }}>HASH: 0x821f92e</span>
+                <h4
+                  className="text-xs uppercase tracking-widest"
+                  style={{ color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }}
+                >
+                  Global Cluster Load
+                </h4>
+                <span
+                  className="text-[10px]"
+                  style={{
+                    color: "rgba(255,255,255,0.2)",
+                    fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+                  }}
+                >
+                  HASH: 0x821f92e
+                </span>
               </div>
               <div className="flex items-end gap-1 h-10">
                 {WAVEFORM_HEIGHTS.map((h, i) => (
-                  <div key={i} className="flex-1 rounded-sm" style={{ height: `${h}px`, background: "#4ff5df", opacity: 0.1 + (h / 12) * 0.5 }} />
+                  <div
+                    key={i}
+                    className="flex-1 rounded-sm"
+                    style={{
+                      height: `${h}px`,
+                      background: "#5e6ad2",
+                      opacity: 0.1 + (h / 12) * 0.5,
+                    }}
+                  />
                 ))}
               </div>
               <div className="flex gap-2">
                 {["Latency: 0ms", "Uptime: 99.9%"].map((tag) => (
-                  <span key={tag} className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest border" style={{ background: "rgba(0,0,0,0.3)", color: "rgba(255,255,255,0.3)", borderColor: "rgba(255,255,255,0.06)" }}>
+                  <span
+                    key={tag}
+                    className="px-2.5 py-0.5 rounded-full text-[9px] uppercase tracking-widest border"
+                    style={{
+                      background: "rgba(255,255,255,0.02)",
+                      color: "#62666d",
+                      borderColor: "rgba(255,255,255,0.06)",
+                      fontWeight: 510,
+                      fontFeatureSettings: FF,
+                    }}
+                  >
                     {tag}
                   </span>
                 ))}
@@ -247,37 +365,109 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Footer row */}
-          <div className="flex justify-between items-center shrink-0 pt-1 border-t" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+          {/* Footer */}
+          <div
+            className="flex justify-between items-center shrink-0 pt-2 border-t"
+            style={{ borderColor: "rgba(255,255,255,0.05)" }}
+          >
             <div className="flex gap-6">
               {[{ label: "Deployment hash", value: "7f2a1c90_main" }, { label: "Node location", value: "US-EAST-01" }].map(({ label, value }) => (
                 <div key={label} className="flex flex-col gap-0.5">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.2)" }}>{label}</span>
-                  <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.45)" }}>{value}</span>
+                  <span
+                    className="text-[9px] uppercase tracking-[0.2em]"
+                    style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    className="text-[10px]"
+                    style={{
+                      color: "#8a8f98",
+                      fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+                    }}
+                  >
+                    {value}
+                  </span>
                 </div>
               ))}
             </div>
-            <div />
           </div>
         </div>
       </div>
 
       {/* ── ACS confirm modal ── */}
       {showAcsConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} onClick={() => setShowAcsConfirm(false)}>
-          <div className="w-full max-w-sm rounded-2xl p-6 border flex flex-col gap-4" style={{ background: "#1c1c1e", borderColor: "rgba(255,113,108,0.2)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,113,108,0.1)" }}>
-              <span className="material-symbols-outlined text-sm" style={{ color: "#ff716c", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>warning</span>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowAcsConfirm(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl p-6 border flex flex-col gap-4"
+            style={{
+              background: "#191a1b",
+              borderColor: "rgba(255,113,108,0.2)",
+              boxShadow: "rgba(0,0,0,0) 0px 8px 2px, rgba(0,0,0,0.01) 0px 5px 2px, rgba(0,0,0,0.04) 0px 3px 2px, rgba(0,0,0,0.07) 0px 1px 1px, rgba(0,0,0,0.08) 0px 0px 1px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="w-8 h-8 rounded-md flex items-center justify-center"
+              style={{ background: "rgba(255,113,108,0.1)" }}
+            >
+              <span
+                className="material-symbols-outlined text-sm"
+                style={{ color: "#ff716c", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+              >
+                warning
+              </span>
             </div>
             <div>
-              <h3 className="text-sm font-bold mb-1" style={{ color: "#ffffff" }}>Disable Active Call Scoring?</h3>
-              <p className="text-xs leading-relaxed" style={{ color: "#adaaaa" }}>
-                This will stop real-time scoring on <span style={{ color: "#4ff5df" }}>{env}</span>. Can be re-enabled at any time.
+              <h3
+                className="text-sm mb-1"
+                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+              >
+                Disable Active Call Scoring?
+              </h3>
+              <p
+                className="text-xs leading-relaxed"
+                style={{ color: "#8a8f98", fontFeatureSettings: FF }}
+              >
+                This will stop real-time scoring on{" "}
+                <span style={{ color: "#7170ff" }}>{env}</span>. Can be re-enabled at any time.
               </p>
             </div>
             <div className="flex gap-2">
-              <button className="flex-1 py-2 rounded-xl text-xs font-bold border" style={{ background: "transparent", color: "#adaaaa", borderColor: "rgba(255,255,255,0.08)" }} onClick={() => setShowAcsConfirm(false)}>Cancel</button>
-              <button className="flex-1 py-2 rounded-xl text-xs font-bold border active:scale-[0.98] transition-all" style={{ background: "rgba(255,113,108,0.12)", color: "#ff716c", borderColor: "rgba(255,113,108,0.3)" }} onClick={() => { setShowAcsConfirm(false); handleAcsDisable(); }}>Disable ACS</button>
+              <button
+                className="flex-1 py-2 rounded-md text-xs border transition-all"
+                style={{
+                  background: "transparent",
+                  color: "#8a8f98",
+                  borderColor: "rgba(255,255,255,0.08)",
+                  fontWeight: 510,
+                  fontFeatureSettings: FF,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                onClick={() => setShowAcsConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="flex-1 py-2 rounded-md text-xs border active:scale-[0.98] transition-all"
+                style={{
+                  background: "rgba(255,113,108,0.1)",
+                  color: "#ff716c",
+                  borderColor: "rgba(255,113,108,0.25)",
+                  fontWeight: 510,
+                  fontFeatureSettings: FF,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,113,108,0.18)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,113,108,0.1)"; }}
+                onClick={() => { setShowAcsConfirm(false); handleAcsDisable(); }}
+              >
+                Disable ACS
+              </button>
             </div>
           </div>
         </div>
@@ -285,6 +475,10 @@ export default function AdminPage() {
     </div>
   );
 }
+
+/* ──────────────────────────────────────────────────────────────────── */
+/*  HealthCard                                                          */
+/* ──────────────────────────────────────────────────────────────────── */
 
 function HealthCard({ icon, label, value, loading, max, emptyLabel }: {
   icon: string; label: string; value?: number; loading: boolean; max: number; emptyLabel: string;
@@ -295,27 +489,56 @@ function HealthCard({ icon, label, value, loading, max, emptyLabel }: {
 
   return (
     <div
-      className="rounded-xl p-4 flex flex-col justify-between border transition-all"
-      style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(79,245,223,0.2)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(73,72,71,0.05)"; }}
+      className="rounded-lg p-4 flex flex-col justify-between border transition-all"
+      style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(113,112,255,0.25)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.08)"; }}
     >
       <div className="flex justify-between items-start">
-        <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: "#adaaaa" }}>{label}</span>
-        <span className="material-symbols-outlined text-base" style={{ color: "rgba(173,170,170,0.2)", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>{icon}</span>
+        <span
+          className="text-[10px] uppercase tracking-[0.1em]"
+          style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+        >
+          {label}
+        </span>
+        <span
+          className="material-symbols-outlined text-base"
+          style={{
+            color: "rgba(255,255,255,0.12)",
+            fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
+          }}
+        >
+          {icon}
+        </span>
       </div>
       <div className="my-2">
         {loading ? (
           <Skeleton className="h-8 w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
         ) : (
-          <span className="text-3xl font-black leading-none tracking-tighter" style={{ color: "#ffffff" }}>{display}</span>
+          <span
+            className="text-3xl leading-none"
+            style={{ color: "#f7f8f8", fontWeight: 590, letterSpacing: "-0.704px", fontFeatureSettings: '"cv01", "ss03"' }}
+          >
+            {display}
+          </span>
         )}
       </div>
       <div className="flex items-center gap-2">
-        <div className="h-1 flex-1 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.5)" }}>
-          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: "#4ff5df", boxShadow: pct > 0 ? "0 0 6px rgba(79,245,223,0.4)" : "none" }} />
+        <div
+          className="h-px flex-1 rounded-full overflow-hidden"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+        >
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${pct}%`, background: "#5e6ad2" }}
+          />
         </div>
-        <span className="text-[9px] font-bold shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{barLabel}</span>
+        <span
+          className="text-[9px] shrink-0"
+          style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+        >
+          {barLabel}
+        </span>
       </div>
     </div>
   );

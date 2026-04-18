@@ -62,9 +62,34 @@ export interface TeamMember {
   id: string;
   name: string;
   email: string;
+  role: string;
   calls_assigned: number;
+  calls_pending: number;
+  completed_total: number;
   completed_today: number;
   completion_pct: number;
+  correction_rate: number;
+  avg_nps: number | null;
+}
+
+export interface BugReport {
+  id: number;
+  external_id: number;
+  call_id: number | null;
+  organization_id: string | null;
+  organization_name: string | null;
+  rooftop_id: string | null;
+  rooftop_name: string | null;
+  bug_types: string[] | null;
+  description: string | null;
+  submitted_by: number | null;
+  submitted_by_name: string | null;
+  bug_date: string;
+  source_env: string;
+  external_created_at: string | null;
+  synced_at: string;
+  assigned_to: number | null;
+  is_resolved: boolean;
 }
 
 export interface SystemHealth {

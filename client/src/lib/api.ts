@@ -6,6 +6,7 @@ import type {
   Eval,
   CallWithEval,
   TeamMember,
+  BugReport,
   SystemHealth,
   EnvConfig,
 } from "@/types";
@@ -74,6 +75,10 @@ function mapEval(r: BackendEval, assignedToId?: string): Eval {
     gt_detractors: Array.isArray(r.gt_detractors) ? r.gt_detractors : null,
     gt_is_resolved: r.gt_is_incomplete_call !== null ? !r.gt_is_incomplete_call : null,
     gt_callback_requested: null,
+    gt_is_incomplete_call: r.gt_is_incomplete_call ?? null,
+    gt_incomplete_reason: r.gt_incomplete_reason ?? null,
+    gt_is_dnc_request: r.gt_is_dnc_request ?? null,
+    gt_escalation_needed: r.gt_escalation_needed ?? null,
     corrections: {},
     completed_at: r.completed_at ?? null,
   };
@@ -117,6 +122,9 @@ interface BackendEval {
   gt_positive_mentions: unknown | null;
   gt_detractors: unknown | null;
   gt_is_incomplete_call: boolean | null;
+  gt_incomplete_reason: string | null;
+  gt_is_dnc_request: boolean | null;
+  gt_escalation_needed: boolean | null;
   completed_at: string | null;
   has_corrections: boolean;
 }
@@ -161,27 +169,34 @@ export const apiLogout = async () => {
   await api.post("/auth/logout");
 };
 
-/** GET /evals/my + /calls/:lokam_call_id — returns eval-driven list of calls with their evals */
-export const apiGetCalls = async (): Promise<CallWithEval[]> => {
-  const evalsRes = await api.get<BackendEval[]>("/evals/my").catch(() => ({ data: [] as BackendEval[] }));
-  const evals = evalsRes.data;
-  if (!evals.length) return [];
+interface BackendCallWithEval {
+  call: BackendRawCall;
+  eval: BackendEval;
+}
 
-  // Fetch each call by its lokam_call_id (stored in eval.call_id)
-  const callResults = await Promise.all(
-    evals.map((e) => api.get<BackendRawCall>(`/calls/${e.call_id}`).catch(() => null))
-  );
+export interface MyCallsParams {
+  eval_status?: string;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+  organization_name?: string;
+  nps_filter?: string;
+  sort_by?: string;
+  sort_dir?: string;
+  limit?: number;
+  offset?: number;
+}
 
-  // Pair by index — key the map by lokam_call_id (eval.call_id)
-  const callMap = new Map<number, RawCall>();
-  evals.forEach((e, i) => {
-    const res = callResults[i];
-    if (res) callMap.set(e.call_id, mapCall(res.data));
-  });
+/** GET /evals/my/calls — paginated call+eval pairs for the current reviewer */
+export const apiGetCalls = async (params?: MyCallsParams): Promise<CallWithEval[]> => {
+  const { data } = await api.get<BackendCallWithEval[]>("/evals/my/calls", { params });
+  return data.map((item) => ({ call: mapCall(item.call), eval: mapEval(item.eval) }));
+};
 
-  return evals
-    .filter((e) => callMap.has(e.call_id))
-    .map((e) => ({ call: callMap.get(e.call_id)!, eval: mapEval(e) }));
+/** GET /evals/my/calls/count — total count matching reviewer filters */
+export const apiGetCallsCount = async (params?: Omit<MyCallsParams, "limit" | "offset" | "sort_by" | "sort_dir">): Promise<number> => {
+  const { data } = await api.get<{ count: number }>("/evals/my/calls/count", { params });
+  return data.count;
 };
 
 /** GET single call with its eval by lokam_call_id.
@@ -237,7 +252,10 @@ export const apiSubmitEval = async (evalId: string, data: Partial<Eval>): Promis
   if (data.gt_overall_feedback !== undefined) body.gt_overall_feedback = data.gt_overall_feedback;
   if (data.gt_positive_mentions !== undefined) body.gt_positive_mentions = data.gt_positive_mentions;
   if (data.gt_detractors !== undefined) body.gt_detractors = data.gt_detractors;
-  if (data.gt_is_resolved !== undefined) body.gt_is_incomplete_call = !data.gt_is_resolved;
+  if (data.gt_is_incomplete_call !== undefined) body.gt_is_incomplete_call = data.gt_is_incomplete_call;
+  if (data.gt_incomplete_reason  !== undefined) body.gt_incomplete_reason  = data.gt_incomplete_reason;
+  if (data.gt_is_dnc_request     !== undefined) body.gt_is_dnc_request     = data.gt_is_dnc_request;
+  if (data.gt_escalation_needed  !== undefined) body.gt_escalation_needed  = data.gt_escalation_needed;
   if (data.status) body.eval_status = data.status;
 
   // Default to completed when submitting
@@ -256,6 +274,19 @@ export const apiCreateUser = async (payload: {
   role: string;
 }): Promise<User> => {
   const { data } = await api.post<BackendUser>("/users", payload);
+  return {
+    id: String(data.id),
+    email: data.email,
+    name: data.name,
+    role: data.role as User["role"],
+    is_active: data.is_active,
+    must_change_password: data.must_change_password,
+  };
+};
+
+/** PATCH /users/:id — update user fields (admin+ only) */
+export const apiUpdateUser = async (userId: string, patch: { is_active?: boolean; role?: string }): Promise<User> => {
+  const { data } = await api.patch<BackendUser>(`/users/${userId}`, patch);
   return {
     id: String(data.id),
     email: data.email,
@@ -298,35 +329,60 @@ export const apiGetHealth = async (): Promise<SystemHealth> => {
   }
 };
 
-/** Placeholder — backend doesn't have a team endpoint yet */
+interface BackendTeamMember {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  calls_assigned: number;
+  calls_pending: number;
+  completed_total: number;
+  completed_today: number;
+  completion_pct: number;
+  correction_rate: number;
+  avg_nps: number | null;
+}
+
+/** GET /team — returns per-reviewer eval stats (admin+) */
 export const apiGetTeam = async (): Promise<TeamMember[]> => {
-  const users = await apiGetUsers();
-  return users.map((u) => ({
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    calls_assigned: 0,
-    completed_today: 0,
-    completion_pct: 0,
+  const { data } = await api.get<BackendTeamMember[]>("/team");
+  return data.map((m) => ({
+    id: String(m.id),
+    name: m.name,
+    email: m.email,
+    role: m.role,
+    calls_assigned: m.calls_assigned,
+    calls_pending: m.calls_pending,
+    completed_total: m.completed_total,
+    completed_today: m.completed_today,
+    completion_pct: m.completion_pct,
+    correction_rate: m.correction_rate,
+    avg_nps: m.avg_nps,
   }));
 };
 
-/** GET /calls/all — returns all calls from the DB (admin+) */
-export const apiGetAllCalls = async (params?: {
+export interface AllCallsParams {
   source_env?: string;
   call_status?: string;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+  organization_name?: string;
+  nps_filter?: string;
+  sort_by?: string;
+  sort_dir?: string;
   limit?: number;
   offset?: number;
-}): Promise<RawCall[]> => {
+}
+
+/** GET /calls/all — paginated calls from the DB (admin+) */
+export const apiGetAllCalls = async (params?: AllCallsParams): Promise<RawCall[]> => {
   const { data } = await api.get<BackendRawCall[]>("/calls/all", { params });
   return data.map(mapCall);
 };
 
-/** GET /calls/all/count — total count of calls (admin+) */
-export const apiGetAllCallsCount = async (params?: {
-  source_env?: string;
-  call_status?: string;
-}): Promise<number> => {
+/** GET /calls/all/count — total count of calls matching filters (admin+) */
+export const apiGetAllCallsCount = async (params?: Omit<AllCallsParams, "limit" | "offset" | "sort_by" | "sort_dir">): Promise<number> => {
   const { data } = await api.get<{ count: number }>("/calls/all/count", { params });
   return data.count;
 };
@@ -334,6 +390,74 @@ export const apiGetAllCallsCount = async (params?: {
 /** GET /admin/envs — returns all environment configurations (admin+) */
 export const apiGetEnvs = async (): Promise<EnvConfig[]> => {
   const { data } = await api.get<EnvConfig[]>("/admin/envs");
+  return data;
+};
+
+export interface BugsParams {
+  date_from: string;
+  date_to: string;
+  source_env?: string;
+  organization_name?: string;
+  is_resolved?: boolean;
+  bug_type?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface BugsStatsResult {
+  total_bugs: number;
+  unique_orgs: number;
+  unique_rooftops: number;
+  top_bug_type: string | null;
+}
+
+export interface MyBugsParams {
+  is_resolved?: boolean;
+  organization_name?: string;
+  bug_type?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** GET /bugs — paginated bug reports for a date range (admin+) */
+export const apiGetBugs = async (params: BugsParams): Promise<BugReport[]> => {
+  const { data } = await api.get<BugReport[]>("/bugs", { params });
+  return data;
+};
+
+/** GET /bugs/count — total count of bugs matching filters (admin+) */
+export const apiGetBugsCount = async (params: Omit<BugsParams, "limit" | "offset">): Promise<number> => {
+  const { data } = await api.get<{ count: number }>("/bugs/count", { params });
+  return data.count;
+};
+
+/** GET /bugs/stats — summary stats for a date range (admin+) */
+export const apiGetBugsStats = async (params: { date_from: string; date_to: string; source_env?: string }): Promise<BugsStatsResult> => {
+  const { data } = await api.get<BugsStatsResult>("/bugs/stats", { params });
+  return data;
+};
+
+/** GET /bugs/my — paginated bugs assigned to the current user (any role) */
+export const apiGetMyBugs = async (params?: MyBugsParams): Promise<BugReport[]> => {
+  const { data } = await api.get<BugReport[]>("/bugs/my", { params });
+  return data;
+};
+
+/** GET /bugs/my/count — total count of bugs assigned to the current user */
+export const apiGetMyBugsCount = async (params?: Omit<MyBugsParams, "limit" | "offset">): Promise<number> => {
+  const { data } = await api.get<{ count: number }>("/bugs/my/count", { params });
+  return data.count;
+};
+
+/** PATCH /bugs/:id/assign — assign or unassign a bug (admin+) */
+export const apiAssignBug = async (bugId: number, userId: number | null): Promise<BugReport> => {
+  const { data } = await api.patch<BugReport>(`/bugs/${bugId}/assign`, { user_id: userId });
+  return data;
+};
+
+/** PATCH /bugs/:id/resolve — mark a bug resolved or reopen it (any role) */
+export const apiResolveBug = async (bugId: number, isResolved: boolean): Promise<BugReport> => {
+  const { data } = await api.patch<BugReport>(`/bugs/${bugId}/resolve`, { is_resolved: isResolved });
   return data;
 };
 

@@ -2,95 +2,77 @@ import { useMemo } from "react";
 import { useTeam } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const FF = '"cv01", "ss03"' as const;
+
 export default function TeamPage() {
   const { data, isLoading } = useTeam();
 
-  const avgCompletion  = useMemo(() => {
+  const totalAssigned   = useMemo(() => data?.reduce((s, m) => s + m.calls_assigned,  0) ?? 0, [data]);
+  const totalPending    = useMemo(() => data?.reduce((s, m) => s + m.calls_pending,   0) ?? 0, [data]);
+  const totalCompleted  = useMemo(() => data?.reduce((s, m) => s + m.completed_total, 0) ?? 0, [data]);
+  const completedToday  = useMemo(() => data?.reduce((s, m) => s + m.completed_today, 0) ?? 0, [data]);
+
+  const overallPct = totalAssigned > 0 ? Math.round(totalCompleted / totalAssigned * 100) : 0;
+
+  const avgCorrectionRate = useMemo(() => {
     if (!data || data.length === 0) return 0;
-    return Math.round(data.reduce((s, m) => s + m.completion_pct, 0) / data.length);
+    const active = data.filter((m) => m.completed_total > 0);
+    if (!active.length) return 0;
+    return Math.round(active.reduce((s, m) => s + m.correction_rate, 0) / active.length);
   }, [data]);
 
-  const totalAssigned  = useMemo(() => data?.reduce((s, m) => s + m.calls_assigned,  0) ?? 0, [data]);
-  const totalCompleted = useMemo(() => data?.reduce((s, m) => s + m.completed_today, 0) ?? 0, [data]);
-  const totalPending   = totalAssigned - totalCompleted;
+  const avgNps = useMemo(() => {
+    if (!data) return null;
+    const withNps = data.filter((m) => m.avg_nps !== null);
+    if (!withNps.length) return null;
+    return (withNps.reduce((s, m) => s + m.avg_nps!, 0) / withNps.length).toFixed(1);
+  }, [data]);
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-500">
 
       {/* ── Header ───────────────────────────────────────────────────── */}
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-[0.02em]" style={{ color: "#ffffff" }}>
-            Team Overview
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "#adaaaa" }}>
-            Real-time reviewer performance and queue distribution.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            className="px-6 py-2.5 rounded-xl text-sm font-bold transition-all"
-            style={{ background: "rgba(255,255,255,0.06)", color: "#adaaaa" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.1)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.06)"; }}
-          >
-            Export Log
-          </button>
-          <button
-            className="px-6 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95"
-            style={{
-              background: "linear-gradient(135deg,#4ff5df,#22dbc6)",
-              color: "#00594f",
-              boxShadow: "0 8px 24px rgba(79,245,223,0.2)",
-            }}
-          >
-            Optimize Queue
-          </button>
-        </div>
+      <div>
+        <h1
+          className="text-3xl tracking-tight"
+          style={{ color: "#f7f8f8", fontWeight: 590, letterSpacing: "-0.704px", fontFeatureSettings: FF }}
+        >
+          Team Overview
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: "#8a8f98", fontFeatureSettings: FF }}>
+          Reviewer workload, completion, and annotation quality.
+        </p>
       </div>
 
-      {/* ── Summary metric row ──────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* ── Summary metrics ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { label: "Reviewers",       value: data?.length ?? 0,    icon: "group",        accent: false },
-          { label: "Total Assigned",  value: totalAssigned,         icon: "assignment",   accent: false },
-          { label: "Completed Today", value: totalCompleted,        icon: "task_alt",     accent: true  },
-          { label: "Pending",         value: totalPending,          icon: "hourglass_top",accent: totalPending > 0 },
+          { label: "Reviewers",       value: data?.length ?? 0,    fmt: (v: number) => String(v)                    },
+          { label: "Total Assigned",  value: totalAssigned,        fmt: (v: number) => String(v)                    },
+          { label: "Completed",       value: totalCompleted,       fmt: (v: number) => String(v)                    },
+          { label: "Pending",         value: totalPending,         fmt: (v: number) => String(v)                    },
+          { label: "Done Today",      value: completedToday,       fmt: (v: number) => String(v)                    },
         ].map((s) => (
           <div
             key={s.label}
-            className="relative overflow-hidden rounded-xl p-5 border"
-            style={{
-              background: "#1c1c1e",
-              borderColor: s.accent ? "rgba(79,245,223,0.15)" : "rgba(73,72,71,0.05)",
-            }}
+            className="rounded-xl p-5 border"
+            style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
           >
-            {s.accent && (
-              <div
-                className="absolute pointer-events-none inset-0"
-                style={{ background: "rgba(79,245,223,0.02)" }}
-              />
-            )}
-            <div className="flex justify-between items-start mb-2 relative z-10">
-              <span className="text-[10px] font-bold uppercase tracking-[0.05em]" style={{ color: "#adaaaa" }}>
-                {s.label}
-              </span>
-              <span
-                className="material-symbols-outlined text-lg"
-                style={{
-                  color: s.accent ? "#4ff5df" : "rgba(173,170,170,0.25)",
-                  fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
-                }}
-              >
-                {s.icon}
-              </span>
-            </div>
-            <div className="relative z-10">
+            <span
+              className="text-[10px] uppercase tracking-[0.05em]"
+              style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              {s.label}
+            </span>
+            <div className="mt-2">
               {isLoading ? (
-                <Skeleton className="h-9 w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
+                <Skeleton className="h-8 w-14" style={{ background: "rgba(255,255,255,0.05)" }} />
               ) : (
-                <span className="text-3xl font-black tracking-tight" style={{ color: "#ffffff" }}>
-                  {s.value}
+                <span
+                  className="text-2xl tracking-tight"
+                  style={{ color: "#f7f8f8", fontWeight: 590, fontFeatureSettings: FF }}
+                >
+                  {s.fmt(s.value)}
                 </span>
               )}
             </div>
@@ -98,21 +80,27 @@ export default function TeamPage() {
         ))}
       </div>
 
-      {/* ── Main grid: 8 + 4 ────────────────────────────────────────── */}
+      {/* ── Main grid ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-12 gap-6">
 
         {/* Performance table — 8 cols */}
         <div
           className="col-span-12 lg:col-span-8 rounded-2xl p-8 border"
-          style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
+          style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
         >
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#adaaaa" }}>
-              Performance Distribution
+          <div className="flex justify-between items-center mb-6">
+            <h3
+              className="text-xs uppercase tracking-widest"
+              style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              Reviewer Breakdown
             </h3>
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#4ff5df" }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(173,170,170,0.4)" }}>
+              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#10b981" }} />
+              <span
+                className="text-[10px] uppercase tracking-widest"
+                style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+              >
                 Live
               </span>
             </div>
@@ -121,133 +109,163 @@ export default function TeamPage() {
           <table className="w-full text-left">
             <thead>
               <tr>
-                {["Reviewer", "Assigned", "Completed", "Progress", "Status"].map((h, i) => (
+                {[
+                  { label: "Reviewer",        align: "left"  },
+                  { label: "Assigned",        align: "left"  },
+                  { label: "Pending",         align: "left"  },
+                  { label: "Correction Rate", align: "left"  },
+                  { label: "Avg NPS",         align: "right" },
+                ].map((h) => (
                   <th
-                    key={h}
-                    className="pb-5 text-[10px] font-bold uppercase tracking-widest"
+                    key={h.label}
+                    className="pb-4 text-[10px] uppercase tracking-widest"
                     style={{
-                      color: "#adaaaa",
-                      paddingLeft: i === 0 ? "8px" : undefined,
-                      paddingRight: i === 4 ? "8px" : undefined,
-                      textAlign: i === 4 ? "right" : undefined,
-                      width: i === 3 ? "180px" : undefined,
+                      color: "#62666d",
+                      fontWeight: 510,
+                      fontFeatureSettings: FF,
+                      textAlign: h.align as React.CSSProperties["textAlign"],
                     }}
                   >
-                    {h}
+                    {h.label}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {isLoading
-                ? Array.from({ length: 4 }).map((_, i) => (
-                    <tr key={i} style={{ borderTop: "1px solid rgba(73,72,71,0.05)" }}>
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <tr key={i} style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                       {Array.from({ length: 5 }).map((_, j) => (
-                        <td key={j} className="py-5 pl-2">
-                          <Skeleton className="h-4 w-20" style={{ background: "rgba(255,255,255,0.05)" }} />
+                        <td key={j} className="py-4">
+                          <Skeleton className="h-4 w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
                         </td>
                       ))}
                     </tr>
                   ))
-                : data?.map((member) => {
+                : (data ?? []).map((member) => {
                     const initials = member.name
                       .split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
-                    const pct       = Math.min(100, member.completion_pct);
-                    const isTop     = pct >= 80;
-                    const isActive  = pct >= 50 && pct < 100;
-                    const isBehind  = pct < 50;
+                    const pct = member.completion_pct;
+                    const isTop = pct >= 75;
 
                     return (
                       <tr
                         key={member.id}
-                        className="transition-colors"
-                        style={{ borderTop: "1px solid rgba(73,72,71,0.05)" }}
+                        style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "rgba(255,255,255,0.02)"; }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent"; }}
                       >
                         {/* Reviewer */}
-                        <td className="py-5 pl-2">
+                        <td className="py-4">
                           <div className="flex items-center gap-3">
                             <div
-                              className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold border"
+                              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] border"
                               style={{
-                                background: isTop ? "rgba(79,245,223,0.1)" : "rgba(255,255,255,0.04)",
-                                color:      isTop ? "#4ff5df"               : "rgba(255,255,255,0.4)",
-                                borderColor: isTop ? "rgba(79,245,223,0.25)" : "rgba(255,255,255,0.07)",
+                                background: isTop ? "rgba(113,112,255,0.1)" : "rgba(255,255,255,0.04)",
+                                color:      isTop ? "#7170ff"               : "rgba(255,255,255,0.4)",
+                                borderColor: isTop ? "rgba(113,112,255,0.2)" : "rgba(255,255,255,0.07)",
+                                fontWeight: 510,
+                                fontFeatureSettings: FF,
                               }}
                             >
                               {initials}
                             </div>
                             <div>
-                              <div className="text-sm font-semibold" style={{ color: "#ffffff" }}>
+                              <div
+                                className="text-sm"
+                                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+                              >
                                 {member.name}
                               </div>
-                              <div className="text-[10px] uppercase tracking-widest" style={{ color: "rgba(173,170,170,0.5)" }}>
-                                Reviewer
+                              <div
+                                className="text-[10px] capitalize"
+                                style={{ color: "#62666d", fontFeatureSettings: FF }}
+                              >
+                                {member.role}
                               </div>
                             </div>
                           </div>
                         </td>
 
-                        {/* Assigned */}
-                        <td className="py-5 font-mono text-sm" style={{ color: "#adaaaa" }}>
-                          {member.calls_assigned}
-                        </td>
-
-                        {/* Completed */}
-                        <td className="py-5 font-mono text-sm" style={{ color: "#adaaaa" }}>
-                          {member.completed_today}
-                        </td>
-
-                        {/* Progress bar */}
-                        <td className="py-5 pr-6">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="flex-1 h-1.5 rounded-full overflow-hidden"
-                              style={{ background: "rgba(0,0,0,0.5)" }}
+                        {/* Assigned + progress */}
+                        <td className="py-4">
+                          <div className="flex flex-col gap-1.5">
+                            <span
+                              className="text-sm"
+                              style={{ color: "#8a8f98", fontFamily: "Berkeley Mono, ui-monospace, monospace" }}
                             >
+                              {member.completed_total}/{member.calls_assigned}
+                            </span>
+                            <div className="w-20 h-px rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
                               <div
-                                className="h-full rounded-full transition-all duration-1000"
+                                className="h-full rounded-full transition-all duration-700"
                                 style={{
-                                  width: `${pct}%`,
-                                  background: isTop ? "#4ff5df" : "rgba(79,245,223,0.4)",
-                                  boxShadow: isTop ? "0 0 8px rgba(79,245,223,0.4)" : "none",
+                                  width: `${Math.min(100, pct)}%`,
+                                  background: isTop ? "#5e6ad2" : "rgba(94,106,210,0.35)",
                                 }}
                               />
                             </div>
-                            <span
-                              className="text-[10px] font-bold w-9 text-right shrink-0"
-                              style={{ color: isTop ? "#4ff5df" : "rgba(255,255,255,0.35)" }}
-                            >
-                              {pct}%
-                            </span>
                           </div>
                         </td>
 
-                        {/* Status pill */}
-                        <td className="py-5 pr-2 text-right">
-                          {pct >= 100 ? (
+                        {/* Pending */}
+                        <td className="py-4">
+                          <span
+                            className="text-sm"
+                            style={{
+                              color: member.calls_pending > 0 ? "#d0d6e0" : "#62666d",
+                              fontFamily: "Berkeley Mono, ui-monospace, monospace",
+                            }}
+                          >
+                            {member.calls_pending}
+                          </span>
+                        </td>
+
+                        {/* Correction rate */}
+                        <td className="py-4">
+                          {member.completed_total > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-px rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${Math.min(100, member.correction_rate)}%`,
+                                    background: member.correction_rate > 60
+                                      ? "#10b981"
+                                      : member.correction_rate > 30
+                                      ? "#5e6ad2"
+                                      : "rgba(255,255,255,0.2)",
+                                  }}
+                                />
+                              </div>
+                              <span
+                                className="text-[11px] w-9"
+                                style={{ color: "#8a8f98", fontFamily: "Berkeley Mono, ui-monospace, monospace" }}
+                              >
+                                {member.correction_rate}%
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px]" style={{ color: "#62666d" }}>—</span>
+                          )}
+                        </td>
+
+                        {/* Avg NPS */}
+                        <td className="py-4 text-right">
+                          {member.avg_nps !== null ? (
                             <span
-                              className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                              style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}
+                              className="text-sm"
+                              style={{
+                                color: member.avg_nps >= 8 ? "#10b981" : member.avg_nps >= 6 ? "#7170ff" : "#8a8f98",
+                                fontFamily: "Berkeley Mono, ui-monospace, monospace",
+                                fontWeight: 510,
+                              }}
                             >
-                              Complete
+                              {member.avg_nps.toFixed(1)}
                             </span>
-                          ) : isActive ? (
-                            <span
-                              className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                              style={{ background: "rgba(79,245,223,0.12)", color: "#4ff5df" }}
-                            >
-                              Active
-                            </span>
-                          ) : isBehind ? (
-                            <span
-                              className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                              style={{ background: "rgba(234,179,8,0.12)", color: "#eab308" }}
-                            >
-                              Behind
-                            </span>
-                          ) : null}
+                          ) : (
+                            <span className="text-[11px]" style={{ color: "#62666d" }}>—</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -257,216 +275,162 @@ export default function TeamPage() {
         </div>
 
         {/* Right column — 4 cols */}
-        <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
+        <div className="col-span-12 lg:col-span-4 flex flex-col gap-5">
 
-          {/* Team efficiency */}
+          {/* Overall completion */}
           <div
-            className="flex-1 rounded-2xl p-6 border relative overflow-hidden"
-            style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
+            className="rounded-2xl p-6 border relative overflow-hidden"
+            style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
           >
-            {/* Aurora glow */}
             <div
-              className="absolute pointer-events-none"
-              style={{
-                top: "-20px", left: "-20px", right: "-20px", bottom: "-20px",
-                background: "radial-gradient(circle at center, rgba(79,245,223,0.07) 0%, transparent 70%)",
-                filter: "blur(40px)",
-              }}
+              className="absolute pointer-events-none inset-0"
+              style={{ background: "radial-gradient(circle at 30% 30%, rgba(94,106,210,0.06) 0%, transparent 70%)" }}
             />
-            <div className="relative z-10 flex flex-col h-full justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-[0.05em]" style={{ color: "#adaaaa" }}>
-                Team Efficiency
+            <div className="relative z-10">
+              <span
+                className="text-[10px] uppercase tracking-[0.05em]"
+                style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
+              >
+                Overall Completion
               </span>
-              <div>
-                {isLoading ? (
-                  <Skeleton className="h-14 w-24 mt-4" style={{ background: "rgba(255,255,255,0.05)" }} />
-                ) : (
-                  <>
-                    <div className="text-5xl font-black tracking-tighter mt-4" style={{ color: "#ffffff" }}>
-                      {avgCompletion}<span style={{ color: "#4ff5df" }}>%</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm font-bold" style={{ color: "#4ff5df" }}>
-                        {totalCompleted}/{totalAssigned}
-                      </span>
-                      <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.2)" }}>
-                        calls done
-                      </span>
-                    </div>
-                    {/* Efficiency bar */}
+              {isLoading ? (
+                <Skeleton className="h-12 w-20 mt-4" style={{ background: "rgba(255,255,255,0.05)" }} />
+              ) : (
+                <>
+                  <div
+                    className="mt-3"
+                    style={{ fontSize: "44px", color: "#f7f8f8", fontWeight: 590, letterSpacing: "-1px", fontFeatureSettings: FF }}
+                  >
+                    {overallPct}<span style={{ color: "#10b981" }}>%</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-sm" style={{ color: "#10b981", fontWeight: 510, fontFeatureSettings: FF }}>
+                      {totalCompleted}/{totalAssigned}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-widest" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+                      calls done
+                    </span>
+                  </div>
+                  <div className="mt-4 h-px rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
                     <div
-                      className="mt-4 h-1.5 rounded-full overflow-hidden"
-                      style={{ background: "rgba(0,0,0,0.5)" }}
-                    >
-                      <div
-                        className="h-full rounded-full transition-all duration-1000"
-                        style={{
-                          width: `${avgCompletion}%`,
-                          background: "linear-gradient(90deg, #4ff5df, #22dbc6)",
-                          boxShadow: "0 0 8px rgba(79,245,223,0.4)",
-                        }}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
+                      className="h-full rounded-full transition-all duration-1000"
+                      style={{ width: `${overallPct}%`, background: "#5e6ad2" }}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Queue load */}
+          {/* Correction rate */}
           <div
-            className="flex-1 rounded-2xl p-6 border relative overflow-hidden"
-            style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
+            className="rounded-2xl p-6 border"
+            style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
           >
-            <span className="text-[10px] font-bold uppercase tracking-[0.05em] relative z-10" style={{ color: "#adaaaa" }}>
-              Queue Load
+            <span
+              className="text-[10px] uppercase tracking-[0.05em]"
+              style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              Avg Correction Rate
             </span>
-            <div className="flex items-end gap-1.5 mt-6 relative z-10">
-              {isLoading
-                ? Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="w-2.5 rounded-sm animate-pulse" style={{ height: `${20 + i * 8}px`, background: "rgba(255,255,255,0.07)" }} />
-                  ))
-                : (data ?? []).flatMap((m, i) => [
-                    <div
-                      key={`a${i}`}
-                      className="w-2.5 rounded-sm transition-all duration-700"
-                      style={{
-                        height: `${Math.max(10, (m.completion_pct / 100) * 64)}px`,
-                        background: "#4ff5df",
-                        opacity: 0.7 + (m.completion_pct / 100) * 0.3,
-                      }}
-                    />,
-                    <div
-                      key={`b${i}`}
-                      className="w-2.5 rounded-sm"
-                      style={{
-                        height: `${Math.max(6, ((m.calls_assigned - m.completed_today) / Math.max(1, m.calls_assigned)) * 48)}px`,
-                        background: "rgba(255,255,255,0.08)",
-                      }}
-                    />,
-                  ])
-              }
-              <div className="ml-3">
-                {isLoading ? (
-                  <Skeleton className="h-8 w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
-                ) : (
-                  <>
-                    <div className="text-2xl font-black" style={{ color: "#ffffff" }}>{totalPending}</div>
-                    <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.2)" }}>pending</div>
-                  </>
-                )}
-              </div>
-            </div>
-            <div
-              className="absolute -right-8 -bottom-8 w-36 h-36 rounded-full"
-              style={{ background: "rgba(79,245,223,0.04)", filter: "blur(40px)" }}
-            />
+            {isLoading ? (
+              <Skeleton className="h-10 w-20 mt-4" style={{ background: "rgba(255,255,255,0.05)" }} />
+            ) : (
+              <>
+                <div
+                  className="mt-3"
+                  style={{ fontSize: "36px", color: "#f7f8f8", fontWeight: 590, letterSpacing: "-0.8px", fontFeatureSettings: FF }}
+                >
+                  {avgCorrectionRate}<span style={{ color: "#7170ff", fontSize: "24px" }}>%</span>
+                </div>
+                <p className="mt-1.5 text-[11px]" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+                  of completed evals had AI corrections
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Avg NPS */}
+          <div
+            className="rounded-2xl p-6 border"
+            style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
+          >
+            <span
+              className="text-[10px] uppercase tracking-[0.05em]"
+              style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              Avg Ground-Truth NPS
+            </span>
+            {isLoading ? (
+              <Skeleton className="h-10 w-16 mt-4" style={{ background: "rgba(255,255,255,0.05)" }} />
+            ) : (
+              <>
+                <div
+                  className="mt-3"
+                  style={{
+                    fontSize: "36px",
+                    color: avgNps !== null
+                      ? (parseFloat(avgNps) >= 8 ? "#10b981" : parseFloat(avgNps) >= 6 ? "#7170ff" : "#8a8f98")
+                      : "#62666d",
+                    fontWeight: 590,
+                    letterSpacing: "-0.8px",
+                    fontFeatureSettings: FF,
+                  }}
+                >
+                  {avgNps ?? "—"}
+                </div>
+                <p className="mt-1.5 text-[11px]" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+                  reviewer-assigned NPS average
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ── Bottom grid: 4 + 8 ──────────────────────────────────────── */}
-      <div className="grid grid-cols-12 gap-6">
-
-        {/* Active assignments — 4 cols */}
+      {/* ── Status banner ────────────────────────────────────────────── */}
+      <div
+        className="rounded-2xl border relative overflow-hidden p-8 flex items-center justify-between"
+        style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
+      >
         <div
-          className="col-span-12 lg:col-span-4 rounded-2xl p-8 border"
-          style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
-        >
-          <h3 className="text-xs font-bold uppercase tracking-widest mb-6" style={{ color: "#adaaaa" }}>
-            Active Assignments
-          </h3>
-          <div className="space-y-3">
-            {[
-              {
-                label: "Pending Review",
-                value: isLoading ? "—" : `${totalPending} Active`,
-                highlight: true,
-              },
-              {
-                label: "Completed Today",
-                value: isLoading ? "—" : `${totalCompleted} Done`,
-                highlight: false,
-              },
-              {
-                label: "Review Queue",
-                value: isLoading ? "—" : totalPending === 0 ? "Cleared" : `${totalAssigned} Total`,
-                highlight: false,
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="flex justify-between items-center p-4 rounded-xl border"
-                style={{
-                  background: item.highlight ? "rgba(79,245,223,0.04)" : "rgba(255,255,255,0.02)",
-                  borderColor: item.highlight ? "rgba(79,245,223,0.12)" : "rgba(255,255,255,0.05)",
-                }}
-              >
-                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#ffffff" }}>
-                  {item.label}
-                </span>
-                <span
-                  className="text-[10px] font-mono font-bold"
-                  style={{ color: item.highlight ? "#4ff5df" : "#adaaaa" }}
-                >
-                  {item.value}
-                </span>
-              </div>
-            ))}
-          </div>
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "linear-gradient(135deg, rgba(94,106,210,0.05) 0%, transparent 60%)" }}
+        />
+        <div className="relative z-10">
+          <p
+            className="text-[10px] uppercase tracking-[0.2em] mb-2"
+            style={{ color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }}
+          >
+            Queue Status
+          </p>
+          <h4
+            className="text-xl tracking-tight max-w-lg"
+            style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+          >
+            {isLoading
+              ? "Loading…"
+              : totalPending === 0
+                ? "All queues cleared. Team at full completion capacity."
+                : `${totalPending} call${totalPending !== 1 ? "s" : ""} pending across ${data?.filter((m) => m.calls_pending > 0).length ?? 0} reviewer${(data?.filter((m) => m.calls_pending > 0).length ?? 0) !== 1 ? "s" : ""}.`
+            }
+          </h4>
         </div>
-
-        {/* Operational status banner — 8 cols */}
-        <div
-          className="col-span-12 lg:col-span-8 rounded-2xl border relative overflow-hidden p-8 flex flex-col justify-between"
-          style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.05)" }}
-        >
-          {/* Aurora tint */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: "linear-gradient(135deg, rgba(79,245,223,0.04) 0%, transparent 60%)" }}
-          />
-          <div className="relative z-10">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-3" style={{ color: "#4ff5df" }}>
-              Operational Context
-            </p>
-            <h4 className="text-2xl font-bold tracking-tight max-w-lg leading-snug" style={{ color: "#ffffff" }}>
-              {isLoading
-                ? "Loading system status…"
-                : totalPending === 0
-                  ? "All queues cleared. Team at full completion capacity."
-                  : `${totalPending} calls pending review across ${data?.filter((m) => m.completion_pct < 100).length ?? 0} active reviewers.`
-              }
-            </h4>
-          </div>
-
-          <div className="relative z-10 flex items-center justify-between mt-8 flex-wrap gap-6">
-            <div className="flex gap-10">
-              {[
-                { label: "Reviewers",  value: isLoading ? "—" : String(data?.length ?? 0) },
-                { label: "Avg Load",   value: isLoading || !data?.length ? "—" : String(Math.round(totalAssigned / data.length)) },
-                { label: "Completion", value: isLoading ? "—" : `${avgCompletion}%`, accent: true },
-              ].map(({ label, value, accent }) => (
-                <div key={label}>
-                  <div className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.3)" }}>
-                    {label}
-                  </div>
-                  <div className="text-2xl font-black" style={{ color: accent ? "#4ff5df" : "#ffffff" }}>
-                    {value}
-                  </div>
-                </div>
-              ))}
+        <div className="relative z-10 flex gap-8 shrink-0 ml-8">
+          {[
+            { label: "Reviewers",   value: isLoading ? "—" : String(data?.length ?? 0)  },
+            { label: "Pending",     value: isLoading ? "—" : String(totalPending)        },
+            { label: "Done Today",  value: isLoading ? "—" : String(completedToday)      },
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>
+                {label}
+              </div>
+              <div className="text-2xl" style={{ color: "#f7f8f8", fontWeight: 590, fontFeatureSettings: FF }}>
+                {value}
+              </div>
             </div>
-            <div
-              className="flex items-center gap-2 px-5 py-3 rounded-full border"
-              style={{ background: "rgba(0,0,0,0.3)", borderColor: "rgba(255,255,255,0.08)" }}
-            >
-              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#4ff5df" }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#ffffff" }}>
-                System Live
-              </span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

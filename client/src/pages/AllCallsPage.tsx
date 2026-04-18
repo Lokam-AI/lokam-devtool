@@ -1,13 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { apiGetAllCalls, apiGetAllCallsCount, apiGetEnvs } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { CallFilterBar, CallFilterState, DEFAULT_FILTERS } from "@/components/ui/call-filters";
 import {
   ArrowUpRight,
   ArrowDownLeft,
-  Search,
   ChevronLeft,
   ChevronRight,
   Inbox,
@@ -15,40 +15,61 @@ import {
   Timer,
   Star,
   Zap,
-  Download,
-  SlidersHorizontal,
 } from "lucide-react";
 import type { RawCall } from "@/types";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 30;
+const STALE_MS = 5 * 60 * 1000;
+const FF = '"cv01", "ss03"' as const;
+
+function thisMonthRange(): DateRange {
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return { from, to };
+}
 
 export default function AllCallsPage() {
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [envFilter, setEnvFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [page, setPage] = useState(0);
+  const [filters, setFilters] = useState<CallFilterState>(() => ({ ...DEFAULT_FILTERS, dateRange: thisMonthRange() }));
+  const [page, setPage]       = useState(0);
+
+  useEffect(() => { setPage(0); }, [filters]);
 
   const queryParams = useMemo(() => ({
-    source_env:  envFilter   !== "all" ? envFilter   : undefined,
-    call_status: statusFilter !== "all" ? statusFilter : undefined,
-    limit:  PAGE_SIZE,
-    offset: page * PAGE_SIZE,
-  }), [statusFilter, envFilter, page]);
+    source_env:        filters.env        !== "all" ? filters.env        : undefined,
+    call_status:       filters.callStatus !== "all" ? filters.callStatus : undefined,
+    date_from:         filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : undefined,
+    date_to:           filters.dateRange?.to   ? format(filters.dateRange.to,   "yyyy-MM-dd") : undefined,
+    search:            filters.search    || undefined,
+    organization_name: filters.org       !== "all" ? filters.org        : undefined,
+    nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter  : undefined,
+    sort_by:           filters.sortBy,
+    sort_dir:          filters.sortDir,
+    limit:             PAGE_SIZE,
+    offset:            page * PAGE_SIZE,
+  }), [filters, page]);
 
   const countParams = useMemo(() => ({
-    source_env:  envFilter   !== "all" ? envFilter   : undefined,
-    call_status: statusFilter !== "all" ? statusFilter : undefined,
-  }), [statusFilter, envFilter]);
+    source_env:        filters.env        !== "all" ? filters.env        : undefined,
+    call_status:       filters.callStatus !== "all" ? filters.callStatus : undefined,
+    date_from:         filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : undefined,
+    date_to:           filters.dateRange?.to   ? format(filters.dateRange.to,   "yyyy-MM-dd") : undefined,
+    search:            filters.search    || undefined,
+    organization_name: filters.org       !== "all" ? filters.org        : undefined,
+    nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter  : undefined,
+  }), [filters]);
 
   const { data: calls, isLoading } = useQuery({
     queryKey: ["all-calls", queryParams],
     queryFn: () => apiGetAllCalls(queryParams),
+    staleTime: STALE_MS,
   });
 
   const { data: totalCount } = useQuery({
     queryKey: ["all-calls-count", countParams],
     queryFn: () => apiGetAllCallsCount(countParams),
+    staleTime: STALE_MS,
   });
 
   const { data: envs = [] } = useQuery({
@@ -56,18 +77,11 @@ export default function AllCallsPage() {
     queryFn: apiGetEnvs,
   });
 
-  const filtered = useMemo(() => {
-    if (!calls) return [];
-    if (!searchQuery) return calls;
-    const q = searchQuery.toLowerCase();
-    return calls.filter((c) =>
-      c.call_id.toLowerCase().includes(q) ||
-      c.campaign.toLowerCase().includes(q) ||
-      c.organization_name.toLowerCase().includes(q) ||
-      c.rooftop_name.toLowerCase().includes(q) ||
-      c.customer_phone.toLowerCase().includes(q)
-    );
-  }, [calls, searchQuery]);
+  const orgOptions = useMemo(() =>
+    [...new Set((calls ?? []).map((c) => c.organization_name).filter(Boolean))].sort(),
+  [calls]);
+
+  const filtered = calls ?? [];
 
   const avgDuration = useMemo(() => {
     if (!calls || calls.length === 0) return 0;
@@ -87,12 +101,12 @@ export default function AllCallsPage() {
   );
 
   const totalPages = totalCount ? Math.ceil(totalCount / PAGE_SIZE) : 0;
-  const hasFilters  = statusFilter !== "all" || envFilter !== "all" || searchQuery;
+  const hasFilters = filters.search || filters.callStatus !== "all" || filters.env !== "all" ||
+    filters.org !== "all" || filters.npsFilter !== "all" || !!filters.dateRange?.from ||
+    filters.sortBy !== "date" || filters.sortDir !== "desc";
 
   const resetFilters = () => {
-    setStatusFilter("all");
-    setEnvFilter("all");
-    setSearchQuery("");
+    setFilters(DEFAULT_FILTERS);
     setPage(0);
   };
 
@@ -106,48 +120,41 @@ export default function AllCallsPage() {
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-500">
 
-      {/* ── Page title row ───────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-[0.02em]" style={{ color: "#ffffff" }}>
-            All Calls
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "#adaaaa" }}>
-            Complete record of all call interactions across every environment.
-          </p>
-        </div>
-        {/* Search — inline in header area */}
-        <div
-          className="flex items-center gap-2 px-4 py-2 rounded-full border"
-          style={{ background: "#000000", borderColor: "rgba(73,72,71,0.1)" }}
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <div>
+        <h1
+          className="text-3xl"
+          style={{
+            color: "#f7f8f8",
+            fontWeight: 510,
+            letterSpacing: "-0.704px",
+            fontFeatureSettings: FF,
+          }}
         >
-          <Search className="h-4 w-4 shrink-0" style={{ color: "#adaaaa" }} />
-          <input
-            className="bg-transparent border-none text-sm focus:outline-none w-64"
-            style={{ color: "#ffffff" }}
-            placeholder="Search by ID or Organization..."
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
-          />
-        </div>
+          All Calls
+        </h1>
+        <p
+          className="mt-1.5 text-sm"
+          style={{ color: "#8a8f98", fontWeight: 400, fontFeatureSettings: FF }}
+        >
+          Complete record of all call interactions across every environment.
+        </p>
       </div>
 
-      {/* ── Metric cards ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        {/* Total Calls — aurora glow */}
+      {/* ── Metric cards ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard
           label="Total Calls"
           value={totalCount !== undefined ? totalCount.toLocaleString() : "—"}
-          badge={{ text: "+12%", color: "#4ff5df" }}
-          icon={<PhoneCall className="h-[18px] w-[18px]" style={{ color: "#4ff5df" }} />}
+          badge={{ text: "+12%", color: "#10b981" }}
+          icon={<PhoneCall className="h-4 w-4" style={{ color: "#62666d" }} />}
           loading={false}
-          aurora
         />
         <MetricCard
           label="Avg Duration"
           value={isLoading ? "—" : formatDuration(avgDuration)}
-          badge={{ text: "Stable", color: "#adaaaa" }}
-          icon={<Timer className="h-[18px] w-[18px]" style={{ color: "#afefdd" }} />}
+          badge={{ text: "Stable", color: "#62666d" }}
+          icon={<Timer className="h-4 w-4" style={{ color: "#62666d" }} />}
           loading={isLoading}
         />
         <MetricCard
@@ -155,131 +162,65 @@ export default function AllCallsPage() {
           value={isLoading ? "—" : (avgNps ?? "N/A")}
           badge={{
             text: avgNps && parseFloat(avgNps) < 7 ? "-0.2" : "Optimal",
-            color: avgNps && parseFloat(avgNps) < 7 ? "#d7383b" : "#4ff5df",
+            color: avgNps && parseFloat(avgNps) < 7 ? "#ff716c" : "#10b981",
           }}
-          icon={<Star className="h-[18px] w-[18px]" style={{ color: "#d6fff6" }} />}
+          icon={<Star className="h-4 w-4" style={{ color: "#62666d" }} />}
           loading={isLoading}
         />
         <MetricCard
           label="Active Sessions"
           value={isLoading ? "—" : completedCount.toString()}
-          badge={{ text: "Live", color: "#4ff5df" }}
-          icon={<Zap className="h-[18px] w-[18px]" style={{ color: "#39e6d1" }} />}
+          badge={{ text: "Live", color: "#7170ff" }}
+          icon={<Zap className="h-4 w-4" style={{ color: "#62666d" }} />}
           loading={isLoading}
         />
       </div>
 
-      {/* ── Table controls ───────────────────────────────────────────── */}
-      <div className="flex flex-wrap justify-between items-center gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Status filter */}
-          <div
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border cursor-pointer transition-colors"
-            style={{ background: "#131313", borderColor: "rgba(73,72,71,0.1)" }}
-          >
-            <select
-              className="bg-transparent border-none text-sm font-medium focus:outline-none cursor-pointer"
-              style={{ color: "#ffffff" }}
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-            >
-              <option value="all"       style={{ background: "#1c1c1e" }}>Status: All</option>
-              <option value="Completed" style={{ background: "#1c1c1e" }}>Status: Completed</option>
-              <option value="Missed"    style={{ background: "#1c1c1e" }}>Status: Missed</option>
-            </select>
-          </div>
+      {/* ── Filters ─────────────────────────────────────────────────── */}
+      <CallFilterBar
+        value={filters}
+        onChange={setFilters}
+        showCallStatus
+        showNps
+        showEnv
+        showOrg
+        showDateRange
+        showSort
+        envOptions={envs.map((e) => e.name)}
+        orgOptions={orgOptions}
+        placeholder="Search by ID or Organization..."
+      />
 
-          {/* Env filter */}
-          <div
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border cursor-pointer transition-colors"
-            style={{ background: "#131313", borderColor: "rgba(73,72,71,0.1)" }}
-          >
-            <select
-              className="bg-transparent border-none text-sm font-medium focus:outline-none cursor-pointer"
-              style={{ color: "#ffffff" }}
-              value={envFilter}
-              onChange={(e) => { setEnvFilter(e.target.value); setPage(0); }}
-            >
-              <option value="all" style={{ background: "#1c1c1e" }}>Env: All</option>
-              {envs.map((e) => (
-                <option key={e.name} value={e.name} style={{ background: "#1c1c1e" }}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {hasFilters && (
-            <button
-              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
-              style={{ color: "#adaaaa" }}
-              onMouseEnter={(e) => { (e.currentTarget).style.color = "#ffffff"; }}
-              onMouseLeave={(e) => { (e.currentTarget).style.color = "#adaaaa"; }}
-              onClick={resetFilters}
-            >
-              Clear
-            </button>
-          )}
-        </div>
-
-        {/* Right icon actions */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium uppercase tracking-widest mr-2" style={{ color: "rgba(173,170,170,0.4)" }}>
-            {totalCount
-              ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, totalCount)} of ${totalCount.toLocaleString()}`
-              : totalCount === 0 ? "0 results" : "—"
-            }
-          </span>
-          <button
-            className="p-2 rounded-lg transition-colors"
-            style={{ background: "#131313", color: "#adaaaa" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#ffffff"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#adaaaa"; }}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
-          <button
-            className="p-2 rounded-lg transition-colors"
-            style={{ background: "#131313", color: "#adaaaa" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#ffffff"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#adaaaa"; }}
-          >
-            <Download className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* ── Table ────────────────────────────────────────────────────── */}
+      {/* ── Table ───────────────────────────────────────────────────── */}
       <div
-        className="flex-1 rounded-xl flex flex-col overflow-hidden border"
+        className="flex-1 rounded-lg flex flex-col overflow-hidden border"
         style={{
-          background: "#131313",
-          borderColor: "rgba(73,72,71,0.1)",
-          boxShadow: "0px 24px 48px rgba(255,255,255,0.06)",
+          background: "rgba(255,255,255,0.02)",
+          borderColor: "rgba(255,255,255,0.08)",
         }}
       >
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr style={{ background: "rgba(32,31,31,0.5)" }}>
+              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                 {["Call ID", "Organization", "Campaign", "Date", "Status", "Direction", "Duration", "NPS", "Action"].map((h) => (
                   <th
                     key={h}
-                    className="px-4 py-3 text-[0.6875rem] uppercase tracking-widest font-bold whitespace-nowrap"
-                    style={{ color: "#adaaaa" }}
+                    className="px-4 py-3 text-[10px] uppercase tracking-widest whitespace-nowrap"
+                    style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
                   >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
+            <tbody>
               {isLoading
                 ? Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                    <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                       {Array.from({ length: 9 }).map((_, j) => (
-                        <td key={j} className="px-4 py-4">
-                          <Skeleton className="h-3.5 w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
+                        <td key={j} className="px-4 py-3.5">
+                          <Skeleton className="h-3.5 w-16" style={{ background: "rgba(255,255,255,0.04)" }} />
                         </td>
                       ))}
                     </tr>
@@ -296,23 +237,41 @@ export default function AllCallsPage() {
         {!isLoading && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div
-              className="h-14 w-14 rounded-full flex items-center justify-center mb-4 border"
-              style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.07)" }}
+              className="h-12 w-12 rounded-full flex items-center justify-center mb-4 border"
+              style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
             >
-              <Inbox className="h-6 w-6" style={{ color: "rgba(255,255,255,0.15)" }} />
+              <Inbox className="h-5 w-5" style={{ color: "rgba(255,255,255,0.15)" }} />
             </div>
-            <p className="text-sm font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <p
+              className="text-xs uppercase tracking-widest"
+              style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
+            >
               No Records Found
             </p>
-            <p className="text-xs mt-1 uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.2)" }}>
+            <p
+              className="text-[10px] mt-1.5 uppercase tracking-wider"
+              style={{ color: "#62666d", fontFeatureSettings: FF }}
+            >
               {hasFilters ? "Adjust filters to expand results" : "No calls in the database yet"}
             </p>
             {hasFilters && (
               <button
-                className="mt-6 px-6 py-2 rounded-xl text-[10px] font-bold tracking-widest uppercase transition-colors"
-                style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.1)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+                className="mt-6 px-5 py-2 rounded-md text-[10px] uppercase tracking-widest transition-all border"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  color: "#8a8f98",
+                  borderColor: "rgba(255,255,255,0.08)",
+                  fontWeight: 510,
+                  fontFeatureSettings: FF,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#d0d6e0";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.02)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#8a8f98";
+                }}
                 onClick={resetFilters}
               >
                 Clear Filters
@@ -323,44 +282,44 @@ export default function AllCallsPage() {
 
         {/* Pagination */}
         <div
-          className="px-8 py-4 border-t flex items-center justify-between"
-          style={{
-            background: "rgba(32,31,31,0.3)",
-            borderColor: "rgba(255,255,255,0.03)",
-          }}
+          className="px-6 py-3.5 border-t flex items-center justify-between"
+          style={{ borderColor: "rgba(255,255,255,0.05)" }}
         >
-          <span className="text-xs font-medium" style={{ color: "#adaaaa" }}>
+          <span
+            className="text-[10px] uppercase tracking-widest"
+            style={{ color: "#62666d", fontFeatureSettings: FF }}
+          >
             {totalCount
-              ? `Showing ${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, totalCount)} of ${totalCount.toLocaleString()} calls`
+              ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, totalCount)} of ${totalCount.toLocaleString()}`
               : "No calls found"
             }
           </span>
           {totalPages > 1 && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
-                className="p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                style={{ background: "#131313", color: "#adaaaa" }}
+                className="w-7 h-7 rounded-md flex items-center justify-center border transition-all disabled:opacity-25 disabled:pointer-events-none"
+                style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)", color: "#8a8f98" }}
                 disabled={page === 0}
                 onClick={() => setPage((p) => p - 1)}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5" />
               </button>
               <div className="flex items-center gap-1">
                 {visiblePages.map((p) => (
                   <button
                     key={p}
                     onClick={() => setPage(p)}
-                    className="px-3 py-1 rounded-lg text-xs font-bold transition-all"
+                    className="w-7 h-7 rounded-md text-[11px] transition-all"
                     style={
                       p === page
-                        ? { background: "#4ff5df", color: "#00594f" }
-                        : { background: "#131313", color: "#adaaaa" }
+                        ? { background: "#5e6ad2", color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }
+                        : { color: "#62666d", fontFeatureSettings: FF }
                     }
                     onMouseEnter={(e) => {
-                      if (p !== page) (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
+                      if (p !== page) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
                     }}
                     onMouseLeave={(e) => {
-                      if (p !== page) (e.currentTarget as HTMLButtonElement).style.color = "#adaaaa";
+                      if (p !== page) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
                     }}
                   >
                     {p + 1}
@@ -368,11 +327,13 @@ export default function AllCallsPage() {
                 ))}
                 {totalPages > 5 && page < totalPages - 4 && (
                   <>
-                    <span className="text-xs px-1" style={{ color: "#adaaaa" }}>…</span>
+                    <span className="text-xs px-1" style={{ color: "#62666d" }}>…</span>
                     <button
                       onClick={() => setPage(totalPages - 1)}
-                      className="px-3 py-1 rounded-lg text-xs font-bold transition-colors"
-                      style={{ background: "#131313", color: "#adaaaa" }}
+                      className="w-7 h-7 rounded-md text-[11px] transition-colors"
+                      style={{ color: "#62666d", fontFeatureSettings: FF }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                     >
                       {totalPages}
                     </button>
@@ -380,12 +341,12 @@ export default function AllCallsPage() {
                 )}
               </div>
               <button
-                className="p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                style={{ background: "#131313", color: "#adaaaa" }}
+                className="w-7 h-7 rounded-md flex items-center justify-center border transition-all disabled:opacity-25 disabled:pointer-events-none"
+                style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)", color: "#8a8f98" }}
                 disabled={page >= totalPages - 1}
                 onClick={() => setPage((p) => p + 1)}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
@@ -396,146 +357,150 @@ export default function AllCallsPage() {
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  Metric card                                                         */
+/*  MetricCard                                                          */
 /* ──────────────────────────────────────────────────────────────────── */
 
 function MetricCard({
-  label,
-  value,
-  badge,
-  icon,
-  loading,
-  aurora,
+  label, value, badge, icon, loading,
 }: {
-  label: string;
-  value: string;
-  badge: { text: string; color: string };
-  icon: React.ReactNode;
-  loading: boolean;
-  aurora?: boolean;
+  label: string; value: string; badge: { text: string; color: string };
+  icon: React.ReactNode; loading: boolean;
 }) {
   return (
     <div
-      className="relative overflow-hidden rounded-xl p-5 border"
-      style={{
-        background: "#1c1c1e",
-        borderColor: "rgba(73,72,71,0.05)",
-        boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
-      }}
+      className="rounded-lg p-5 border"
+      style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
     >
-      {aurora && (
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            top: "-20px", left: "-20px", right: "-20px", bottom: "-20px",
-            background: "radial-gradient(circle at center, rgba(79,245,223,0.08) 0%, transparent 70%)",
-            filter: "blur(40px)",
-            zIndex: 0,
-          }}
-        />
-      )}
-      <div className="relative z-10">
-        <div className="flex justify-between items-start mb-2">
+      <div className="flex justify-between items-start mb-3">
+        <span
+          className="text-[10px] uppercase tracking-[0.08em]"
+          style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+        >
+          {label}
+        </span>
+        {icon}
+      </div>
+      <div className="flex items-baseline gap-2">
+        {loading ? (
+          <Skeleton className="h-8 w-20" style={{ background: "rgba(255,255,255,0.05)" }} />
+        ) : (
           <span
-            className="text-[10px] font-bold uppercase tracking-[0.05em]"
-            style={{ color: "#adaaaa" }}
+            className="text-2xl"
+            style={{ color: "#f7f8f8", fontWeight: 590, fontFeatureSettings: '"cv01", "ss03"' }}
           >
-            {label}
+            {value}
           </span>
-          {icon}
-        </div>
-        <div className="flex items-baseline gap-2 mt-1">
-          {loading ? (
-            <Skeleton className="h-9 w-20" style={{ background: "rgba(255,255,255,0.05)" }} />
-          ) : (
-            <span className="text-3xl font-black tracking-tight" style={{ color: "#ffffff" }}>
-              {value}
-            </span>
-          )}
-          {!loading && (
-            <span className="text-xs font-medium" style={{ color: badge.color }}>
-              {badge.text}
-            </span>
-          )}
-        </div>
+        )}
+        {!loading && (
+          <span
+            className="text-[10px]"
+            style={{ color: badge.color, fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+          >
+            {badge.text}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  Call row — matches MyCallsPage style                                */
+/*  CallRow                                                             */
 /* ──────────────────────────────────────────────────────────────────── */
 
 function CallRow({ call, onView }: { call: RawCall; onView: () => void }) {
   return (
     <tr
       className="group cursor-pointer transition-colors"
-      style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "rgba(255,255,255,0.02)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent"; }}
       onClick={onView}
     >
-      {/* Call ID */}
-      <td className="px-4 py-3 font-mono text-xs" style={{ color: "#4ff5df" }}>
+      <td
+        className="px-4 py-3 text-xs"
+        style={{
+          color: "#7170ff",
+          fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+        }}
+      >
         #{call.call_id}
       </td>
 
-      {/* Organization */}
       <td className="px-4 py-3">
-        <div className="flex flex-col">
-          <span className="text-sm font-medium" style={{ color: "#ffffff" }}>
+        <div className="flex flex-col gap-0.5">
+          <span
+            className="text-sm"
+            style={{ color: "#d0d6e0", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+          >
             {call.organization_name || "—"}
           </span>
           {call.rooftop_name && (
-            <span className="text-[10px]" style={{ color: "#adaaaa" }}>
+            <span
+              className="text-[10px]"
+              style={{ color: "#62666d", fontFeatureSettings: '"cv01", "ss03"' }}
+            >
               {call.rooftop_name}
             </span>
           )}
         </div>
       </td>
 
-      {/* Campaign */}
-      <td className="px-4 py-3 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
+      <td
+        className="px-4 py-3 text-xs"
+        style={{ color: "#8a8f98", fontFeatureSettings: '"cv01", "ss03"' }}
+      >
         {call.campaign || "—"}
       </td>
 
-      {/* Date */}
-      <td className="px-4 py-3 text-sm" style={{ color: "#adaaaa" }}>
-        {new Date(call.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })},{" "}
+      <td
+        className="px-4 py-3 text-xs"
+        style={{ color: "#62666d", fontFeatureSettings: '"cv01", "ss03"' }}
+      >
+        {new Date(call.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{" "}
         {new Date(call.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
       </td>
 
-      {/* Status */}
       <td className="px-4 py-3">
         <CallStatusBadge status={call.call_status} />
       </td>
 
-      {/* Direction */}
       <td className="px-4 py-3">
         <DirectionIndicator direction={call.direction} />
       </td>
 
-      {/* Duration */}
-      <td className="px-4 py-3 text-sm" style={{ color: "#adaaaa" }}>
+      <td
+        className="px-4 py-3 text-xs"
+        style={{ color: "#8a8f98", fontFeatureSettings: '"cv01", "ss03"' }}
+      >
         {formatDuration(call.duration)}
       </td>
 
-      {/* NPS */}
-      <td className="px-4 py-3 text-sm font-bold">
+      <td className="px-4 py-3 text-sm">
         {call.ai_nps_score !== null
           ? <NpsValue score={call.ai_nps_score} />
-          : <span style={{ color: "#adaaaa" }}>--</span>
+          : <span style={{ color: "#62666d" }}>—</span>
         }
       </td>
 
-      {/* Action */}
       <td className="px-4 py-3">
         <button
-          className="px-4 py-1.5 text-[11px] font-bold rounded-full uppercase tracking-wider transition-colors active:scale-95"
-          style={{ background: "rgba(255,255,255,0.05)", color: "#adaaaa" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.1)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+          className="px-3.5 py-1.5 text-[10px] rounded-md uppercase tracking-wider transition-all border"
+          style={{
+            background: "rgba(255,255,255,0.02)",
+            color: "#62666d",
+            borderColor: "rgba(255,255,255,0.08)",
+            fontWeight: 510,
+            fontFeatureSettings: '"cv01", "ss03"',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+            (e.currentTarget as HTMLButtonElement).style.color = "#8a8f98";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.02)";
+            (e.currentTarget as HTMLButtonElement).style.color = "#62666d";
+          }}
           onClick={(e) => { e.stopPropagation(); onView(); }}
         >
           View
@@ -546,15 +511,21 @@ function CallRow({ call, onView }: { call: RawCall; onView: () => void }) {
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  Status badge — matches MyCallsPage pill style                       */
+/*  Status badge                                                        */
 /* ──────────────────────────────────────────────────────────────────── */
 
 function CallStatusBadge({ status }: { status: string }) {
   if (status === "Completed") {
     return (
       <span
-        className="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
-        style={{ background: "rgba(79,245,223,0.2)", color: "#4ff5df" }}
+        className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider border"
+        style={{
+          background: "rgba(16,185,129,0.12)",
+          color: "#10b981",
+          borderColor: "rgba(16,185,129,0.2)",
+          fontWeight: 510,
+          fontFeatureSettings: '"cv01", "ss03"',
+        }}
       >
         Completed
       </span>
@@ -563,8 +534,14 @@ function CallStatusBadge({ status }: { status: string }) {
   if (status === "Missed") {
     return (
       <span
-        className="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
-        style={{ background: "rgba(255,113,108,0.2)", color: "#ff716c" }}
+        className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider border"
+        style={{
+          background: "rgba(255,113,108,0.12)",
+          color: "#ff716c",
+          borderColor: "rgba(255,113,108,0.2)",
+          fontWeight: 510,
+          fontFeatureSettings: '"cv01", "ss03"',
+        }}
       >
         Missed
       </span>
@@ -572,40 +549,34 @@ function CallStatusBadge({ status }: { status: string }) {
   }
   return (
     <span
-      className="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
-      style={{ background: "rgba(234,179,8,0.2)", color: "#eab308" }}
+      className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider border"
+      style={{
+        background: "rgba(234,179,8,0.1)",
+        color: "#eab308",
+        borderColor: "rgba(234,179,8,0.2)",
+        fontWeight: 510,
+        fontFeatureSettings: '"cv01", "ss03"',
+      }}
     >
       {status || "Unknown"}
     </span>
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────── */
-/*  Direction indicator                                                 */
-/* ──────────────────────────────────────────────────────────────────── */
-
 function DirectionIndicator({ direction }: { direction: string }) {
-  if (direction === "outbound") {
-    return <ArrowUpRight className="h-[18px] w-[18px]" style={{ color: "#adaaaa" }} />;
-  }
-  if (direction === "inbound") {
-    return <ArrowDownLeft className="h-[18px] w-[18px]" style={{ color: "#adaaaa" }} />;
-  }
-  return <span style={{ color: "#adaaaa" }}>—</span>;
+  if (direction === "outbound") return <ArrowUpRight className="h-4 w-4" style={{ color: "#62666d" }} />;
+  if (direction === "inbound")  return <ArrowDownLeft className="h-4 w-4" style={{ color: "#62666d" }} />;
+  return <span style={{ color: "#62666d" }}>—</span>;
 }
-
-/* ──────────────────────────────────────────────────────────────────── */
-/*  NPS value                                                           */
-/* ──────────────────────────────────────────────────────────────────── */
 
 function NpsValue({ score }: { score: number }) {
-  const color = score >= 9 ? "#4ff5df" : score >= 7 ? "#eab308" : "#ff716c";
-  return <span className="text-sm font-bold" style={{ color }}>{score}</span>;
+  const color = score >= 9 ? "#10b981" : score >= 7 ? "#eab308" : "#ff716c";
+  return (
+    <span style={{ color, fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}>
+      {score}
+    </span>
+  );
 }
-
-/* ──────────────────────────────────────────────────────────────────── */
-/*  Duration formatter                                                  */
-/* ──────────────────────────────────────────────────────────────────── */
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);

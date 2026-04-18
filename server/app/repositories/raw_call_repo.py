@@ -1,8 +1,9 @@
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import cast, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.types import String
 
 from app.models.raw_call import RawCall
 from app.schemas.raw_call import RawCallCreate
@@ -56,21 +57,79 @@ async def get_unassigned_for_date(db: AsyncSession, call_date: date, source_env:
     return list(result.scalars().all())
 
 
-async def list_all(
-    db: AsyncSession,
-    source_env: str | None = None,
-    call_status: str | None = None,
-    limit: int = 200,
-    offset: int = 0,
-) -> list[RawCall]:
-    """Return all RawCall rows with optional filters, ordered by most recent first."""
-    query = select(RawCall)
+def _apply_call_filters(
+    query: object,
+    source_env: str | None,
+    call_status: str | None,
+    date_from: date | None,
+    date_to: date | None,
+    search: str | None,
+    organization_name: str | None,
+    nps_filter: str | None,
+) -> object:
+    """Apply shared filter clauses to a RawCall select query."""
     if source_env is not None:
         query = query.where(RawCall.source_env == source_env)
     if call_status is not None:
         query = query.where(RawCall.call_status == call_status)
-    query = query.order_by(RawCall.call_date.desc(), RawCall.id.desc()).limit(limit).offset(offset)
-    result = await db.execute(query)
+    if date_from is not None:
+        query = query.where(RawCall.call_date >= date_from)
+    if date_to is not None:
+        query = query.where(RawCall.call_date <= date_to)
+    if organization_name is not None:
+        query = query.where(RawCall.organization_name == organization_name)
+    if search is not None:
+        term = f"%{search}%"
+        query = query.where(
+            or_(
+                RawCall.organization_name.ilike(term),
+                RawCall.campaign_name.ilike(term),
+                RawCall.rooftop_name.ilike(term),
+                cast(RawCall.lokam_call_id, String).ilike(term),
+            )
+        )
+    if nps_filter == "promoter":
+        query = query.where(RawCall.nps_score >= 9)
+    elif nps_filter == "passive":
+        query = query.where(RawCall.nps_score >= 7, RawCall.nps_score <= 8)
+    elif nps_filter == "detractor":
+        query = query.where(RawCall.nps_score <= 6)
+    return query
+
+
+def _apply_call_sort(query: object, sort_by: str, sort_dir: str) -> object:
+    """Apply ORDER BY clause to a RawCall select query."""
+    desc = sort_dir == "desc"
+    if sort_by == "nps":
+        col = RawCall.nps_score.desc() if desc else RawCall.nps_score.asc()
+    elif sort_by == "duration":
+        col = RawCall.duration_sec.desc() if desc else RawCall.duration_sec.asc()
+    elif sort_by == "status":
+        col = RawCall.call_status.desc() if desc else RawCall.call_status.asc()
+    else:
+        col = RawCall.call_date.desc() if desc else RawCall.call_date.asc()
+    return query.order_by(col, RawCall.id.desc())
+
+
+async def list_all(
+    db: AsyncSession,
+    source_env: str | None = None,
+    call_status: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    search: str | None = None,
+    organization_name: str | None = None,
+    nps_filter: str | None = None,
+    sort_by: str = "date",
+    sort_dir: str = "desc",
+    limit: int = 30,
+    offset: int = 0,
+) -> list[RawCall]:
+    """Return all RawCall rows with optional filters, ordered as requested."""
+    query = select(RawCall)
+    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter)
+    query = _apply_call_sort(query, sort_by, sort_dir)
+    result = await db.execute(query.limit(limit).offset(offset))
     return list(result.scalars().all())
 
 
@@ -78,14 +137,15 @@ async def count_all(
     db: AsyncSession,
     source_env: str | None = None,
     call_status: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    search: str | None = None,
+    organization_name: str | None = None,
+    nps_filter: str | None = None,
 ) -> int:
     """Return count of RawCall rows matching filters."""
-    from sqlalchemy import func
     query = select(func.count(RawCall.id))
-    if source_env is not None:
-        query = query.where(RawCall.source_env == source_env)
-    if call_status is not None:
-        query = query.where(RawCall.call_status == call_status)
+    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter)
     result = await db.execute(query)
     return result.scalar_one()
 

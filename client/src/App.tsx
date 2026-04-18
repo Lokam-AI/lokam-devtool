@@ -16,6 +16,8 @@ const TeamPage = lazy(() => import("@/pages/TeamPage"));
 const UserManagementPage = lazy(() => import("@/pages/UserManagementPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 const AllCallsPage = lazy(() => import("@/pages/AllCallsPage"));
+const BugsPage = lazy(() => import("@/pages/BugsPage"));
+const MyBugsPage = lazy(() => import("@/pages/MyBugsPage"));
 
 function PageLoader() {
   return (
@@ -40,6 +42,7 @@ const App = () => {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/my-bugs" element={<MyBugsPage />} />
               <Route path="/calls" element={<MyCallsPage />} />
               <Route path="/eval/:id" element={<EvalFormPage />} />
               <Route
@@ -53,6 +56,10 @@ const App = () => {
               <Route
                 path="/team"
                 element={<RoleGuard minRole="admin"><TeamPage /></RoleGuard>}
+              />
+              <Route
+                path="/bugs"
+                element={<RoleGuard minRole="admin"><BugsPage /></RoleGuard>}
               />
               <Route
                 path="/users"

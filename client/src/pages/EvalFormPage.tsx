@@ -12,6 +12,7 @@ import type { RawCall, Eval } from "@/types";
 
 type FieldState = { correct: boolean; value: unknown };
 const SPEED_OPTIONS = [1, 1.5, 2, 2.5, 3, 0.5] as const;
+const FF = '"cv01", "ss03"' as const;
 
 const EVAL_TAGS = [
   "Staff Professionalism",
@@ -27,7 +28,7 @@ const EVAL_TAGS = [
 ] as const;
 
 /* ══════════════════════════════════════════════════════════════════════
-   Page shell — resolves data, delegates to inner
+   Page shell
 ══════════════════════════════════════════════════════════════════════ */
 export default function EvalFormPage() {
   const { id }    = useParams<{ id: string }>();
@@ -39,14 +40,20 @@ export default function EvalFormPage() {
   if (isLoading) return <EvalSkeleton />;
   if (isError) return (
     <div className="flex items-center justify-center h-full">
-      <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: "#ff716c" }}>
+      <p
+        className="text-xs uppercase tracking-widest"
+        style={{ color: "#ff716c", fontWeight: 510, fontFeatureSettings: FF }}
+      >
         Failed to load call. Please go back and try again.
       </p>
     </div>
   );
   if (!data) return (
     <div className="flex items-center justify-center h-full">
-      <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.2)" }}>
+      <p
+        className="text-xs uppercase tracking-widest"
+        style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+      >
         Call not found
       </p>
     </div>
@@ -64,7 +71,7 @@ export default function EvalFormPage() {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Inner — full 60/40 split layout
+   Inner — 60/40 split layout
 ══════════════════════════════════════════════════════════════════════ */
 function EvalFormInner({
   callData, evalData, allCalls, navigate, submitEval,
@@ -75,31 +82,83 @@ function EvalFormInner({
   navigate: ReturnType<typeof useNavigate>;
   submitEval: ReturnType<typeof useSubmitEval>;
 }) {
-  /* ── Eval field state ── */
-  const [fields, setFields] = useState<Record<string, FieldState>>(() => ({
-    nps_score:         { correct: true, value: callData.ai_nps_score },
-    call_summary:      { correct: true, value: callData.ai_call_summary },
-    overall_feedback:  { correct: true, value: callData.ai_overall_feedback },
-    positive_mentions: { correct: true, value: callData.ai_positive_mentions ?? [] },
-    detractors:        { correct: true, value: callData.ai_detractors ?? [] },
-  }));
+  const saved = evalData.status === "completed";
 
-  // Explicit boolean / classification fields
-  const [isNotIncomplete, setIsNotIncomplete]   = useState<boolean>(callData.ai_is_resolved ?? true);
-  const [incompleteReason, setIncompleteReason] = useState<string>("");
-  const [isDncRequest, setIsDncRequest]         = useState<boolean>(false);
-  const [escalationNeeded, setEscalationNeeded] = useState<boolean>(false);
+  const [fields, setFields] = useState<Record<string, FieldState>>(() => {
+    const gtMatchesAi = (gt: unknown, ai: unknown) =>
+      gt === null || gt === undefined || JSON.stringify(gt) === JSON.stringify(ai);
+    return {
+      nps_score: {
+        correct: !saved || gtMatchesAi(evalData.gt_nps_score, callData.ai_nps_score),
+        value: saved && evalData.gt_nps_score != null ? evalData.gt_nps_score : callData.ai_nps_score,
+      },
+      call_summary: {
+        correct: !saved || gtMatchesAi(evalData.gt_call_summary, callData.ai_call_summary),
+        value: saved && evalData.gt_call_summary != null ? evalData.gt_call_summary : callData.ai_call_summary,
+      },
+      positive_mentions: {
+        correct: !saved || gtMatchesAi(evalData.gt_positive_mentions, callData.ai_positive_mentions),
+        value: saved && evalData.gt_positive_mentions != null ? evalData.gt_positive_mentions : (callData.ai_positive_mentions ?? []),
+      },
+      detractors: {
+        correct: !saved || gtMatchesAi(evalData.gt_detractors, callData.ai_detractors),
+        value: saved && evalData.gt_detractors != null ? evalData.gt_detractors : (callData.ai_detractors ?? []),
+      },
+    };
+  });
+
+  const [isNotIncomplete, setIsNotIncomplete]   = useState<boolean>(
+    saved && evalData.gt_is_resolved !== null ? (evalData.gt_is_resolved ?? true) : (callData.ai_is_resolved ?? true)
+  );
+  const [incompleteReason, setIncompleteReason] = useState<string>(
+    saved ? (evalData.gt_incomplete_reason ?? "") : ""
+  );
+  const [isDncRequest, setIsDncRequest]         = useState<boolean>(
+    saved ? (evalData.gt_is_dnc_request ?? false) : false
+  );
+  const [escalationNeeded, setEscalationNeeded] = useState<boolean>(
+    saved ? (evalData.gt_escalation_needed ?? false) : false
+  );
+
+  // Sync state when React Query delivers fresh data after a stale-cache mount.
+  useEffect(() => {
+    if (evalData.status !== "completed") return;
+    const gtMatchesAi = (gt: unknown, ai: unknown) =>
+      gt === null || gt === undefined || JSON.stringify(gt) === JSON.stringify(ai);
+    setFields({
+      nps_score: {
+        correct: gtMatchesAi(evalData.gt_nps_score, callData.ai_nps_score),
+        value: evalData.gt_nps_score != null ? evalData.gt_nps_score : callData.ai_nps_score,
+      },
+      call_summary: {
+        correct: gtMatchesAi(evalData.gt_call_summary, callData.ai_call_summary),
+        value: evalData.gt_call_summary != null ? evalData.gt_call_summary : callData.ai_call_summary,
+      },
+      positive_mentions: {
+        correct: gtMatchesAi(evalData.gt_positive_mentions, callData.ai_positive_mentions),
+        value: evalData.gt_positive_mentions != null ? evalData.gt_positive_mentions : (callData.ai_positive_mentions ?? []),
+      },
+      detractors: {
+        correct: gtMatchesAi(evalData.gt_detractors, callData.ai_detractors),
+        value: evalData.gt_detractors != null ? evalData.gt_detractors : (callData.ai_detractors ?? []),
+      },
+    });
+    setIsNotIncomplete(evalData.gt_is_resolved !== null ? (evalData.gt_is_resolved ?? true) : (callData.ai_is_resolved ?? true));
+    setIncompleteReason(evalData.gt_incomplete_reason ?? "");
+    setIsDncRequest(evalData.gt_is_dnc_request ?? false);
+    setEscalationNeeded(evalData.gt_escalation_needed ?? false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evalData.id, evalData.status]);
 
   const setField = useCallback((key: string, update: Partial<FieldState>) => {
     setFields((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }));
   }, []);
 
-  /* ── Audio player state ── */
-  const [speedIndex, setSpeedIndex]     = useState(0);
-  const [isPlaying, setIsPlaying]       = useState(false);
+  const [speedIndex, setSpeedIndex]       = useState(0);
+  const [isPlaying, setIsPlaying]         = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
-  const [currentTime, setCurrentTime]   = useState(0);
+  const [currentTime, setCurrentTime]     = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const speedRef = useRef<number>(SPEED_OPTIONS[0]);
 
@@ -141,7 +200,6 @@ function EvalFormInner({
     audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * audioDuration;
   };
 
-  /* ── Submit ── */
   const handleSubmit = async () => {
     const corrections: Record<string, { ai_value: unknown; gt_value: unknown }> = {};
     const evalUpdate: Partial<Eval> = {};
@@ -149,14 +207,12 @@ function EvalFormInner({
     const GT_KEY_MAP: Record<string, keyof Eval> = {
       nps_score:         "gt_nps_score",
       call_summary:      "gt_call_summary",
-      overall_feedback:  "gt_overall_feedback",
       positive_mentions: "gt_positive_mentions",
       detractors:        "gt_detractors",
     };
     const AI_KEY_MAP: Record<string, keyof RawCall> = {
       nps_score:         "ai_nps_score",
       call_summary:      "ai_call_summary",
-      overall_feedback:  "ai_overall_feedback",
       positive_mentions: "ai_positive_mentions",
       detractors:        "ai_detractors",
     };
@@ -174,7 +230,7 @@ function EvalFormInner({
       }
     });
 
-    // Boolean / classification fields handled explicitly
+    evalUpdate.gt_overall_feedback   = callData.ai_overall_feedback;
     evalUpdate.gt_is_incomplete_call = !isNotIncomplete;
     evalUpdate.gt_incomplete_reason  = !isNotIncomplete ? incompleteReason || null : null;
     evalUpdate.gt_is_dnc_request     = isDncRequest;
@@ -192,14 +248,13 @@ function EvalFormInner({
     }
   };
 
-  const isReadOnly  = !evalData.id;
-  const durationStr = `${Math.floor(callData.duration / 60)}m ${callData.duration % 60}s`;
-  const positiveTags = (callData.ai_positive_mentions ?? []).filter(Boolean);
+  const isReadOnly    = !evalData.id;
+  const durationStr   = `${Math.floor(callData.duration / 60)}m ${callData.duration % 60}s`;
+  const positiveTags  = (callData.ai_positive_mentions ?? []).filter(Boolean);
   const detractorTags = (callData.ai_detractors ?? []).filter(Boolean);
 
   const textFields = [
-    { key: "call_summary",     label: "Call Summary",    aiValue: callData.ai_call_summary,     type: "textarea" },
-    { key: "overall_feedback", label: "Overall Feedback", aiValue: callData.ai_overall_feedback, type: "textarea" },
+    { key: "call_summary", label: "Call Summary", aiValue: callData.ai_call_summary, type: "textarea" },
   ];
 
   const INCOMPLETE_REASONS = ["Voicemail", "Callback", "Call Screening"] as const;
@@ -211,46 +266,63 @@ function EvalFormInner({
     >
 
       {/* ════════════════════════════════════════════════
-          LEFT PANEL — 60% — call info + transcript
+          LEFT PANEL — 60%
       ════════════════════════════════════════════════ */}
       <div
         className="flex flex-col overflow-hidden border-r"
-        style={{ width: "60%", background: "#131313", borderColor: "rgba(73,72,71,0.15)" }}
+        style={{ width: "60%", background: "#0f1011", borderColor: "rgba(255,255,255,0.05)" }}
       >
         {/* ── Sticky call header ── */}
         <div
           className="shrink-0 px-8 py-5 border-b"
-          style={{ background: "#1c1c1e", borderColor: "rgba(73,72,71,0.15)" }}
+          style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.05)" }}
         >
           {/* Call ID + date */}
           <div className="flex items-center gap-3 mb-3">
             <span
-              className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest"
-              style={{ background: "rgba(79,245,223,0.15)", color: "#4ff5df" }}
+              className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest border"
+              style={{
+                background: "rgba(113,112,255,0.1)",
+                color: "#7170ff",
+                borderColor: "rgba(113,112,255,0.2)",
+                fontWeight: 510,
+                fontFeatureSettings: FF,
+              }}
             >
               Call_ID #{callData.call_id}
             </span>
-            <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <span
+              className="text-xs"
+              style={{ color: "#62666d", fontFeatureSettings: FF }}
+            >
               {new Date(callData.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </span>
           </div>
 
-          {/* Org + campaign headline */}
+          {/* Org + campaign */}
           <div className="flex items-start justify-between gap-4 mb-2">
-            <h2 className="text-2xl font-extrabold tracking-tight leading-tight">
-              <span style={{ color: "#ffffff" }}>{callData.organization_name || "Unknown Org"}</span>
+            <h2
+              className="text-2xl leading-tight"
+              style={{ fontWeight: 590, letterSpacing: "-0.288px", fontFeatureSettings: FF }}
+            >
+              <span style={{ color: "#f7f8f8" }}>{callData.organization_name || "Unknown Org"}</span>
               {callData.campaign && (
-                <span style={{ color: "#4ff5df" }}> / {callData.campaign}</span>
+                <span style={{ color: "#7170ff" }}> / {callData.campaign}</span>
               )}
             </h2>
             {callData.call_status && (
               <span
-                className="shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mt-1"
+                className="shrink-0 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest mt-1 border"
                 style={{
                   background: callData.call_status === "Completed"
-                    ? "rgba(79,245,223,0.12)"
+                    ? "rgba(16,185,129,0.12)"
                     : "rgba(255,113,108,0.12)",
-                  color: callData.call_status === "Completed" ? "#4ff5df" : "#ff716c",
+                  color: callData.call_status === "Completed" ? "#10b981" : "#ff716c",
+                  borderColor: callData.call_status === "Completed"
+                    ? "rgba(16,185,129,0.2)"
+                    : "rgba(255,113,108,0.2)",
+                  fontWeight: 510,
+                  fontFeatureSettings: FF,
                 }}
               >
                 {callData.call_status}
@@ -258,27 +330,33 @@ function EvalFormInner({
             )}
           </div>
 
-          {/* Sub-meta row */}
+          {/* Sub-meta */}
           <div className="flex items-center gap-4 mb-4">
             {callData.rooftop_name && (
-              <span className="flex items-center gap-1.5 text-xs" style={{ color: "#adaaaa" }}>
+              <span
+                className="flex items-center gap-1.5 text-xs"
+                style={{ color: "#8a8f98", fontFeatureSettings: FF }}
+              >
                 <MapPin className="h-3 w-3" />{callData.rooftop_name}
               </span>
             )}
             {callData.customer_phone && (
-              <span className="flex items-center gap-1.5 text-xs" style={{ color: "#adaaaa" }}>
+              <span
+                className="flex items-center gap-1.5 text-xs"
+                style={{ color: "#8a8f98", fontFeatureSettings: FF }}
+              >
                 <Phone className="h-3 w-3" />{callData.customer_phone}
               </span>
             )}
           </div>
 
-          {/* Stat pills row */}
-          <div className="flex items-center gap-3">
+          {/* Stat pills */}
+          <div className="flex items-center gap-2">
             <StatPill label="Duration"  value={durationStr} />
             <StatPill
               label="Direction"
               value={callData.direction?.toUpperCase() ?? "—"}
-              teal
+              accent
               icon={callData.direction === "outbound"
                 ? <ArrowUpRight className="h-3 w-3" />
                 : <ArrowDownLeft className="h-3 w-3" />}
@@ -289,39 +367,53 @@ function EvalFormInner({
           </div>
         </div>
 
-        {/* ── Sticky audio player ── */}
+        {/* ── Audio player ── */}
         {callData.recording_url && (
           <div
             className="shrink-0 px-8 py-3 border-b flex items-center gap-4"
-            style={{ background: "#1c1c1e", borderColor: "rgba(255,255,255,0.08)" }}
+            style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.05)" }}
           >
             <button
               onClick={togglePlay}
-              className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95"
-              style={{ background: "linear-gradient(135deg, #4ff5df, #22dbc6)" }}
+              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-95"
+              style={{ background: "#5e6ad2" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#828fff"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#5e6ad2"; }}
             >
               {isPlaying
-                ? <Pause className="h-4 w-4" style={{ color: "#00443d" }} />
-                : <Play className="h-4 w-4 ml-0.5" style={{ color: "#00443d" }} />
+                ? <Pause className="h-3.5 w-3.5" style={{ color: "#f7f8f8" }} />
+                : <Play className="h-3.5 w-3.5 ml-0.5" style={{ color: "#f7f8f8" }} />
               }
             </button>
 
             <div className="flex-1 flex flex-col gap-1.5">
               <div
-                className="w-full h-1 rounded-full overflow-hidden cursor-pointer"
+                className="w-full h-px rounded-full overflow-hidden cursor-pointer"
                 style={{ background: "rgba(255,255,255,0.06)" }}
                 onClick={seekAudio}
               >
                 <div
                   className="h-full rounded-full transition-all"
-                  style={{ width: `${audioProgress}%`, background: "#4ff5df", boxShadow: "0 0 6px rgba(79,245,223,0.5)" }}
+                  style={{ width: `${audioProgress}%`, background: "#5e6ad2" }}
                 />
               </div>
               <div className="flex justify-between">
-                <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>
+                <span
+                  className="text-[10px]"
+                  style={{
+                    color: "#62666d",
+                    fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+                  }}
+                >
                   {formatTimestamp(currentTime)}
                 </span>
-                <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>
+                <span
+                  className="text-[10px]"
+                  style={{
+                    color: "#62666d",
+                    fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+                  }}
+                >
                   {formatTimestamp(audioDuration)}
                 </span>
               </div>
@@ -329,10 +421,22 @@ function EvalFormInner({
 
             <button
               onClick={cycleSpeed}
-              className="px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-all"
-              style={{ background: "transparent", color: "#adaaaa", borderColor: "rgba(255,255,255,0.08)" }}
-              onMouseEnter={(e) => { (e.currentTarget).style.color = "#4ff5df"; (e.currentTarget).style.borderColor = "rgba(79,245,223,0.3)"; }}
-              onMouseLeave={(e) => { (e.currentTarget).style.color = "#adaaaa"; (e.currentTarget).style.borderColor = "rgba(255,255,255,0.08)"; }}
+              className="px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest border transition-all"
+              style={{
+                background: "transparent",
+                color: "#8a8f98",
+                borderColor: "rgba(255,255,255,0.08)",
+                fontWeight: 510,
+                fontFeatureSettings: FF,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget).style.color = "#7170ff";
+                (e.currentTarget).style.borderColor = "rgba(113,112,255,0.3)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget).style.color = "#8a8f98";
+                (e.currentTarget).style.borderColor = "rgba(255,255,255,0.08)";
+              }}
             >
               {SPEED_OPTIONS[speedIndex]}×
             </button>
@@ -347,33 +451,40 @@ function EvalFormInner({
           </div>
         )}
 
-        {/* ── Scrollable content: summary + transcript ── */}
+        {/* ── Scrollable: summary + transcript ── */}
         <ScrollArea className="flex-1">
           <div className="px-8 py-6 space-y-6">
 
             {/* AI Summary */}
             {callData.ai_call_summary && (
               <div
-                className="relative rounded-2xl p-5 border-l-4 overflow-hidden"
-                style={{ background: "#1c1c1e", borderLeftColor: "#4ff5df" }}
+                className="relative rounded-lg p-4 overflow-hidden border"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  borderColor: "rgba(255,255,255,0.08)",
+                  borderLeft: "2px solid #7170ff",
+                }}
               >
-                {/* Aurora glow */}
                 <div
-                  className="absolute pointer-events-none"
+                  className="absolute pointer-events-none inset-0"
                   style={{
-                    top: "-20px", left: "-20px", right: "-20px", bottom: "-20px",
-                    background: "radial-gradient(circle at 0% 50%, rgba(79,245,223,0.06) 0%, transparent 60%)",
-                    filter: "blur(20px)",
+                    background: "radial-gradient(circle at 0% 50%, rgba(94,106,210,0.05) 0%, transparent 60%)",
                   }}
                 />
                 <div className="relative z-10">
                   <div className="flex items-center gap-2 mb-2">
-                    <Bot className="h-3.5 w-3.5" style={{ color: "#4ff5df" }} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#4ff5df" }}>
+                    <Bot className="h-3 w-3" style={{ color: "#7170ff" }} />
+                    <span
+                      className="text-[10px] uppercase tracking-widest"
+                      style={{ color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }}
+                    >
                       AI Summary
                     </span>
                   </div>
-                  <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
+                  <p
+                    className="text-xs leading-relaxed"
+                    style={{ color: "#8a8f98", fontFeatureSettings: FF }}
+                  >
                     {callData.ai_call_summary}
                   </p>
                 </div>
@@ -384,14 +495,23 @@ function EvalFormInner({
             <div>
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
-                  <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#ffffff" }}>
+                  <h3
+                    className="text-xs uppercase tracking-widest"
+                    style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+                  >
                     Call Transcript
                   </h3>
-                  <div className="h-px flex-1 w-8" style={{ background: "rgba(79,245,223,0.3)" }} />
+                  <div className="h-px w-8" style={{ background: "rgba(255,255,255,0.06)" }} />
                 </div>
                 <span
-                  className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest"
-                  style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)" }}
+                  className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest border"
+                  style={{
+                    background: "rgba(255,255,255,0.02)",
+                    color: "#62666d",
+                    borderColor: "rgba(255,255,255,0.06)",
+                    fontWeight: 510,
+                    fontFeatureSettings: FF,
+                  }}
                 >
                   Auto-Generated
                 </span>
@@ -399,7 +519,14 @@ function EvalFormInner({
               <div className="space-y-5">
                 {callData.transcript
                   ? formatTranscript(callData.transcript)
-                  : <p className="text-sm italic" style={{ color: "rgba(255,255,255,0.2)" }}>No transcript available</p>
+                  : (
+                    <p
+                      className="text-xs italic"
+                      style={{ color: "#62666d", fontFeatureSettings: FF }}
+                    >
+                      No transcript available
+                    </p>
+                  )
                 }
               </div>
             </div>
@@ -408,28 +535,34 @@ function EvalFormInner({
       </div>
 
       {/* ════════════════════════════════════════════════
-          RIGHT PANEL — 40% — eval fields
+          RIGHT PANEL — 40%
       ════════════════════════════════════════════════ */}
       <div
         className="flex flex-col"
-        style={{ width: "40%", background: "#0a0a0a" }}
+        style={{ width: "40%", background: "#0f1011" }}
       >
         {/* ── Panel header ── */}
         <div
           className="shrink-0 px-5 py-3 border-b"
-          style={{ background: "#0a0a0a", borderColor: "rgba(73,72,71,0.1)" }}
+          style={{ background: "#0f1011", borderColor: "rgba(255,255,255,0.05)" }}
         >
-          <p className="text-[9px] font-bold uppercase tracking-widest mb-0" style={{ color: "#adaaaa" }}>
+          <p
+            className="text-[9px] uppercase tracking-widest"
+            style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+          >
             Review Panel
           </p>
-          <h2 className="text-sm font-extrabold uppercase tracking-tight" style={{ color: "#ffffff" }}>
+          <h2
+            className="text-sm uppercase"
+            style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+          >
             Quality Assurance
           </h2>
         </div>
 
         {/* ── Scrollable fields ── */}
         <ScrollArea className="flex-1">
-          <div className="px-5 py-3 space-y-3">
+          <div className="px-5 py-3 space-y-2.5">
 
             {/* NPS Score */}
             <EvalField
@@ -447,10 +580,15 @@ function EvalFormInner({
                   value={String(fields.nps_score.value ?? "")}
                   onChange={(e) => setField("nps_score", { value: Number(e.target.value) })}
                   placeholder="Corrected NPS (1–10)"
-                  className="w-full rounded-xl px-4 py-2.5 text-sm border transition-all focus:outline-none mt-2"
-                  style={{ background: "#000000", color: "#ffffff", borderColor: "rgba(255,113,108,0.3)" }}
-                  onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "rgba(79,245,223,0.5)"; }}
-                  onBlur={(e)  => { (e.target as HTMLInputElement).style.borderColor = "rgba(255,113,108,0.3)"; }}
+                  className="w-full rounded-md px-3 py-2 text-xs border transition-all focus:outline-none mt-2 placeholder:text-[#62666d]"
+                  style={{
+                    background: "rgba(255,255,255,0.02)",
+                    color: "#d0d6e0",
+                    borderColor: "rgba(255,113,108,0.25)",
+                    fontFeatureSettings: FF,
+                  }}
+                  onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "rgba(113,112,255,0.4)"; }}
+                  onBlur={(e)  => { (e.target as HTMLInputElement).style.borderColor = "rgba(255,113,108,0.25)"; }}
                 />
               )}
             </EvalField>
@@ -471,27 +609,37 @@ function EvalFormInner({
                       onChange={(e) => setField(f.key, { value: e.target.value })}
                       placeholder={`Corrected ${f.label}…`}
                       rows={2}
-                      className="w-full rounded-lg px-3 py-2 text-xs border transition-all focus:outline-none resize-none mt-1"
-                      style={{ background: "#000000", color: "#ffffff", borderColor: "rgba(255,113,108,0.3)" }}
-                      onFocus={(e) => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(79,245,223,0.5)"; }}
-                      onBlur={(e)  => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(255,113,108,0.3)"; }}
+                      className="w-full rounded-md px-3 py-2 text-xs border transition-all focus:outline-none resize-none mt-1 placeholder:text-[#62666d]"
+                      style={{
+                        background: "rgba(255,255,255,0.02)",
+                        color: "#d0d6e0",
+                        borderColor: "rgba(255,113,108,0.25)",
+                        fontFeatureSettings: FF,
+                      }}
+                      onFocus={(e) => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(113,112,255,0.4)"; }}
+                      onBlur={(e)  => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(255,113,108,0.25)"; }}
                     />
                   ) : (
                     <input
                       value={String(fields[f.key].value ?? "")}
                       onChange={(e) => setField(f.key, { value: e.target.value })}
                       placeholder={`Corrected ${f.label}…`}
-                      className="w-full rounded-xl px-4 py-2.5 text-sm border transition-all focus:outline-none mt-2"
-                      style={{ background: "#000000", color: "#ffffff", borderColor: "rgba(255,113,108,0.3)" }}
-                      onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "rgba(79,245,223,0.5)"; }}
-                      onBlur={(e)  => { (e.target as HTMLInputElement).style.borderColor = "rgba(255,113,108,0.3)"; }}
+                      className="w-full rounded-md px-3 py-2 text-xs border transition-all focus:outline-none mt-1 placeholder:text-[#62666d]"
+                      style={{
+                        background: "rgba(255,255,255,0.02)",
+                        color: "#d0d6e0",
+                        borderColor: "rgba(255,113,108,0.25)",
+                        fontFeatureSettings: FF,
+                      }}
+                      onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "rgba(113,112,255,0.4)"; }}
+                      onBlur={(e)  => { (e.target as HTMLInputElement).style.borderColor = "rgba(255,113,108,0.25)"; }}
                     />
                   )
                 )}
               </EvalField>
             ))}
 
-            {/* Positive Mentions — tag selector */}
+            {/* Positive Mentions */}
             <EvalField
               label="Positive Mentions"
               aiValue={positiveTags.length > 0 ? positiveTags.join(", ") : "None detected"}
@@ -508,7 +656,7 @@ function EvalFormInner({
               )}
             </EvalField>
 
-            {/* Detractors — tag selector */}
+            {/* Detractors */}
             <EvalField
               label="Detractors"
               aiValue={detractorTags.length > 0 ? detractorTags.join(", ") : "None detected"}
@@ -525,40 +673,55 @@ function EvalFormInner({
               )}
             </EvalField>
 
-            {/* ── Not Incomplete ── */}
+            {/* Not Incomplete toggle */}
             <div
-              className="rounded-lg border space-y-2 overflow-hidden"
-              style={{ background: "#000000", borderColor: isNotIncomplete ? "rgba(73,72,71,0.1)" : "rgba(255,113,108,0.2)" }}
+              className="rounded-md border overflow-hidden"
+              style={{
+                background: "rgba(255,255,255,0.02)",
+                borderColor: isNotIncomplete ? "rgba(255,255,255,0.08)" : "rgba(255,113,108,0.2)",
+              }}
             >
               <div className="flex items-center justify-between px-3 py-2">
-                <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.5)" }}>
+                <span
+                  className="text-[9px] uppercase tracking-widest"
+                  style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
+                >
                   Not Incomplete
                 </span>
                 {!isReadOnly ? (
                   <button
                     onClick={() => { setIsNotIncomplete((v) => !v); setIncompleteReason(""); }}
                     className="relative inline-flex h-5 w-9 items-center rounded-full transition-all shrink-0"
-                    style={{ background: isNotIncomplete ? "#4ff5df" : "rgba(255,113,108,0.6)" }}
+                    style={{ background: isNotIncomplete ? "#5e6ad2" : "rgba(255,113,108,0.5)" }}
                   >
                     <span
                       className="inline-block h-3.5 w-3.5 rounded-full transition-transform"
                       style={{
                         transform: isNotIncomplete ? "translateX(20px)" : "translateX(2px)",
-                        background: "#ffffff",
+                        background: "#f7f8f8",
                       }}
                     />
                   </button>
                 ) : (
-                  <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: isNotIncomplete ? "#4ff5df" : "#ff716c" }}>
+                  <span
+                    className="text-[10px] uppercase tracking-widest"
+                    style={{
+                      color: isNotIncomplete ? "#10b981" : "#ff716c",
+                      fontWeight: 510,
+                      fontFeatureSettings: FF,
+                    }}
+                  >
                     {isNotIncomplete ? "Yes" : "No"}
                   </span>
                 )}
               </div>
 
-              {/* Reason picker — only when incomplete */}
               {!isNotIncomplete && !isReadOnly && (
-                <div className="px-3 pb-2 space-y-1.5">
-                  <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "#adaaaa" }}>
+                <div className="px-3 pb-2.5 space-y-2">
+                  <p
+                    className="text-[9px] uppercase tracking-widest"
+                    style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+                  >
                     Reason
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -567,11 +730,23 @@ function EvalFormInner({
                         key={reason}
                         type="button"
                         onClick={() => setIncompleteReason(reason)}
-                        className="px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all active:scale-95 border"
+                        className="px-2.5 py-1 rounded-full text-[9px] uppercase tracking-wider transition-all active:scale-95 border"
                         style={
                           incompleteReason === reason
-                            ? { background: "rgba(255,113,108,0.2)", color: "#ff716c", borderColor: "transparent" }
-                            : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", borderColor: "rgba(255,255,255,0.06)" }
+                            ? {
+                                background: "rgba(255,113,108,0.12)",
+                                color: "#ff716c",
+                                borderColor: "rgba(255,113,108,0.2)",
+                                fontWeight: 510,
+                                fontFeatureSettings: FF,
+                              }
+                            : {
+                                background: "rgba(255,255,255,0.02)",
+                                color: "#62666d",
+                                borderColor: "rgba(255,255,255,0.08)",
+                                fontWeight: 510,
+                                fontFeatureSettings: FF,
+                              }
                         }
                       >
                         {reason}
@@ -582,7 +757,7 @@ function EvalFormInner({
               )}
             </div>
 
-            {/* ── DNC Request ── */}
+            {/* DNC Request */}
             <SimpleBoolRow
               label="DNC Request"
               value={isDncRequest}
@@ -590,28 +765,34 @@ function EvalFormInner({
               readOnly={isReadOnly}
             />
 
-            {/* ── Escalation Needed ── */}
+            {/* Escalation Needed */}
             <SimpleBoolRow
               label="Escalation Needed"
               value={escalationNeeded}
               onChange={setEscalationNeeded}
               readOnly={isReadOnly}
             />
-
           </div>
         </ScrollArea>
 
         {/* ── Submit footer ── */}
         <div
           className="shrink-0 px-5 py-3 border-t space-y-1.5"
-          style={{ background: "#050505", borderColor: "rgba(73,72,71,0.1)" }}
+          style={{ background: "#0f1011", borderColor: "rgba(255,255,255,0.05)" }}
         >
           <button
-            className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-2.5 rounded-md text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
-              background: "linear-gradient(135deg, #4ff5df, #22dbc6)",
-              color: "#00594f",
-              boxShadow: "0 8px 32px rgba(79,245,223,0.2)",
+              background: "#5e6ad2",
+              color: "#f7f8f8",
+              fontWeight: 510,
+              fontFeatureSettings: FF,
+            }}
+            onMouseEnter={(e) => {
+              if (!submitEval.isPending) (e.currentTarget as HTMLButtonElement).style.background = "#828fff";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "#5e6ad2";
             }}
             onClick={isReadOnly ? () => navigate(-1) : handleSubmit}
             disabled={submitEval.isPending}
@@ -625,10 +806,10 @@ function EvalFormInner({
           </button>
           {!isReadOnly && (
             <button
-              className="w-full py-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
-              style={{ color: "rgba(255,255,255,0.2)" }}
-              onMouseEnter={(e) => { (e.currentTarget).style.color = "rgba(255,255,255,0.5)"; }}
-              onMouseLeave={(e) => { (e.currentTarget).style.color = "rgba(255,255,255,0.2)"; }}
+              className="w-full py-2 text-[10px] uppercase tracking-widest transition-colors"
+              style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+              onMouseEnter={(e) => { (e.currentTarget).style.color = "#8a8f98"; }}
+              onMouseLeave={(e) => { (e.currentTarget).style.color = "#62666d"; }}
               onClick={() => navigate("/calls")}
             >
               Cancel
@@ -636,33 +817,47 @@ function EvalFormInner({
           )}
         </div>
       </div>
-
     </div>
   );
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  Stat pill                                                           */
+/*  StatPill                                                            */
 /* ──────────────────────────────────────────────────────────────────── */
 function StatPill({
-  label, value, teal, highlight, icon,
+  label, value, accent, highlight, icon,
 }: {
-  label: string; value: string; teal?: boolean; highlight?: boolean; icon?: React.ReactNode;
+  label: string; value: string; accent?: boolean; highlight?: boolean; icon?: React.ReactNode;
 }) {
   return (
     <div
-      className="px-4 py-2 rounded-xl flex items-center gap-2 border"
+      className="px-3 py-1.5 rounded-md flex items-center gap-2 border"
       style={{
-        background: highlight ? "rgba(79,245,223,0.06)" : "#131313",
-        borderColor: highlight ? "rgba(79,245,223,0.2)" : "rgba(73,72,71,0.1)",
+        background: highlight
+          ? "rgba(113,112,255,0.06)"
+          : accent
+            ? "rgba(113,112,255,0.04)"
+            : "rgba(255,255,255,0.02)",
+        borderColor: highlight
+          ? "rgba(113,112,255,0.2)"
+          : accent
+            ? "rgba(113,112,255,0.12)"
+            : "rgba(255,255,255,0.08)",
       }}
     >
-      <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+      <span
+        className="text-[10px] uppercase tracking-widest"
+        style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+      >
         {label}
       </span>
       <span
-        className="text-sm font-bold flex items-center gap-1"
-        style={{ color: teal || highlight ? "#4ff5df" : "#ffffff" }}
+        className="text-xs flex items-center gap-1"
+        style={{
+          color: accent || highlight ? "#7170ff" : "#f7f8f8",
+          fontWeight: 510,
+          fontFeatureSettings: '"cv01", "ss03"',
+        }}
       >
         {icon}{value}
       </span>
@@ -671,7 +866,7 @@ function StatPill({
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  Eval field block                                                    */
+/*  EvalField                                                           */
 /* ──────────────────────────────────────────────────────────────────── */
 function EvalField({
   label, aiValue, correct, onToggle, children, readOnly, highlight,
@@ -682,9 +877,11 @@ function EvalField({
 }) {
   return (
     <div className="space-y-1">
-      {/* Label + toggles */}
       <div className="flex items-center justify-between">
-        <label className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "#adaaaa" }}>
+        <label
+          className="text-[9px] uppercase tracking-widest"
+          style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+        >
           {label}
         </label>
         {!readOnly && (
@@ -694,11 +891,21 @@ function EvalField({
               className="w-6 h-6 rounded-full flex items-center justify-center transition-all"
               style={
                 correct
-                  ? { background: "#4ff5df", color: "#00443d" }
-                  : { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }
+                  ? { background: "#10b981", color: "#f7f8f8" }
+                  : { background: "rgba(255,255,255,0.05)", color: "#62666d" }
               }
-              onMouseEnter={(e) => { if (!correct) { (e.currentTarget as HTMLButtonElement).style.background = "rgba(79,245,223,0.15)"; (e.currentTarget as HTMLButtonElement).style.color = "#4ff5df"; } }}
-              onMouseLeave={(e) => { if (!correct) { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.3)"; } }}
+              onMouseEnter={(e) => {
+                if (!correct) {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(16,185,129,0.15)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#10b981";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!correct) {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#62666d";
+                }
+              }}
             >
               <Check className="h-3 w-3" />
             </button>
@@ -707,11 +914,21 @@ function EvalField({
               className="w-6 h-6 rounded-full flex items-center justify-center transition-all"
               style={
                 !correct
-                  ? { background: "rgba(255,113,108,0.8)", color: "#ffffff" }
-                  : { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }
+                  ? { background: "rgba(255,113,108,0.7)", color: "#f7f8f8" }
+                  : { background: "rgba(255,255,255,0.05)", color: "#62666d" }
               }
-              onMouseEnter={(e) => { if (correct) { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,113,108,0.15)"; (e.currentTarget as HTMLButtonElement).style.color = "#ff716c"; } }}
-              onMouseLeave={(e) => { if (correct) { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.3)"; } }}
+              onMouseEnter={(e) => {
+                if (correct) {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,113,108,0.15)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#ff716c";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (correct) {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#62666d";
+                }
+              }}
             >
               <X className="h-3 w-3" />
             </button>
@@ -719,21 +936,24 @@ function EvalField({
         )}
       </div>
 
-      {/* AI value display */}
+      {/* AI value */}
       <div
-        className="px-3 py-2 rounded-lg border transition-all"
+        className="px-3 py-2 rounded-md border transition-all"
         style={{
-          background: "#000000",
+          background: "rgba(255,255,255,0.02)",
           borderColor: !correct
             ? "rgba(255,113,108,0.2)"
             : highlight
-              ? "rgba(79,245,223,0.15)"
-              : "rgba(73,72,71,0.1)",
+              ? "rgba(113,112,255,0.15)"
+              : "rgba(255,255,255,0.08)",
         }}
       >
         <p
-          className="text-xs font-medium leading-snug line-clamp-2"
-          style={{ color: highlight ? "#4ff5df" : "rgba(255,255,255,0.55)" }}
+          className="text-xs leading-snug line-clamp-2"
+          style={{
+            color: highlight ? "#7170ff" : "#8a8f98",
+            fontFeatureSettings: '"cv01", "ss03"',
+          }}
         >
           {aiValue}
         </p>
@@ -745,7 +965,7 @@ function EvalField({
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  Simple bool row — direct toggle, no AI value tracking             */
+/*  SimpleBoolRow                                                       */
 /* ──────────────────────────────────────────────────────────────────── */
 function SimpleBoolRow({
   label, value, onChange, readOnly,
@@ -754,30 +974,40 @@ function SimpleBoolRow({
 }) {
   return (
     <div
-      className="flex items-center justify-between px-3 py-2 rounded-lg border"
-      style={{ background: "#000000", borderColor: value ? "rgba(255,113,108,0.2)" : "rgba(73,72,71,0.1)" }}
+      className="flex items-center justify-between px-3 py-2 rounded-md border"
+      style={{
+        background: "rgba(255,255,255,0.02)",
+        borderColor: value ? "rgba(255,113,108,0.2)" : "rgba(255,255,255,0.08)",
+      }}
     >
-      <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.5)" }}>
+      <span
+        className="text-[9px] uppercase tracking-widest"
+        style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+      >
         {label}
       </span>
       {!readOnly ? (
         <button
           onClick={() => onChange(!value)}
           className="relative inline-flex h-5 w-9 items-center rounded-full transition-all shrink-0"
-          style={{ background: value ? "rgba(255,113,108,0.6)" : "rgba(255,255,255,0.08)" }}
+          style={{ background: value ? "rgba(255,113,108,0.5)" : "rgba(255,255,255,0.08)" }}
         >
           <span
             className="inline-block h-3.5 w-3.5 rounded-full transition-transform"
             style={{
               transform: value ? "translateX(20px)" : "translateX(2px)",
-              background: value ? "#ffffff" : "rgba(255,255,255,0.4)",
+              background: value ? "#f7f8f8" : "rgba(255,255,255,0.3)",
             }}
           />
         </button>
       ) : (
         <span
-          className="text-[10px] font-bold uppercase tracking-widest"
-          style={{ color: value ? "#ff716c" : "rgba(255,255,255,0.25)" }}
+          className="text-[10px] uppercase tracking-widest"
+          style={{
+            color: value ? "#ff716c" : "#62666d",
+            fontWeight: 510,
+            fontFeatureSettings: '"cv01", "ss03"',
+          }}
         >
           {value ? "Yes" : "No"}
         </span>
@@ -787,42 +1017,53 @@ function SimpleBoolRow({
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  Tag selector — clickable chip multi-select                         */
+/*  TagSelector                                                         */
 /* ──────────────────────────────────────────────────────────────────── */
 function TagSelector({
-  selected,
-  onChange,
-  variant,
+  selected, onChange, variant,
 }: {
-  selected: string[];
-  onChange: (tags: string[]) => void;
-  variant: "positive" | "detractor";
+  selected: string[]; onChange: (tags: string[]) => void; variant: "positive" | "detractor";
 }) {
   const toggle = (tag: string) => {
     if (selected.includes(tag)) onChange(selected.filter((t) => t !== tag));
     else onChange([...selected, tag]);
   };
 
-  const activeStyle  = variant === "positive"
-    ? { background: "#0b5345",              color: "#a1e1cf" }
-    : { background: "rgba(255,113,108,0.2)", color: "#ff716c" };
-
-  const inactiveStyle = { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)" };
-
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       {EVAL_TAGS.map((tag) => {
         const isActive = selected.includes(tag);
+        const activeStyle = variant === "positive"
+          ? {
+              background: "rgba(16,185,129,0.12)",
+              color: "#10b981",
+              borderColor: "rgba(16,185,129,0.2)",
+              fontWeight: 510,
+              fontFeatureSettings: '"cv01", "ss03"',
+            }
+          : {
+              background: "rgba(255,113,108,0.12)",
+              color: "#ff716c",
+              borderColor: "rgba(255,113,108,0.2)",
+              fontWeight: 510,
+              fontFeatureSettings: '"cv01", "ss03"',
+            };
         return (
           <button
             key={tag}
             type="button"
             onClick={() => toggle(tag)}
-            className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95 border"
+            className="px-2.5 py-1 rounded-full text-[9px] uppercase tracking-wider transition-all active:scale-95 border"
             style={
               isActive
-                ? { ...activeStyle, borderColor: "transparent" }
-                : { ...inactiveStyle, borderColor: "rgba(255,255,255,0.06)" }
+                ? activeStyle
+                : {
+                    background: "rgba(255,255,255,0.02)",
+                    color: "#62666d",
+                    borderColor: "rgba(255,255,255,0.08)",
+                    fontWeight: 510,
+                    fontFeatureSettings: '"cv01", "ss03"',
+                  }
             }
           >
             {tag}
@@ -851,24 +1092,42 @@ function formatTranscript(transcript: string): React.ReactNode {
       return (
         <div key={i} className="flex gap-3 max-w-[85%] ml-auto flex-row-reverse">
           <div
-            className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
-            style={{ background: "linear-gradient(135deg, #4ff5df, #22dbc6)", color: "#00443d" }}
+            className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px]"
+            style={{ background: "#5e6ad2", color: "#f7f8f8", fontWeight: 590 }}
           >
             C
           </div>
           <div className="space-y-1 text-right">
             <div className="flex items-center gap-2 justify-end">
-              <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.2)" }}>{timestamp}</span>
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#4ff5df" }}>Customer</span>
+              <span
+                className="text-[10px]"
+                style={{
+                  color: "#62666d",
+                  fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+                }}
+              >
+                {timestamp}
+              </span>
+              <span
+                className="text-[10px] uppercase tracking-widest"
+                style={{ color: "#7170ff", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+              >
+                Customer
+              </span>
             </div>
             <div
               className="px-4 py-3 rounded-2xl rounded-tr-sm"
               style={{
-                background: "linear-gradient(135deg, rgba(79,245,223,0.15), rgba(34,219,198,0.1))",
-                border: "1px solid rgba(79,245,223,0.2)",
+                background: "rgba(94,106,210,0.1)",
+                border: "1px solid rgba(113,112,255,0.2)",
               }}
             >
-              <p className="text-sm leading-relaxed text-left" style={{ color: "#ffffff" }}>{text}</p>
+              <p
+                className="text-sm leading-relaxed text-left"
+                style={{ color: "#d0d6e0", fontFeatureSettings: '"cv01", "ss03"' }}
+              >
+                {text}
+              </p>
             </div>
           </div>
         </div>
@@ -879,32 +1138,54 @@ function formatTranscript(transcript: string): React.ReactNode {
       return (
         <div key={i} className="flex gap-3 max-w-[85%]">
           <div
-            className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-            style={{ background: "#1c1c1e", border: "1px solid rgba(79,245,223,0.15)" }}
+            className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center border"
+            style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
           >
-            <Bot className="h-3.5 w-3.5" style={{ color: "#4ff5df" }} />
+            <Bot className="h-3.5 w-3.5" style={{ color: "#62666d" }} />
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+              <span
+                className="text-[10px] uppercase tracking-widest"
+                style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+              >
                 System Agent
               </span>
-              <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.2)" }}>{timestamp}</span>
+              <span
+                className="text-[10px]"
+                style={{
+                  color: "#62666d",
+                  fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+                }}
+              >
+                {timestamp}
+              </span>
             </div>
             <div
               className="px-4 py-3 rounded-2xl rounded-tl-sm"
-              style={{ background: "#222121", border: "1px solid rgba(73,72,71,0.12)" }}
+              style={{
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
             >
-              <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.65)" }}>{text}</p>
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: "#8a8f98", fontFeatureSettings: '"cv01", "ss03"' }}
+              >
+                {text}
+              </p>
             </div>
           </div>
         </div>
       );
     }
 
-    // Unrecognised line format — render as a plain system note rather than dropping it.
     return (
-      <div key={i} className="px-4 py-2 text-xs" style={{ color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>
+      <div
+        key={i}
+        className="px-4 py-2 text-xs italic"
+        style={{ color: "#62666d", fontFeatureSettings: '"cv01", "ss03"' }}
+      >
         {line}
       </div>
     );
@@ -918,29 +1199,38 @@ function formatTimestamp(totalSeconds: number): string {
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  Loading skeleton                                                    */
+/*  EvalSkeleton                                                        */
 /* ──────────────────────────────────────────────────────────────────── */
 function EvalSkeleton() {
   return (
     <div className="flex overflow-hidden" style={{ height: "calc(100vh - 4rem)" }}>
-      <div className="flex flex-col gap-6 px-8 py-6" style={{ width: "60%" }}>
+      <div className="flex flex-col gap-6 px-8 py-6" style={{ width: "60%", background: "#0f1011" }}>
         <div className="space-y-3">
           <Skeleton className="h-5 w-40" style={{ background: "rgba(255,255,255,0.05)" }} />
           <Skeleton className="h-8 w-80" style={{ background: "rgba(255,255,255,0.05)" }} />
           <div className="flex gap-3">
-            {[1,2,3].map((i) => <Skeleton key={i} className="h-10 w-28 rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }} />)}
+            {[1,2,3].map((i) => (
+              <Skeleton key={i} className="h-9 w-28 rounded-md" style={{ background: "rgba(255,255,255,0.05)" }} />
+            ))}
           </div>
         </div>
-        <Skeleton className="h-20 w-full rounded-2xl" style={{ background: "rgba(255,255,255,0.05)" }} />
-        <Skeleton className="h-10 w-full rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }} />
-        <div className="space-y-4">
-          {[1,2,3,4].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" style={{ background: "rgba(255,255,255,0.05)" }} />)}
+        <Skeleton className="h-16 w-full rounded-lg" style={{ background: "rgba(255,255,255,0.05)" }} />
+        <Skeleton className="h-8 w-full rounded-md" style={{ background: "rgba(255,255,255,0.05)" }} />
+        <div className="space-y-3">
+          {[1,2,3,4].map((i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-lg" style={{ background: "rgba(255,255,255,0.05)" }} />
+          ))}
         </div>
       </div>
-      <div className="flex flex-col gap-4 px-7 py-6" style={{ width: "40%", background: "#0a0a0a" }}>
-        <Skeleton className="h-5 w-28" style={{ background: "rgba(255,255,255,0.05)" }} />
-        <Skeleton className="h-6 w-44" style={{ background: "rgba(255,255,255,0.05)" }} />
-        {[1,2,3,4,5].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }} />)}
+      <div
+        className="flex flex-col gap-4 px-5 py-4 border-l"
+        style={{ width: "40%", background: "#0f1011", borderColor: "rgba(255,255,255,0.05)" }}
+      >
+        <Skeleton className="h-4 w-24" style={{ background: "rgba(255,255,255,0.05)" }} />
+        <Skeleton className="h-5 w-40" style={{ background: "rgba(255,255,255,0.05)" }} />
+        {[1,2,3,4,5].map((i) => (
+          <Skeleton key={i} className="h-14 w-full rounded-md" style={{ background: "rgba(255,255,255,0.05)" }} />
+        ))}
       </div>
     </div>
   );

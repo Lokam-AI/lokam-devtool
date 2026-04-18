@@ -7,6 +7,7 @@ from datetime import date, timedelta
 logging.basicConfig(level=logging.WARNING)
 
 from app.core.database import AsyncSessionLocal  # noqa: E402
+from app.services.bug_sync_service import sync_bugs_for_date  # noqa: E402
 from app.services.call_sync_service import sync_calls_for_date  # noqa: E402
 
 
@@ -19,26 +20,43 @@ def _parse_date() -> date:
 
 
 async def main() -> None:
-    """Fetch call data for the target date and store it in our DB."""
+    """Fetch call and bug data for the target date and store in DB."""
     target = _parse_date()
-    print(f"\n{'='*50}")
-    print(f"  Call Sync — {target}")
-    print(f"{'='*50}\n")
 
-    async with AsyncSessionLocal() as session:
+    async with AsyncSessionLocal() as call_session:
         try:
-            summary = await sync_calls_for_date(session, target)
-            await session.commit()
-
-            total = sum(summary.values())
+            call_summary = await sync_calls_for_date(call_session, target)
+            await call_session.commit()
+            total = sum(call_summary.values())
+            print(f"\n{'='*50}")
+            print(f"  Call Sync — {target}")
+            print(f"{'='*50}")
             print(f"\n{'—'*50}")
-            print(f"  Done! {total} calls synced across {len(summary)} env(s)")
-            for env_name, count in summary.items():
+            print(f"  Done! {total} calls synced across {len(call_summary)} env(s)")
+            for env_name, count in call_summary.items():
                 print(f"    {env_name}: {count} calls")
             print(f"{'—'*50}\n")
         except Exception as e:
-            await session.rollback()
-            print(f"\n  ERROR: {e}\n")
+            await call_session.rollback()
+            print(f"\n  ERROR (calls): {e}\n")
+            raise
+
+    async with AsyncSessionLocal() as bug_session:
+        try:
+            bug_summary = await sync_bugs_for_date(bug_session, target)
+            await bug_session.commit()
+            total = sum(bug_summary.values())
+            print(f"\n{'='*50}")
+            print(f"  Bug Sync — {target}")
+            print(f"{'='*50}")
+            print(f"\n{'—'*50}")
+            print(f"  Done! {total} bugs synced across {len(bug_summary)} env(s)")
+            for env_name, count in bug_summary.items():
+                print(f"    {env_name}: {count} bugs")
+            print(f"{'—'*50}\n")
+        except Exception as e:
+            await bug_session.rollback()
+            print(f"\n  ERROR (bugs): {e}\n")
             raise
 
 if __name__ == "__main__":

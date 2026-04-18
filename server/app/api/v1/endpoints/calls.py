@@ -3,6 +3,8 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+PAGE_SIZE = 30
+
 from app.dependencies import get_current_user, get_db, require_admin
 from app.exceptions import NotFoundError
 from app.models.user import User
@@ -29,13 +31,23 @@ async def list_calls(
 async def list_all_calls(
     source_env: str | None = Query(default=None),
     call_status: str | None = Query(default=None),
-    limit: int = Query(default=200, le=500),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    search: str | None = Query(default=None),
+    organization_name: str | None = Query(default=None),
+    nps_filter: str | None = Query(default=None),
+    sort_by: str = Query(default="date"),
+    sort_dir: str = Query(default="desc"),
+    limit: int = Query(default=PAGE_SIZE, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> list[RawCallRead]:
-    """Return all raw calls with optional filters; admin+ only."""
-    rows = await raw_call_repo.list_all(db, source_env, call_status, limit, offset)
+    """Return all raw calls with optional filters and pagination; admin+ only."""
+    rows = await raw_call_repo.list_all(
+        db, source_env, call_status, date_from, date_to,
+        search, organization_name, nps_filter, sort_by, sort_dir, limit, offset,
+    )
     return [RawCallRead.model_validate(r) for r in rows]
 
 
@@ -43,11 +55,18 @@ async def list_all_calls(
 async def count_all_calls(
     source_env: str | None = Query(default=None),
     call_status: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    search: str | None = Query(default=None),
+    organization_name: str | None = Query(default=None),
+    nps_filter: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> dict[str, int]:
     """Return count of all raw calls matching filters; admin+ only."""
-    total = await raw_call_repo.count_all(db, source_env, call_status)
+    total = await raw_call_repo.count_all(
+        db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter,
+    )
     return {"count": total}
 
 

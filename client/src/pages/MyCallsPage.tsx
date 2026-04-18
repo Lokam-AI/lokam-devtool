@@ -1,73 +1,81 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCalls } from "@/hooks/use-calls";
+import { format } from "date-fns";
+import { useCalls, useCallsCount } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
-import type { DateRange } from "react-day-picker";
+import { CallFilterBar, CallFilterState, DEFAULT_FILTERS } from "@/components/ui/call-filters";
 import {
   ArrowUpRight,
   ArrowDownLeft,
-  Search,
   Inbox,
   ChevronLeft,
   ChevronRight,
   TrendingUp,
-  Filter,
 } from "lucide-react";
 
 const PAGE_SIZE = 15;
 
+const FF = '"cv01", "ss03"' as const;
+
+function thisMonthRange(): DateRange {
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return { from, to };
+}
+
 export default function MyCallsPage() {
-  const { data, isLoading, isError } = useCalls();
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<CallFilterState>(() => ({ ...DEFAULT_FILTERS, dateRange: thisMonthRange() }));
   const [page, setPage] = useState(1);
-  const [showFilters, setShowFilters] = useState(false);
 
-  useEffect(() => {
-    setPage(1);
-  }, [statusFilter, dateRange, searchQuery]);
+  useEffect(() => { setPage(1); }, [filters]);
 
-  const filtered = useMemo(() => {
-    return data?.filter((c) => {
-      if (statusFilter !== "all" && c.eval.status !== statusFilter) return false;
-      if (dateRange?.from) {
-        const callDate = new Date(c.call.date);
-        const from = new Date(dateRange.from); from.setHours(0, 0, 0, 0);
-        const to = dateRange.to ? new Date(dateRange.to) : new Date(from);
-        to.setHours(23, 59, 59, 999);
-        if (callDate < from || callDate > to) return false;
-      }
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        return (
-          c.call.call_id.toLowerCase().includes(q) ||
-          c.call.campaign.toLowerCase().includes(q) ||
-          c.call.organization_name.toLowerCase().includes(q) ||
-          c.call.rooftop_name.toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [data, statusFilter, dateRange, searchQuery]);
+  const callParams = useMemo(() => ({
+    eval_status:       filters.evalStatus !== "all" ? filters.evalStatus : undefined,
+    date_from:         filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : undefined,
+    date_to:           filters.dateRange?.to   ? format(filters.dateRange.to,   "yyyy-MM-dd") : undefined,
+    search:            filters.search || undefined,
+    organization_name: filters.org !== "all" ? filters.org : undefined,
+    nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter : undefined,
+    sort_by:           filters.sortBy,
+    sort_dir:          filters.sortDir,
+    limit:             PAGE_SIZE,
+    offset:            (page - 1) * PAGE_SIZE,
+  }), [filters, page]);
 
-  const totalPages = Math.max(1, Math.ceil((filtered?.length ?? 0) / PAGE_SIZE));
+  const countParams = useMemo(() => ({
+    eval_status:       filters.evalStatus !== "all" ? filters.evalStatus : undefined,
+    date_from:         filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : undefined,
+    date_to:           filters.dateRange?.to   ? format(filters.dateRange.to,   "yyyy-MM-dd") : undefined,
+    search:            filters.search || undefined,
+    organization_name: filters.org !== "all" ? filters.org : undefined,
+    nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter : undefined,
+  }), [filters]);
+
+  const { data, isLoading, isError } = useCalls(callParams);
+  const { data: totalCount } = useCallsCount(countParams);
+
+  const totalPages = Math.max(1, Math.ceil((totalCount ?? 0) / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const paginated = filtered?.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const paginated = data ?? [];
 
   const stats = useMemo(() => {
-    if (!data) return { total: 0, pending: 0, completed: 0, avgDuration: 0 };
-    const total = data.length;
-    const completed = data.filter((c) => c.eval.status === "completed").length;
-    const pending = total - completed;
-    const totalDuration = data.reduce((sum, c) => sum + c.call.duration, 0);
-    const avgDuration = total > 0 ? Math.round(totalDuration / total) : 0;
+    const total = totalCount ?? 0;
+    const completed = (data ?? []).filter((c) => c.eval.status === "completed").length;
+    const pending = (data ?? []).filter((c) => c.eval.status === "pending").length;
+    const totalDuration = (data ?? []).reduce((sum, c) => sum + c.call.duration, 0);
+    const avgDuration = (data ?? []).length > 0 ? Math.round(totalDuration / (data ?? []).length) : 0;
     return { total, pending, completed, avgDuration };
-  }, [data]);
+  }, [data, totalCount]);
 
-  const hasFilters = statusFilter !== "all" || !!dateRange?.from || searchQuery;
+  const orgOptions = useMemo(() =>
+    [...new Set((data ?? []).map((c) => c.call.organization_name).filter(Boolean))].sort(),
+  [data]);
+
+  const hasFilters =
+    filters.search || filters.evalStatus !== "all" || filters.npsFilter !== "all" ||
+    filters.org !== "all" || !!filters.dateRange?.from || filters.sortBy !== "date" || filters.sortDir !== "desc";
 
   const visiblePages = useMemo(() => {
     if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -79,7 +87,10 @@ export default function MyCallsPage() {
   if (isError) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: "#ff716c" }}>
+        <p
+          className="text-xs uppercase tracking-widest"
+          style={{ color: "#ff716c", fontWeight: 510, fontFeatureSettings: FF }}
+        >
           Failed to load calls. Please refresh the page.
         </p>
       </div>
@@ -90,117 +101,58 @@ export default function MyCallsPage() {
     <div className="flex flex-col gap-8 animate-in fade-in duration-500">
 
       {/* ── Header ───────────────────────────────────────────────────── */}
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-[0.02em]" style={{ color: "#ffffff" }}>
-            Reviewer Call Queue
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "#adaaaa" }}>
-            Managing developer support sessions and automated system logs.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
-
-          {/* Filters toggle */}
-          <button
-            className="px-4 py-2 rounded-xl flex items-center gap-2 text-sm transition-all border"
-            style={{
-              background: showFilters ? "rgba(79,245,223,0.08)" : "rgba(255,255,255,0.05)",
-              color: showFilters ? "#4ff5df" : "#adaaaa",
-              borderColor: showFilters ? "rgba(79,245,223,0.3)" : "rgba(73,72,71,0.2)",
-            }}
-            onClick={() => setShowFilters((v) => !v)}
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-            {hasFilters && (
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ background: "#4ff5df" }}
-              />
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Expanded filter bar ──────────────────────────────────────── */}
-      {showFilters && (
-        <div
-          className="flex items-center gap-3 p-4 rounded-xl border animate-in fade-in slide-in-from-top-2 duration-200"
-          style={{ background: "#131313", borderColor: "rgba(73,72,71,0.2)" }}
+      <div>
+        <h1
+          className="text-3xl"
+          style={{
+            color: "#f7f8f8",
+            fontWeight: 510,
+            letterSpacing: "-0.704px",
+            fontFeatureSettings: FF,
+          }}
         >
-          <div
-            className="flex items-center gap-2 px-4 py-2 rounded-xl flex-1 max-w-xs border focus-within:border-[#4ff5df]/50 transition-all"
-            style={{ background: "#000000", borderColor: "rgba(255,255,255,0.05)" }}
-          >
-            <Search className="h-3.5 w-3.5 shrink-0" style={{ color: "#adaaaa" }} />
-            <input
-              className="bg-transparent border-none text-xs focus:outline-none w-full"
-              style={{ color: "#ffffff" }}
-              placeholder="Search call records..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          <select
-            className="px-4 py-2 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer border appearance-none"
-            style={{
-              background: "#000000",
-              color: "#adaaaa",
-              borderColor: "rgba(255,255,255,0.05)",
-            }}
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          >
-            <option value="all"       style={{ background: "#1c1c1e" }}>All Status</option>
-            <option value="pending"   style={{ background: "#1c1c1e" }}>Pending</option>
-            <option value="completed" style={{ background: "#1c1c1e" }}>Completed</option>
-          </select>
-
-          {hasFilters && (
-            <button
-              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
-              style={{ color: "#adaaaa" }}
-              onMouseEnter={(e) => { (e.currentTarget).style.color = "#ffffff"; }}
-              onMouseLeave={(e) => { (e.currentTarget).style.color = "#adaaaa"; }}
-              onClick={() => { setStatusFilter("all"); setDateRange(undefined); setSearchQuery(""); }}
-            >
-              Clear
-            </button>
-          )}
-        </div>
-      )}
+          Reviewer Call Queue
+        </h1>
+        <p
+          className="mt-1.5 text-sm"
+          style={{ color: "#8a8f98", fontWeight: 400, fontFeatureSettings: FF }}
+        >
+          Managing developer support sessions and automated system logs.
+        </p>
+      </div>
 
       {/* ── Metric cards ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Calls — aurora glow */}
+        {/* Total Calls */}
         <div
-          className="relative overflow-hidden p-5 rounded-xl border"
-          style={{ background: "#131313", borderColor: "rgba(73,72,71,0.1)" }}
+          className="relative overflow-hidden p-5 rounded-lg border"
+          style={{
+            background: "#191a1b",
+            borderColor: "rgba(255,255,255,0.08)",
+          }}
         >
-          {/* Aurora glow */}
-          <div
-            className="absolute -top-10 -right-10 w-[150px] h-[150px] rounded-full pointer-events-none"
-            style={{ background: "#22dbc6", filter: "blur(80px)", opacity: 0.15 }}
-          />
           <p
-            className="uppercase tracking-[0.05em] text-[0.6875rem] font-semibold mb-2"
-            style={{ color: "#adaaaa" }}
+            className="uppercase tracking-[0.08em] text-[10px] mb-3"
+            style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
           >
             Total Calls
           </p>
-          <div className="flex items-center justify-between relative z-10">
+          <div className="flex items-center justify-between">
             {isLoading ? (
-              <Skeleton className="h-8 w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
+              <Skeleton className="h-7 w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
             ) : (
-              <h2 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+              <h2
+                className="text-2xl"
+                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+              >
                 {stats.total.toLocaleString()}
               </h2>
             )}
-            <span className="text-xs font-medium flex items-center gap-1" style={{ color: "#4ff5df" }}>
-              <TrendingUp className="h-3.5 w-3.5" />
+            <span
+              className="text-[10px] flex items-center gap-1"
+              style={{ color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              <TrendingUp className="h-3 w-3" />
               LIVE
             </span>
           </div>
@@ -208,27 +160,34 @@ export default function MyCallsPage() {
 
         {/* Pending Review */}
         <div
-          className="p-5 rounded-xl border"
-          style={{ background: "#131313", borderColor: "rgba(73,72,71,0.1)" }}
+          className="p-5 rounded-lg border"
+          style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
         >
           <p
-            className="uppercase tracking-[0.05em] text-[0.6875rem] font-semibold mb-2"
-            style={{ color: "#adaaaa" }}
+            className="uppercase tracking-[0.08em] text-[10px] mb-3"
+            style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
           >
             Pending Review
           </p>
           <div className="flex items-center justify-between">
             {isLoading ? (
-              <Skeleton className="h-8 w-10" style={{ background: "rgba(255,255,255,0.05)" }} />
+              <Skeleton className="h-7 w-10" style={{ background: "rgba(255,255,255,0.05)" }} />
             ) : (
-              <h2 className="text-2xl font-bold" style={{ color: stats.pending > 0 ? "#ff716c" : "#ffffff" }}>
+              <h2
+                className="text-2xl"
+                style={{
+                  color: stats.pending > 0 ? "#ff716c" : "#f7f8f8",
+                  fontWeight: 510,
+                  fontFeatureSettings: FF,
+                }}
+              >
                 {stats.pending}
               </h2>
             )}
             <span
               className="material-symbols-outlined"
               style={{
-                color: "rgba(173,170,170,0.3)",
+                color: "rgba(255,255,255,0.12)",
                 fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
               }}
             >
@@ -239,27 +198,30 @@ export default function MyCallsPage() {
 
         {/* Completed */}
         <div
-          className="p-5 rounded-xl border"
-          style={{ background: "#131313", borderColor: "rgba(73,72,71,0.1)" }}
+          className="p-5 rounded-lg border"
+          style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
         >
           <p
-            className="uppercase tracking-[0.05em] text-[0.6875rem] font-semibold mb-2"
-            style={{ color: "#adaaaa" }}
+            className="uppercase tracking-[0.08em] text-[10px] mb-3"
+            style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
           >
             Completed
           </p>
           <div className="flex items-center justify-between">
             {isLoading ? (
-              <Skeleton className="h-8 w-10" style={{ background: "rgba(255,255,255,0.05)" }} />
+              <Skeleton className="h-7 w-10" style={{ background: "rgba(255,255,255,0.05)" }} />
             ) : (
-              <h2 className="text-2xl font-bold" style={{ color: "#4ff5df" }}>
+              <h2
+                className="text-2xl"
+                style={{ color: "#10b981", fontWeight: 510, fontFeatureSettings: FF }}
+              >
                 {stats.completed.toLocaleString()}
               </h2>
             )}
             <span
               className="material-symbols-outlined"
               style={{
-                color: "rgba(173,170,170,0.3)",
+                color: "rgba(255,255,255,0.12)",
                 fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
               }}
             >
@@ -270,59 +232,79 @@ export default function MyCallsPage() {
 
         {/* Avg Duration */}
         <div
-          className="p-5 rounded-xl border"
-          style={{ background: "#131313", borderColor: "rgba(73,72,71,0.1)" }}
+          className="p-5 rounded-lg border"
+          style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
         >
           <p
-            className="uppercase tracking-[0.05em] text-[0.6875rem] font-semibold mb-2"
-            style={{ color: "#adaaaa" }}
+            className="uppercase tracking-[0.08em] text-[10px] mb-3"
+            style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
           >
             Avg Duration
           </p>
           <div className="flex items-center justify-between">
             {isLoading ? (
-              <Skeleton className="h-8 w-14" style={{ background: "rgba(255,255,255,0.05)" }} />
+              <Skeleton className="h-7 w-14" style={{ background: "rgba(255,255,255,0.05)" }} />
             ) : (
-              <h2 className="text-2xl font-bold" style={{ color: "#ffffff" }}>
+              <h2
+                className="text-2xl"
+                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+              >
                 {formatDuration(stats.avgDuration)}
               </h2>
             )}
-            <span className="text-xs" style={{ color: "rgba(173,170,170,0.5)" }}>min/call</span>
+            <span
+              className="text-[10px]"
+              style={{ color: "#62666d", fontFeatureSettings: FF }}
+            >
+              min/call
+            </span>
           </div>
         </div>
       </div>
 
+      {/* ── Filters ──────────────────────────────────────────────────── */}
+      <CallFilterBar
+        value={filters}
+        onChange={setFilters}
+        showEvalStatus
+        showNps
+        showOrg
+        showDateRange
+        showSort
+        orgOptions={orgOptions}
+        placeholder="Search call records..."
+      />
+
       {/* ── Table ────────────────────────────────────────────────────── */}
       <div
-        className="flex-1 rounded-xl flex flex-col overflow-hidden border"
+        className="flex-1 rounded-lg flex flex-col overflow-hidden border"
         style={{
-          background: "#131313",
-          borderColor: "rgba(73,72,71,0.1)",
-          boxShadow: "0px 24px 48px rgba(255,255,255,0.06)",
+          background: "rgba(255,255,255,0.02)",
+          borderColor: "rgba(255,255,255,0.08)",
         }}
       >
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr style={{ background: "rgba(32,31,31,0.5)" }}>
+              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                 {["Call ID", "Organization", "Campaign", "Date", "Status", "Direction", "Duration", "NPS", "Action"].map((h) => (
                   <th
                     key={h}
-                    className="px-4 py-3 text-[0.6875rem] uppercase tracking-widest font-bold whitespace-nowrap"
-                    style={{ color: "#adaaaa" }}
+                    className="px-4 py-3 text-[10px] uppercase tracking-widest whitespace-nowrap"
+                    style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
                   >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody style={{ borderTop: "1px solid rgba(255,255,255,0.03)" }}>
+            <tbody>
               {isLoading
                 ? Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                    <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                       {Array.from({ length: 9 }).map((_, j) => (
                         <td key={j} className="px-4 py-3">
-                          <Skeleton className="h-3.5 w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
+                          <Skeleton className="h-3.5 w-16" style={{ background: "rgba(255,255,255,0.04)" }} />
                         </td>
                       ))}
                     </tr>
@@ -341,25 +323,48 @@ export default function MyCallsPage() {
         </div>
 
         {/* Empty state */}
-        {!isLoading && (filtered?.length ?? 0) === 0 && (
+        {!isLoading && paginated.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div
-              className="h-14 w-14 rounded-full flex items-center justify-center mb-4 border"
-              style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.07)" }}
+              className="h-12 w-12 rounded-full flex items-center justify-center mb-4 border"
+              style={{
+                background: "rgba(255,255,255,0.02)",
+                borderColor: "rgba(255,255,255,0.08)",
+              }}
             >
-              <Inbox className="h-6 w-6" style={{ color: "rgba(255,255,255,0.15)" }} />
+              <Inbox className="h-5 w-5" style={{ color: "rgba(255,255,255,0.15)" }} />
             </div>
-            <p className="text-sm font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <p
+              className="text-xs uppercase tracking-widest"
+              style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
+            >
               No Records Found
             </p>
-            <p className="text-xs mt-1 uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.2)" }}>
+            <p
+              className="text-[10px] mt-1.5 uppercase tracking-wider"
+              style={{ color: "#62666d", fontFeatureSettings: FF }}
+            >
               {hasFilters ? "Adjust filters to expand results" : "Calls assigned to you will appear here"}
             </p>
             {hasFilters && (
               <button
-                className="mt-6 px-6 py-2 rounded-xl text-[10px] font-bold tracking-widest uppercase transition-all"
-                style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)" }}
-                onClick={() => { setStatusFilter("all"); setDateRange(undefined); setSearchQuery(""); }}
+                className="mt-6 px-5 py-2 rounded-md text-[10px] uppercase tracking-widest transition-all border"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  color: "#8a8f98",
+                  borderColor: "rgba(255,255,255,0.08)",
+                  fontWeight: 510,
+                  fontFeatureSettings: FF,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#d0d6e0";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.02)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#8a8f98";
+                }}
+                onClick={() => setFilters(DEFAULT_FILTERS)}
               >
                 Clear Filters
               </button>
@@ -369,41 +374,42 @@ export default function MyCallsPage() {
 
         {/* Pagination */}
         <div
-          className="px-8 py-4 border-t flex items-center justify-between"
-          style={{
-            background: "rgba(32,31,31,0.3)",
-            borderColor: "rgba(255,255,255,0.03)",
-          }}
+          className="px-6 py-3.5 border-t flex items-center justify-between"
+          style={{ borderColor: "rgba(255,255,255,0.05)" }}
         >
           <span
             className="text-[10px] uppercase tracking-widest"
-            style={{ color: "#adaaaa" }}
+            style={{ color: "#62666d", fontFeatureSettings: FF }}
           >
-            Showing {Math.min((safePage - 1) * PAGE_SIZE + (paginated?.length ?? 0), filtered?.length ?? 0)} of {filtered?.length ?? 0} entries
+            {totalCount ? `${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, totalCount)} of ${totalCount}` : "No calls found"}
           </span>
           {totalPages > 1 && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
-                className="w-8 h-8 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 disabled:pointer-events-none"
-                style={{ background: "rgba(255,255,255,0.05)", color: "#adaaaa" }}
+                className="w-7 h-7 rounded-md flex items-center justify-center transition-all disabled:opacity-25 disabled:pointer-events-none border"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  color: "#8a8f98",
+                  borderColor: "rgba(255,255,255,0.08)",
+                }}
                 disabled={safePage <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5" />
               </button>
               <div className="flex items-center gap-1">
                 {visiblePages.map((p) => (
                   <button
                     key={p}
                     onClick={() => setPage(p)}
-                    className="w-8 h-8 rounded-xl text-[11px] font-bold transition-all"
+                    className="w-7 h-7 rounded-md text-[11px] transition-all"
                     style={
                       p === safePage
-                        ? { background: "#22dbc6", color: "#00473f" }
-                        : { color: "#adaaaa" }
+                        ? { background: "#5e6ad2", color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }
+                        : { color: "#62666d", fontFeatureSettings: FF }
                     }
                     onMouseEnter={(e) => {
-                      if (p !== safePage) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+                      if (p !== safePage) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
                     }}
                     onMouseLeave={(e) => {
                       if (p !== safePage) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
@@ -414,12 +420,16 @@ export default function MyCallsPage() {
                 ))}
               </div>
               <button
-                className="w-8 h-8 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 disabled:pointer-events-none"
-                style={{ background: "rgba(255,255,255,0.05)", color: "#adaaaa" }}
+                className="w-7 h-7 rounded-md flex items-center justify-center transition-all disabled:opacity-25 disabled:pointer-events-none border"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  color: "#8a8f98",
+                  borderColor: "rgba(255,255,255,0.08)",
+                }}
                 disabled={safePage >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
@@ -433,6 +443,8 @@ export default function MyCallsPage() {
 /* ──────────────────────────────────────────────────────────────────── */
 /*  CallRow                                                             */
 /* ──────────────────────────────────────────────────────────────────── */
+
+const FF_INNER = '"cv01", "ss03"' as const;
 
 function CallRow({
   call,
@@ -450,24 +462,36 @@ function CallRow({
   return (
     <tr
       className="group cursor-pointer transition-colors"
-      style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "rgba(255,255,255,0.02)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent"; }}
       onClick={onNavigate}
     >
       {/* Call ID */}
-      <td className="px-4 py-3 font-mono text-xs" style={{ color: "#4ff5df" }}>
+      <td
+        className="px-4 py-3 text-xs"
+        style={{
+          color: "#7170ff",
+          fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+        }}
+      >
         #{call.call_id}
       </td>
 
       {/* Organization */}
       <td className="px-4 py-3">
-        <div className="flex flex-col">
-          <span className="text-sm font-medium" style={{ color: "#ffffff" }}>
+        <div className="flex flex-col gap-0.5">
+          <span
+            className="text-sm"
+            style={{ color: "#d0d6e0", fontWeight: 510, fontFeatureSettings: FF_INNER }}
+          >
             {call.organization_name || "—"}
           </span>
           {call.rooftop_name && (
-            <span className="text-[10px]" style={{ color: "#adaaaa" }}>
+            <span
+              className="text-[10px]"
+              style={{ color: "#62666d", fontFeatureSettings: FF_INNER }}
+            >
               {call.rooftop_name}
             </span>
           )}
@@ -475,13 +499,19 @@ function CallRow({
       </td>
 
       {/* Campaign */}
-      <td className="px-4 py-3 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
+      <td
+        className="px-4 py-3 text-xs"
+        style={{ color: "#8a8f98", fontFeatureSettings: FF_INNER }}
+      >
         {call.campaign || "—"}
       </td>
 
       {/* Date */}
-      <td className="px-4 py-3 text-sm" style={{ color: "#adaaaa" }}>
-        {new Date(call.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })},{" "}
+      <td
+        className="px-4 py-3 text-xs"
+        style={{ color: "#62666d", fontFeatureSettings: FF_INNER }}
+      >
+        {new Date(call.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{" "}
         {new Date(call.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
       </td>
 
@@ -496,15 +526,18 @@ function CallRow({
       </td>
 
       {/* Duration */}
-      <td className="px-4 py-3 text-sm" style={{ color: "#adaaaa" }}>
+      <td
+        className="px-4 py-3 text-xs"
+        style={{ color: "#8a8f98", fontFeatureSettings: FF_INNER }}
+      >
         {formatDuration(call.duration)}
       </td>
 
       {/* NPS */}
-      <td className="px-4 py-3 text-sm font-bold">
+      <td className="px-4 py-3 text-sm">
         {call.ai_nps_score !== null
           ? <NpsValue score={call.ai_nps_score} />
-          : <span style={{ color: "#adaaaa" }}>--</span>
+          : <span style={{ color: "#62666d" }}>—</span>
         }
       </td>
 
@@ -512,18 +545,37 @@ function CallRow({
       <td className="px-4 py-3">
         {ev.status === "pending" ? (
           <button
-            className="px-4 py-1.5 text-[11px] font-bold rounded-full uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity active:scale-95"
-            style={{ background: "#22dbc6", color: "#00473f" }}
+            className="px-3.5 py-1.5 text-[10px] rounded-md uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{
+              background: "#5e6ad2",
+              color: "#f7f8f8",
+              fontWeight: 510,
+              fontFeatureSettings: FF_INNER,
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#828fff"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#5e6ad2"; }}
             onClick={(e) => { e.stopPropagation(); onNavigate(); }}
           >
             Evaluate
           </button>
         ) : (
           <button
-            className="px-4 py-1.5 text-[11px] font-bold rounded-full uppercase tracking-wider transition-colors active:scale-95"
-            style={{ background: "rgba(255,255,255,0.05)", color: "#adaaaa" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.1)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+            className="px-3.5 py-1.5 text-[10px] rounded-md uppercase tracking-wider transition-all border"
+            style={{
+              background: "rgba(255,255,255,0.02)",
+              color: "#62666d",
+              borderColor: "rgba(255,255,255,0.08)",
+              fontWeight: 510,
+              fontFeatureSettings: FF_INNER,
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#8a8f98";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.02)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#62666d";
+            }}
             onClick={(e) => { e.stopPropagation(); onNavigate(); }}
           >
             Revisit
@@ -542,8 +594,14 @@ function StatusPill({ status }: { status: string }) {
   if (status === "completed") {
     return (
       <span
-        className="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
-        style={{ background: "rgba(79,245,223,0.2)", color: "#4ff5df" }}
+        className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider"
+        style={{
+          background: "rgba(16,185,129,0.12)",
+          color: "#10b981",
+          fontWeight: 510,
+          fontFeatureSettings: '"cv01", "ss03"',
+          border: "1px solid rgba(16,185,129,0.2)",
+        }}
       >
         Completed
       </span>
@@ -551,8 +609,14 @@ function StatusPill({ status }: { status: string }) {
   }
   return (
     <span
-      className="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
-      style={{ background: "rgba(234,179,8,0.2)", color: "#eab308" }}
+      className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider"
+      style={{
+        background: "rgba(234,179,8,0.1)",
+        color: "#eab308",
+        fontWeight: 510,
+        fontFeatureSettings: '"cv01", "ss03"',
+        border: "1px solid rgba(234,179,8,0.2)",
+      }}
     >
       Pending
     </span>
@@ -565,12 +629,12 @@ function StatusPill({ status }: { status: string }) {
 
 function DirectionIcon({ direction }: { direction: string }) {
   if (direction === "outbound") {
-    return <ArrowUpRight className="h-[18px] w-[18px]" style={{ color: "#adaaaa" }} />;
+    return <ArrowUpRight className="h-4 w-4" style={{ color: "#62666d" }} />;
   }
   if (direction === "inbound") {
-    return <ArrowDownLeft className="h-[18px] w-[18px]" style={{ color: "#adaaaa" }} />;
+    return <ArrowDownLeft className="h-4 w-4" style={{ color: "#62666d" }} />;
   }
-  return <span style={{ color: "#adaaaa" }}>—</span>;
+  return <span style={{ color: "#62666d" }}>—</span>;
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
@@ -578,8 +642,12 @@ function DirectionIcon({ direction }: { direction: string }) {
 /* ──────────────────────────────────────────────────────────────────── */
 
 function NpsValue({ score }: { score: number }) {
-  const color = score >= 9 ? "#4ff5df" : score >= 7 ? "#eab308" : "#ff716c";
-  return <span style={{ color }}>{score}</span>;
+  const color = score >= 9 ? "#10b981" : score >= 7 ? "#eab308" : "#ff716c";
+  return (
+    <span style={{ color, fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}>
+      {score}
+    </span>
+  );
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
