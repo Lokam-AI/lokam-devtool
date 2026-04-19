@@ -1,10 +1,12 @@
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { apiGetAllCalls, apiGetAllCallsCount, apiGetEnvs } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CallFilterBar, CallFilterState, DEFAULT_FILTERS } from "@/components/ui/call-filters";
+import { CallFilterBar, DEFAULT_FILTERS } from "@/components/ui/call-filters";
+import { useAllCallsFilterStore } from "@/store/filter-store";
+import { parseUtc } from "@/lib/utils";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -18,7 +20,7 @@ import {
 } from "lucide-react";
 import type { RawCall } from "@/types";
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 15;
 const STALE_MS = 5 * 60 * 1000;
 const FF = '"cv01", "ss03"' as const;
 
@@ -31,13 +33,15 @@ function thisMonthRange(): DateRange {
 
 export default function AllCallsPage() {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<CallFilterState>(() => ({ ...DEFAULT_FILTERS, dateRange: thisMonthRange() }));
-  const [page, setPage]       = useState(0);
+  const { filters, page, setFilters, setPage } = useAllCallsFilterStore();
 
-  useEffect(() => { setPage(0); }, [filters]);
+  // Seed dateRange on first visit (store persists undefined from DEFAULT_FILTERS)
+  useEffect(() => {
+    if (!filters.dateRange) setFilters({ ...filters, dateRange: thisMonthRange() });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const queryParams = useMemo(() => ({
-    source_env:        filters.env        !== "all" ? filters.env        : undefined,
+  const filterBase = useMemo(() => ({
     call_status:       filters.callStatus !== "all" ? filters.callStatus : undefined,
     date_from:         filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : undefined,
     date_to:           filters.dateRange?.to   ? format(filters.dateRange.to,   "yyyy-MM-dd") : undefined,
@@ -46,12 +50,15 @@ export default function AllCallsPage() {
     nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter  : undefined,
     sort_by:           filters.sortBy,
     sort_dir:          filters.sortDir,
-    limit:             PAGE_SIZE,
-    offset:            page * PAGE_SIZE,
-  }), [filters, page]);
+  }), [filters]);
+
+  const queryParams = useMemo(() => ({
+    ...filterBase,
+    limit:  PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+  }), [filterBase, page]);
 
   const countParams = useMemo(() => ({
-    source_env:        filters.env        !== "all" ? filters.env        : undefined,
     call_status:       filters.callStatus !== "all" ? filters.callStatus : undefined,
     date_from:         filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : undefined,
     date_to:           filters.dateRange?.to   ? format(filters.dateRange.to,   "yyyy-MM-dd") : undefined,
@@ -60,10 +67,12 @@ export default function AllCallsPage() {
     nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter  : undefined,
   }), [filters]);
 
-  const { data: calls, isLoading } = useQuery({
+
+  const { data: batchData, isLoading } = useQuery({
     queryKey: ["all-calls", queryParams],
     queryFn: () => apiGetAllCalls(queryParams),
     staleTime: STALE_MS,
+    placeholderData: keepPreviousData,
   });
 
   const { data: totalCount } = useQuery({
@@ -72,16 +81,23 @@ export default function AllCallsPage() {
     staleTime: STALE_MS,
   });
 
+  const qc = useQueryClient();
+  useEffect(() => {
+    const nextParams = { ...queryParams, offset: (page + 1) * PAGE_SIZE };
+    qc.prefetchQuery({ queryKey: ["all-calls", nextParams], queryFn: () => apiGetAllCalls(nextParams), staleTime: STALE_MS });
+  }, [queryParams]);
+
   const { data: envs = [] } = useQuery({
     queryKey: ["envs"],
     queryFn: apiGetEnvs,
   });
 
   const orgOptions = useMemo(() =>
-    [...new Set((calls ?? []).map((c) => c.organization_name).filter(Boolean))].sort(),
-  [calls]);
+    [...new Set((batchData ?? []).map((c) => c.organization_name).filter(Boolean))].sort(),
+  [batchData]);
 
-  const filtered = calls ?? [];
+  const calls = batchData ?? [];
+  const filtered = calls;
 
   const avgDuration = useMemo(() => {
     if (!calls || calls.length === 0) return 0;
@@ -101,13 +117,12 @@ export default function AllCallsPage() {
   );
 
   const totalPages = totalCount ? Math.ceil(totalCount / PAGE_SIZE) : 0;
-  const hasFilters = filters.search || filters.callStatus !== "all" || filters.env !== "all" ||
+  const hasFilters = filters.search || filters.callStatus !== "all" ||
     filters.org !== "all" || filters.npsFilter !== "all" || !!filters.dateRange?.from ||
     filters.sortBy !== "date" || filters.sortDir !== "desc";
 
   const resetFilters = () => {
-    setFilters(DEFAULT_FILTERS);
-    setPage(0);
+    setFilters({ ...DEFAULT_FILTERS, dateRange: thisMonthRange() });
   };
 
   const visiblePages = useMemo(() => {
@@ -182,7 +197,6 @@ export default function AllCallsPage() {
         onChange={setFilters}
         showCallStatus
         showNps
-        showEnv
         showOrg
         showDateRange
         showSort
@@ -457,8 +471,8 @@ function CallRow({ call, onView }: { call: RawCall; onView: () => void }) {
         className="px-4 py-3 text-xs"
         style={{ color: "#62666d", fontFeatureSettings: '"cv01", "ss03"' }}
       >
-        {new Date(call.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{" "}
-        {new Date(call.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+        {parseUtc(call.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}{" "}
+        {parseUtc(call.date).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false })}
       </td>
 
       <td className="px-4 py-3">

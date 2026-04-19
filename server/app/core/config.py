@@ -23,11 +23,18 @@ class Settings(BaseSettings):
     DB_NAME: str
     SECRET_KEY: str
     FERNET_KEY: str
+    SYNC_SECRET: str = ""
     ENVIRONMENT: str = "development"
+    # Comma-separated list of allowed CORS origins
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
-    # App (lokamspace) env — used to auto-seed the env_config row
-    APP_BASE_URL: str = ""
+    # Lokamspace environment base URLs (defaults wired in; only API keys need to be set)
+    APP_BASE_URL: str = "https://api.app.lokam.ai"
     APP_API_KEY: str = ""
+    ARENA_BASE_URL: str = "https://api.arena.lokam.ai"
+    ARENA_API_KEY: str = ""
+    PLAYGROUND_BASE_URL: str = "https://api.playground.lokam.ai"
+    PLAYGROUND_API_KEY: str = ""
 
     @property
     def db_url(self) -> str:
@@ -48,6 +55,6 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-MAX_CALLS_PER_USER: int = 15
-CALL_TARGETS: dict[str, int] = {"na": 7, "detractor": 2, "promoter": 3, "missed": 3}
+MAX_CALLS_PER_USER: int = 5
+CALL_TARGETS: dict[str, int] = {"na": 2, "detractor": 1, "promoter": 1, "missed": 1}
 FILL_PRIORITY: list[str] = ["na", "promoter", "detractor", "missed"]

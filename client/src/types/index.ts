@@ -105,3 +105,15 @@ export interface EnvConfig {
   base_url: string;
   is_active: boolean;
 }
+
+export interface CallTargets {
+  na: number;
+  detractor: number;
+  promoter: number;
+  missed: number;
+}
+
+export interface AssignmentConfig {
+  max_calls_per_user: number;
+  call_targets: CallTargets;
+}

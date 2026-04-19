@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_current_user, get_db, require_admin
 from app.models.user import User
 from app.repositories import bug_report_repo
-from app.schemas.bug_report import BugReportRead
+from app.schemas.bug_report import BugReportCreate, BugReportRead
 
 router = APIRouter(prefix="/bugs", tags=["bugs"])
 
@@ -25,6 +25,26 @@ class ResolvePayload(BaseModel):
     """Payload for resolving or reopening a bug."""
 
     is_resolved: bool
+
+
+@router.post("", response_model=BugReportRead, status_code=201)
+async def create_bug(
+    body: BugReportCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> BugReportRead:
+    """Create a manual bug report filed from the devtool UI; assigned to the submitting user."""
+    bug = await bug_report_repo.create_manual(
+        db,
+        call_id=body.call_id,
+        organization_name=body.organization_name,
+        rooftop_name=body.rooftop_name,
+        bug_types=body.bug_types,
+        description=body.description,
+        submitted_by=current_user.id,
+        submitted_by_name=current_user.name,
+    )
+    return BugReportRead.model_validate(bug)
 
 
 @router.get("/my", response_model=list[BugReportRead])

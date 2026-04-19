@@ -5,10 +5,31 @@ from app.dependencies import get_db, require_admin, require_superadmin
 from app.models.user import User
 from app.repositories import env_config_repo
 from app.schemas.admin import ACSToggleRequest, ProxyHealthResponse, SeedRunRequest
+from app.schemas.assignment_config import AssignmentConfigRead, AssignmentConfigUpdate
 from app.schemas.env_config import EnvConfigCreate, EnvConfigRead, EnvConfigUpdate
 from app.services import admin_proxy_service
+from app.services import assignment_config_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.get("/assignment-config", response_model=AssignmentConfigRead)
+async def get_assignment_config(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_superadmin),
+) -> AssignmentConfigRead:
+    """Return the current call assignment configuration; superadmin only."""
+    return await assignment_config_service.get_config(db)
+
+
+@router.patch("/assignment-config", response_model=AssignmentConfigRead)
+async def update_assignment_config(
+    body: AssignmentConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_superadmin),
+) -> AssignmentConfigRead:
+    """Update call assignment configuration; superadmin only."""
+    return await assignment_config_service.update_config(db, body)
 
 
 @router.get("/envs", response_model=list[EnvConfigRead])

@@ -41,16 +41,31 @@ interface DateRangePickerProps {
   className?: string;
 }
 
+function toDate(v: unknown): Date | undefined {
+  if (!v) return undefined;
+  if (v instanceof Date) return v;
+  const d = new Date(v as string);
+  return isNaN(d.getTime()) ? undefined : d;
+}
+
 export function DateRangePicker({ value, onChange, className }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
   const [presets, setPresets] = React.useState(buildPresets);
+
+  // Normalize: sessionStorage rehydration converts Date → ISO string
+  const normalized = React.useMemo<DateRange | undefined>(() => {
+    const from = toDate(value?.from);
+    const to   = toDate(value?.to);
+    return from ? { from, to } : undefined;
+  }, [value?.from, value?.to]);
 
   React.useEffect(() => {
     if (open) setPresets(buildPresets());
   }, [open]);
 
   const label = React.useMemo(() => {
-    if (!value?.from) return "Pick a date range";
+    if (!normalized?.from) return "Pick a date range";
+    const value = normalized;
     const matched = presets.find(
       (p) =>
         p.range.from.toDateString() === value.from!.toDateString() &&
@@ -81,7 +96,7 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
           )}
           style={{
             background: open ? "rgba(113,112,255,0.06)" : "rgba(255,255,255,0.02)",
-            color: value?.from ? "#d0d6e0" : "#8a8f98",
+            color: normalized?.from ? "#d0d6e0" : "#8a8f98",
             borderColor: open ? "rgba(113,112,255,0.25)" : "rgba(255,255,255,0.08)",
             fontWeight: 400,
             fontFeatureSettings: FF,
@@ -95,7 +110,7 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
           onMouseLeave={(e) => {
             if (!open) {
               (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.02)";
-              (e.currentTarget as HTMLButtonElement).style.color = value?.from ? "#d0d6e0" : "#8a8f98";
+              (e.currentTarget as HTMLButtonElement).style.color = normalized?.from ? "#d0d6e0" : "#8a8f98";
             }
           }}
         >
@@ -133,8 +148,8 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
             <div className="flex flex-col gap-px">
               {presets.map((p) => {
                 const active =
-                  value?.from?.toDateString() === p.range.from.toDateString() &&
-                  (value?.to ?? value?.from)?.toDateString() === p.range.to.toDateString();
+                  normalized?.from?.toDateString() === p.range.from.toDateString() &&
+                  (normalized?.to ?? normalized?.from)?.toDateString() === p.range.to.toDateString();
                 return (
                   <button
                     key={p.label}
@@ -173,7 +188,7 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
               })}
             </div>
 
-            {value && (
+            {normalized && (
               <>
                 <div
                   className="my-1.5 h-px"
@@ -206,9 +221,9 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
           >
             <Calendar
               mode="range"
-              selected={value}
+              selected={normalized}
               onSelect={handleSelect}
-              defaultMonth={value?.from}
+              defaultMonth={normalized?.from}
               numberOfMonths={2}
               classNames={{
                 head_cell: "w-7 text-center text-[10px] font-normal text-[#62666d] pb-1.5",
@@ -222,7 +237,7 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
         </div>
 
         {/* ── Footer ───────────────────────────────────────────── */}
-        {value?.from && (
+        {normalized?.from && (
           <div
             className="px-3 py-2 border-t"
             style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.01)" }}
@@ -231,9 +246,9 @@ export function DateRangePicker({ value, onChange, className }: DateRangePickerP
               className="text-[11px]"
               style={{ color: "#62666d", fontFeatureSettings: FF }}
             >
-              {value.to
-                ? `${format(value.from, "MMM d, yyyy")} → ${format(value.to, "MMM d, yyyy")}`
-                : `${format(value.from, "MMM d, yyyy")} → select end`}
+              {normalized.to
+                ? `${format(normalized.from, "MMM d, yyyy")} → ${format(normalized.to, "MMM d, yyyy")}`
+                : `${format(normalized.from, "MMM d, yyyy")} → select end`}
             </span>
           </div>
         )}

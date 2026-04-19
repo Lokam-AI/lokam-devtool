@@ -4,6 +4,16 @@ from typing import Any
 from pydantic import BaseModel
 
 
+class BugReportCreate(BaseModel):
+    """Payload for manually creating a bug report from the devtool UI."""
+
+    call_id: int | None = None
+    organization_name: str | None = None
+    rooftop_name: str | None = None
+    bug_types: list[str] = []
+    description: str | None = None
+
+
 class BugReportRead(BaseModel):
     """Schema for returning a synced bug report to API consumers."""
 

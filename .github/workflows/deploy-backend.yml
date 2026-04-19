@@ -1,0 +1,146 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        id: build
+        working-directory: server
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker tag  $REGISTRY/$REPOSITORY:$IMAGE_TAG $REGISTRY/$REPOSITORY:latest
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          docker push $REGISTRY/$REPOSITORY:latest
+          echo "image=$REGISTRY/$REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Trigger App Runner deployment
+        env:
+          SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+          AWS_REGION:  ${{ secrets.AWS_REGION }}
+        run: |
+          TIMEOUT=600
+          ELAPSED=0
+          INTERVAL=30
+
+          echo "Waiting for service to be in RUNNING state..."
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            STATUS=$(aws apprunner describe-service \
+              --service-arn "$SERVICE_ARN" \
+              --region "$AWS_REGION" \
+              --query 'Service.Status' \
+              --output text)
+
+            echo "Status: $STATUS (${ELAPSED}s elapsed)"
+
+            case "$STATUS" in
+              RUNNING)
+                echo "Service is RUNNING — triggering deployment"
+                break
+                ;;
+              OPERATION_IN_PROGRESS|CREATE_IN_PROGRESS|UPDATE_IN_PROGRESS)
+                sleep $INTERVAL
+                ELAPSED=$((ELAPSED + INTERVAL))
+                ;;
+              PAUSED|DELETE_FAILED|CREATE_FAILED|UPDATE_FAILED)
+                echo "Service is in terminal error state: $STATUS"
+                exit 1
+                ;;
+              *)
+                echo "Unexpected state: $STATUS — waiting"
+                sleep $INTERVAL
+                ELAPSED=$((ELAPSED + INTERVAL))
+                ;;
+            esac
+          done
+
+          if [ $ELAPSED -ge $TIMEOUT ]; then
+            echo "Timed out waiting for service to reach RUNNING state"
+            exit 1
+          fi
+
+          aws apprunner start-deployment \
+            --service-arn "$SERVICE_ARN" \
+            --region "$AWS_REGION"
+
+          echo "Deployment triggered — waiting for completion..."
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            STATUS=$(aws apprunner describe-service \
+              --service-arn "$SERVICE_ARN" \
+              --region "$AWS_REGION" \
+              --query 'Service.Status' \
+              --output text)
+
+            echo "Status: $STATUS (${ELAPSED}s elapsed)"
+
+            case "$STATUS" in
+              RUNNING)
+                echo "Deployment completed successfully"
+                exit 0
+                ;;
+              OPERATION_IN_PROGRESS)
+                sleep $INTERVAL
+                ELAPSED=$((ELAPSED + INTERVAL))
+                ;;
+              PAUSED|DELETE_FAILED|CREATE_FAILED|UPDATE_FAILED)
+                echo "Deployment failed — service entered state: $STATUS"
+                exit 1
+                ;;
+              *)
+                echo "Unexpected state during deployment: $STATUS"
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "Timed out waiting for deployment to complete"
+          exit 1
+
+      - name: Slack — success
+        if: success()
+        env:
+          AUTHOR: ${{ github.event.head_commit.author.name }}
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data "{\"text\": \"✅ *lokam-devtool* backend deployed successfully\nAuthor: ${AUTHOR}\nCommit: ${MESSAGE}\"}" \
+            ${{ secrets.SLACK_DEPLOYMENTS_WEBHOOK_URL }}
+
+      - name: Slack — failure
+        if: failure()
+        env:
+          AUTHOR: ${{ github.event.head_commit.author.name }}
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data "{\"text\": \"❌ *lokam-devtool* backend deployment failed\nAuthor: ${AUTHOR}\nCommit: ${MESSAGE}\nSee: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            ${{ secrets.SLACK_DEPLOYMENTS_WEBHOOK_URL }}

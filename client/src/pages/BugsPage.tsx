@@ -2,11 +2,14 @@ import { useState, useMemo, useEffect } from "react";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { Bug, Building2, MapPin, Tag, AlertTriangle, RefreshCw, Filter, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useBugs, useBugsCount, useBugsStats, useAssignBug, useResolveBug, useUsers } from "@/hooks/use-calls";
+import { apiGetBugs } from "@/lib/api";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { BugDetailDrawer } from "@/components/bugs/BugDetailDrawer";
 import type { BugReport } from "@/types";
+import { parseUtc } from "@/lib/utils";
 
 const FF = '"cv01", "ss03"' as const;
 
@@ -23,7 +26,7 @@ function toIso(d: Date): string {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-US", {
+  return parseUtc(iso).toLocaleString(undefined, {
     month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
@@ -85,57 +88,64 @@ export function BugTypeChip({ label }: { label: string }) {
   );
 }
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 15;
+const STALE_MS = 5 * 60 * 1000;
 
 /* ── Main Page ───────────────────────────────────────────────────── */
 export default function BugsPage() {
   const [range, setRange] = useState<DateRange | undefined>(thisMonthRange);
-  const [envFilter, setEnvFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "resolved">("all");
   const [orgFilter, setOrgFilter] = useState<string>("");
   const [bugTypeFilter, setBugTypeFilter] = useState<string>("");
   const [selected, setSelected] = useState<BugReport | null>(null);
   const [page, setPage] = useState(0);
 
-  useEffect(() => { setPage(0); }, [range, envFilter, statusFilter, orgFilter, bugTypeFilter]);
+  useEffect(() => { setPage(0); }, [range, statusFilter, orgFilter, bugTypeFilter]);
 
   const dateFrom = range?.from ? toIso(range.from) : "";
   const dateTo   = range?.to   ? toIso(range.to)   : dateFrom;
 
-  const bugsParams = useMemo(() => ({
+  const filterBase = useMemo(() => ({
     date_from:         dateFrom,
     date_to:           dateTo,
-    source_env:        envFilter || undefined,
     organization_name: orgFilter || undefined,
     is_resolved:       statusFilter === "open" ? false : statusFilter === "resolved" ? true : undefined,
     bug_type:          bugTypeFilter || undefined,
-    limit:             PAGE_SIZE,
-    offset:            page * PAGE_SIZE,
-  }), [dateFrom, dateTo, envFilter, orgFilter, statusFilter, bugTypeFilter, page]);
+  }), [dateFrom, dateTo, orgFilter, statusFilter, bugTypeFilter]);
+
+  const bugsParams = useMemo(() => ({
+    ...filterBase,
+    limit:  PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+  }), [filterBase, page]);
 
   const statsParams = useMemo(() => ({
-    date_from:  dateFrom,
-    date_to:    dateTo,
-    source_env: envFilter || undefined,
-  }), [dateFrom, dateTo, envFilter]);
+    date_from: dateFrom,
+    date_to:   dateTo,
+  }), [dateFrom, dateTo]);
 
   const countParams = useMemo(() => ({
     date_from:         dateFrom,
     date_to:           dateTo,
-    source_env:        envFilter || undefined,
     organization_name: orgFilter || undefined,
     is_resolved:       statusFilter === "open" ? false : statusFilter === "resolved" ? true : undefined,
     bug_type:          bugTypeFilter || undefined,
-  }), [dateFrom, dateTo, envFilter, orgFilter, statusFilter, bugTypeFilter]);
+  }), [dateFrom, dateTo, orgFilter, statusFilter, bugTypeFilter]);
 
   const { data: bugs = [], isLoading, isFetching, refetch } = useBugs(bugsParams);
   const { data: totalCount = 0 } = useBugsCount(countParams);
   const { data: bugStats } = useBugsStats(statsParams);
+
+  const qc = useQueryClient();
+  useEffect(() => {
+    const nextParams = { ...bugsParams, offset: (page + 1) * PAGE_SIZE };
+    qc.prefetchQuery({ queryKey: ["bugs", nextParams], queryFn: () => apiGetBugs(nextParams), staleTime: STALE_MS });
+  }, [bugsParams]);
+
   const { data: users = [] } = useUsers();
   const assignBug = useAssignBug();
   const resolveBug = useResolveBug();
 
-  const envOptions     = useMemo(() => Array.from(new Set(bugs.map((b) => b.source_env))).sort(), [bugs]);
   const orgOptions     = useMemo(() => Array.from(new Set(bugs.map((b) => b.organization_name).filter(Boolean) as string[])).sort(), [bugs]);
   const bugTypeOptions = useMemo(() => Array.from(new Set(bugs.flatMap((b) => b.bug_types ?? []))).sort(), [bugs]);
 
@@ -146,6 +156,7 @@ export default function BugsPage() {
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const activeFilterCount = [statusFilter !== "all", !!orgFilter, !!bugTypeFilter].filter(Boolean).length;
+
 
   // Keep drawer in sync when list refreshes
   const selectedLive = selected ? (bugs.find((b) => b.id === selected.id) ?? selected) : null;
@@ -171,17 +182,6 @@ export default function BugsPage() {
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <DateRangePicker value={range} onChange={setRange} />
-
-          {envOptions.length > 0 && (
-            <DropdownSelect
-              value={envFilter}
-              onChange={setEnvFilter}
-              options={[
-                { value: "", label: "All environments" },
-                ...envOptions.map((e) => ({ value: e, label: e })),
-              ]}
-            />
-          )}
 
           <button
             onClick={() => refetch()}

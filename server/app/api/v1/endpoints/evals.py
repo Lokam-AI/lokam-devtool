@@ -20,11 +20,12 @@ PAGE_SIZE = 30
 async def my_evals(
     limit: int = Query(default=100, le=500),
     offset: int = Query(default=0, ge=0),
+    call_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[EvalRead]:
-    """Return evals assigned to the current reviewer with optional pagination."""
-    rows = await eval_repo.list_for_reviewer(db, current_user.id, limit=limit, offset=offset)
+    """Return evals assigned to the current reviewer with optional pagination and call filter."""
+    rows = await eval_repo.list_for_reviewer(db, current_user.id, call_id=call_id, limit=limit, offset=offset)
     return [EvalRead.model_validate(r) for r in rows]
 
 

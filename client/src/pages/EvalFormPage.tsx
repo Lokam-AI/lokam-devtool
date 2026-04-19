@@ -1,14 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useCall, useCalls, useSubmitEval } from "@/hooks/use-calls";
+import { useCall, useCalls, useSubmitEval, useCreateBug } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Loader2, Phone, MapPin, ArrowUpRight, ArrowDownLeft,
-  Bot, Play, Pause, Check, X, ChevronRight,
+  Bot, Play, Pause, Check, X, ChevronRight, Bug,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { RawCall, Eval } from "@/types";
+import { parseUtc } from "@/lib/utils";
 
 type FieldState = { correct: boolean; value: unknown };
 const SPEED_OPTIONS = [1, 1.5, 2, 2.5, 3, 0.5] as const;
@@ -83,6 +84,7 @@ function EvalFormInner({
   submitEval: ReturnType<typeof useSubmitEval>;
 }) {
   const saved = evalData.status === "completed";
+  const [bugModalOpen, setBugModalOpen] = useState(false);
 
   const [fields, setFields] = useState<Record<string, FieldState>>(() => {
     const gtMatchesAi = (gt: unknown, ai: unknown) =>
@@ -295,7 +297,7 @@ function EvalFormInner({
               className="text-xs"
               style={{ color: "#62666d", fontFeatureSettings: FF }}
             >
-              {new Date(callData.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              {parseUtc(callData.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
             </span>
           </div>
 
@@ -362,7 +364,7 @@ function EvalFormInner({
                 : <ArrowDownLeft className="h-3 w-3" />}
             />
             {callData.ai_nps_score !== null && (
-              <StatPill label="NPS Score" value={`${callData.ai_nps_score}/10`} highlight />
+              <StatPill label="NPS Score" value={`${callData.ai_nps_score}/10`} highlight npsScore={callData.ai_nps_score} />
             )}
           </div>
         </div>
@@ -543,21 +545,33 @@ function EvalFormInner({
       >
         {/* ── Panel header ── */}
         <div
-          className="shrink-0 px-5 py-3 border-b"
+          className="shrink-0 px-5 py-3 border-b flex items-center justify-between"
           style={{ background: "#0f1011", borderColor: "rgba(255,255,255,0.05)" }}
         >
-          <p
-            className="text-[9px] uppercase tracking-widest"
-            style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+          <div>
+            <p
+              className="text-[9px] uppercase tracking-widest"
+              style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              Review Panel
+            </p>
+            <h2
+              className="text-sm uppercase"
+              style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              Quality Assurance
+            </h2>
+          </div>
+          <button
+            onClick={() => setBugModalOpen(true)}
+            title="Report a bug"
+            className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95"
+            style={{ background: "rgba(248,113,113,0.06)", borderColor: "rgba(248,113,113,0.2)", color: "#f87171" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(248,113,113,0.14)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(248,113,113,0.06)"; }}
           >
-            Review Panel
-          </p>
-          <h2
-            className="text-sm uppercase"
-            style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
-          >
-            Quality Assurance
-          </h2>
+            <Bug className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         {/* ── Scrollable fields ── */}
@@ -577,9 +591,9 @@ function EvalFormInner({
                 <input
                   type="number"
                   min={1} max={10}
-                  value={String(fields.nps_score.value ?? "")}
-                  onChange={(e) => setField("nps_score", { value: Number(e.target.value) })}
-                  placeholder="Corrected NPS (1–10)"
+                  value={fields.nps_score.value == null ? "" : String(fields.nps_score.value)}
+                  onChange={(e) => setField("nps_score", { value: e.target.value === "" ? null : Number(e.target.value) })}
+                  placeholder="Corrected NPS (1–10), blank = N/A"
                   className="w-full rounded-md px-3 py-2 text-xs border transition-all focus:outline-none mt-2 placeholder:text-[#62666d]"
                   style={{
                     background: "rgba(255,255,255,0.02)",
@@ -817,6 +831,190 @@ function EvalFormInner({
           )}
         </div>
       </div>
+
+      {bugModalOpen && (
+        <ReportBugModal
+          callId={Number(callData.call_id)}
+          organizationName={callData.organization_name}
+          rooftopName={callData.rooftop_name}
+          onClose={() => setBugModalOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
+/*  ReportBugModal                                                      */
+/* ──────────────────────────────────────────────────────────────────── */
+const BUG_TYPE_OPTIONS = [
+  "Incorrect NPS Score",
+  "Missing Transcript",
+  "Audio Quality Issue",
+  "Wrong Organization",
+  "Incorrect Call Status",
+  "Missing Recording",
+  "Data Mismatch",
+  "Duplicate Call",
+  "Other",
+] as const;
+
+function ReportBugModal({
+  callId, organizationName, rooftopName, onClose,
+}: {
+  callId: number;
+  organizationName: string;
+  rooftopName: string;
+  onClose: () => void;
+}) {
+  const createBug = useCreateBug();
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [description, setDescription]     = useState("");
+
+  const toggleType = (t: string) =>
+    setSelectedTypes((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+
+  const handleSubmit = async () => {
+    if (selectedTypes.length === 0) {
+      toast.error("Select at least one bug type");
+      return;
+    }
+    try {
+      await createBug.mutateAsync({
+        call_id: callId,
+        organization_name: organizationName || null,
+        rooftop_name: rooftopName || null,
+        bug_types: selectedTypes,
+        description: description.trim() || null,
+      });
+      toast.success("Bug reported");
+      onClose();
+    } catch {
+      toast.error("Failed to report bug");
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: "rgba(255,255,255,0.06)" }}
+        >
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{ background: "rgba(248,113,113,0.1)" }}
+            >
+              <Bug className="h-3.5 w-3.5" style={{ color: "#f87171" }} />
+            </div>
+            <div>
+              <h3 className="text-sm" style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}>
+                Report a Bug
+              </h3>
+              <p className="text-[10px] mt-0.5" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+                Call #{callId} · {organizationName || "Unknown Org"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
+            style={{ color: "#62666d" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#f7f8f8"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#62666d"; }}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-5">
+          {/* Bug types */}
+          <div>
+            <p
+              className="text-[10px] uppercase tracking-widest mb-3"
+              style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              Bug Type <span style={{ color: "#f87171" }}>*</span>
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {BUG_TYPE_OPTIONS.map((t) => {
+                const active = selectedTypes.includes(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => toggleType(t)}
+                    className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider border transition-all active:scale-95"
+                    style={active
+                      ? { background: "rgba(248,113,113,0.12)", color: "#f87171", borderColor: "rgba(248,113,113,0.25)", fontWeight: 510, fontFeatureSettings: FF }
+                      : { background: "rgba(255,255,255,0.02)", color: "#62666d", borderColor: "rgba(255,255,255,0.08)", fontWeight: 400, fontFeatureSettings: FF }
+                    }
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <p
+              className="text-[10px] uppercase tracking-widest mb-2"
+              style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              Description
+            </p>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe the issue…"
+              rows={3}
+              className="w-full rounded-xl px-4 py-3 text-xs border focus:outline-none resize-none placeholder:text-[#3e3e44]"
+              style={{ background: "rgba(255,255,255,0.02)", color: "#d0d6e0", borderColor: "rgba(255,255,255,0.08)", fontFeatureSettings: FF }}
+              onFocus={(e) => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(248,113,113,0.3)"; }}
+              onBlur={(e)  => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(255,255,255,0.08)"; }}
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          className="px-6 py-4 flex items-center justify-end gap-3 border-t"
+          style={{ borderColor: "rgba(255,255,255,0.06)" }}
+        >
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg text-xs border transition-all"
+            style={{ background: "transparent", color: "#8a8f98", borderColor: "rgba(255,255,255,0.08)", fontWeight: 510, fontFeatureSettings: FF }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#f7f8f8"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#8a8f98"; }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={createBug.isPending || selectedTypes.length === 0}
+            className="px-5 py-2 rounded-lg text-xs flex items-center gap-2 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{ background: "#f87171", color: "#0f1011", fontWeight: 510, fontFeatureSettings: FF }}
+            onMouseEnter={(e) => { if (!createBug.isPending) (e.currentTarget as HTMLButtonElement).style.background = "#fca5a5"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f87171"; }}
+          >
+            {createBug.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bug className="h-3 w-3" />}
+            {createBug.isPending ? "Submitting…" : "Submit Bug"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -824,25 +1022,24 @@ function EvalFormInner({
 /* ──────────────────────────────────────────────────────────────────── */
 /*  StatPill                                                            */
 /* ──────────────────────────────────────────────────────────────────── */
+function npsColors(score: number): { bg: string; border: string; text: string } {
+  if (score <= 6) return { bg: "rgba(255,113,108,0.08)", border: "rgba(255,113,108,0.2)",  text: "#ff716c" };
+  if (score <= 8) return { bg: "rgba(113,112,255,0.06)", border: "rgba(113,112,255,0.2)",  text: "#7170ff" };
+  return              { bg: "rgba(16,185,129,0.08)",   border: "rgba(16,185,129,0.2)",    text: "#10b981" };
+}
+
 function StatPill({
-  label, value, accent, highlight, icon,
+  label, value, accent, highlight, icon, npsScore,
 }: {
-  label: string; value: string; accent?: boolean; highlight?: boolean; icon?: React.ReactNode;
+  label: string; value: string; accent?: boolean; highlight?: boolean; icon?: React.ReactNode; npsScore?: number;
 }) {
+  const nps = highlight && npsScore !== undefined ? npsColors(npsScore) : null;
   return (
     <div
       className="px-3 py-1.5 rounded-md flex items-center gap-2 border"
       style={{
-        background: highlight
-          ? "rgba(113,112,255,0.06)"
-          : accent
-            ? "rgba(113,112,255,0.04)"
-            : "rgba(255,255,255,0.02)",
-        borderColor: highlight
-          ? "rgba(113,112,255,0.2)"
-          : accent
-            ? "rgba(113,112,255,0.12)"
-            : "rgba(255,255,255,0.08)",
+        background: nps ? nps.bg : highlight ? "rgba(113,112,255,0.06)" : accent ? "rgba(113,112,255,0.04)" : "rgba(255,255,255,0.02)",
+        borderColor: nps ? nps.border : highlight ? "rgba(113,112,255,0.2)" : accent ? "rgba(113,112,255,0.12)" : "rgba(255,255,255,0.08)",
       }}
     >
       <span
@@ -854,7 +1051,7 @@ function StatPill({
       <span
         className="text-xs flex items-center gap-1"
         style={{
-          color: accent || highlight ? "#7170ff" : "#f7f8f8",
+          color: nps ? nps.text : accent || highlight ? "#7170ff" : "#f7f8f8",
           fontWeight: 510,
           fontFeatureSettings: '"cv01", "ss03"',
         }}

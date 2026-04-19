@@ -1,10 +1,35 @@
 import { useState, useEffect } from "react";
-import { X, UserCheck, UserX, CheckCircle2, RotateCcw } from "lucide-react";
+import { X, UserCheck, UserX, CheckCircle2, RotateCcw, ExternalLink } from "lucide-react";
 import type { BugReport, User } from "@/types";
 import { BugTypeChip } from "@/pages/BugsPage";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
+import { parseUtc } from "@/lib/utils";
 
 const FF = '"cv01", "ss03"' as const;
+
+function buildLinearUrl(bug: BugReport): string {
+  const title = `Bug #${bug.external_id}${bug.organization_name ? ` — ${bug.organization_name}` : ""}`;
+
+  const lines: string[] = [
+    "## Bug Report",
+    "",
+    `**ID:** #${bug.external_id}`,
+    `**Organization:** ${bug.organization_name ?? "—"}`,
+    `**Rooftop:** ${bug.rooftop_name ?? "—"}`,
+    `**Environment:** ${bug.source_env ?? "—"}`,
+    `**Bug Types:** ${(bug.bug_types ?? []).length > 0 ? bug.bug_types!.join(", ") : "—"}`,
+    `**Reporter:** ${bug.submitted_by_name ?? (bug.submitted_by ? `#${bug.submitted_by}` : "—")}`,
+    `**Reported At:** ${bug.external_created_at ? parseUtc(bug.external_created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—"}`,
+    ...(bug.call_id ? [`**Call ID:** #${bug.call_id}`] : []),
+    "",
+    "## Description",
+    "",
+    bug.description ?? "_No description provided._",
+  ];
+
+  const params = new URLSearchParams({ title, description: lines.join("\n") });
+  return `https://linear.app/lokam-v2/new?${params.toString()}`;
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -288,7 +313,7 @@ export function BugDetailDrawer({
             <Field label="Created">
               <span style={{ fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace", fontSize: "12px" }}>
                 {bug.external_created_at
-                  ? new Date(bug.external_created_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+                  ? parseUtc(bug.external_created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
                   : "—"}
               </span>
             </Field>
@@ -299,6 +324,30 @@ export function BugDetailDrawer({
               </span>
             </Field>
           </div>
+
+          {/* ── Create Linear Story ───────────────────────── */}
+          <a
+            href={buildLinearUrl(bug)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-[13px] transition-colors"
+            style={{
+              background: "rgba(94,106,210,0.12)",
+              border: "1px solid rgba(94,106,210,0.25)",
+              color: "#7170ff",
+              fontWeight: 510,
+              fontFeatureSettings: FF,
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.background = "rgba(94,106,210,0.2)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.background = "rgba(94,106,210,0.12)";
+            }}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Create Linear Story
+          </a>
         </div>
       </div>
     </>

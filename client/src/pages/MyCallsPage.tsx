@@ -1,9 +1,13 @@
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCalls, useCallsCount } from "@/hooks/use-calls";
+import { apiGetCalls } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CallFilterBar, CallFilterState, DEFAULT_FILTERS } from "@/components/ui/call-filters";
+import { CallFilterBar, DEFAULT_FILTERS } from "@/components/ui/call-filters";
+import { useMyCallsFilterStore } from "@/store/filter-store";
+import { parseUtc } from "@/lib/utils";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -14,6 +18,7 @@ import {
 } from "lucide-react";
 
 const PAGE_SIZE = 15;
+const STALE_MS = 5 * 60 * 1000;
 
 const FF = '"cv01", "ss03"' as const;
 
@@ -26,12 +31,15 @@ function thisMonthRange(): DateRange {
 
 export default function MyCallsPage() {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<CallFilterState>(() => ({ ...DEFAULT_FILTERS, dateRange: thisMonthRange() }));
-  const [page, setPage] = useState(1);
+  const { filters, page, setFilters, setPage } = useMyCallsFilterStore();
 
-  useEffect(() => { setPage(1); }, [filters]);
+  // Seed dateRange on first visit (store persists undefined from DEFAULT_FILTERS)
+  useEffect(() => {
+    if (!filters.dateRange) setFilters({ ...filters, dateRange: thisMonthRange() });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const callParams = useMemo(() => ({
+  const filterBase = useMemo(() => ({
     eval_status:       filters.evalStatus !== "all" ? filters.evalStatus : undefined,
     date_from:         filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : undefined,
     date_to:           filters.dateRange?.to   ? format(filters.dateRange.to,   "yyyy-MM-dd") : undefined,
@@ -40,9 +48,13 @@ export default function MyCallsPage() {
     nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter : undefined,
     sort_by:           filters.sortBy,
     sort_dir:          filters.sortDir,
-    limit:             PAGE_SIZE,
-    offset:            (page - 1) * PAGE_SIZE,
-  }), [filters, page]);
+  }), [filters]);
+
+  const callParams = useMemo(() => ({
+    ...filterBase,
+    limit:  PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
+  }), [filterBase, page]);
 
   const countParams = useMemo(() => ({
     eval_status:       filters.evalStatus !== "all" ? filters.evalStatus : undefined,
@@ -55,6 +67,12 @@ export default function MyCallsPage() {
 
   const { data, isLoading, isError } = useCalls(callParams);
   const { data: totalCount } = useCallsCount(countParams);
+
+  const qc = useQueryClient();
+  useEffect(() => {
+    const nextParams = { ...callParams, offset: page * PAGE_SIZE };
+    qc.prefetchQuery({ queryKey: ["calls", nextParams], queryFn: () => apiGetCalls(nextParams), staleTime: STALE_MS });
+  }, [callParams]);
 
   const totalPages = Math.max(1, Math.ceil((totalCount ?? 0) / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -364,7 +382,7 @@ export default function MyCallsPage() {
                   (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.02)";
                   (e.currentTarget as HTMLButtonElement).style.color = "#8a8f98";
                 }}
-                onClick={() => setFilters(DEFAULT_FILTERS)}
+                onClick={() => setFilters({ ...DEFAULT_FILTERS, dateRange: thisMonthRange() })}
               >
                 Clear Filters
               </button>
@@ -511,8 +529,8 @@ function CallRow({
         className="px-4 py-3 text-xs"
         style={{ color: "#62666d", fontFeatureSettings: FF_INNER }}
       >
-        {new Date(call.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{" "}
-        {new Date(call.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+        {parseUtc(call.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}{" "}
+        {parseUtc(call.date).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false })}
       </td>
 
       {/* Status pill */}

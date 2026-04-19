@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   apiGetCalls,
   apiGetCallsCount,
@@ -16,11 +16,17 @@ import {
   apiGetMyBugsCount,
   apiAssignBug,
   apiResolveBug,
+  apiGetDashboardStats,
+  apiGetAssignmentConfig,
+  apiUpdateAssignmentConfig,
+  apiCreateBug,
+  type CreateBugPayload,
   type MyCallsParams,
   type BugsParams,
   type BugsStatsResult,
   type MyBugsParams,
 } from "@/lib/api";
+import type { AssignmentConfig } from "@/types";
 import type { Eval } from "@/types";
 
 const STALE_MS = 5 * 60 * 1000;
@@ -30,6 +36,7 @@ export function useCalls(params?: MyCallsParams) {
     queryKey: ["calls", params],
     queryFn: () => apiGetCalls(params),
     staleTime: STALE_MS,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -90,6 +97,7 @@ export function useBugs(params: BugsParams) {
     queryFn: () => apiGetBugs(params),
     enabled: !!(params.date_from && params.date_to),
     staleTime: STALE_MS,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -116,6 +124,7 @@ export function useMyBugs(params?: MyBugsParams) {
     queryKey: ["bugs-my", params],
     queryFn: () => apiGetMyBugs(params),
     staleTime: STALE_MS,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -142,6 +151,14 @@ export function useResolveBug() {
   });
 }
 
+export function useDashboardStats() {
+  return useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: apiGetDashboardStats,
+    staleTime: 60 * 1000,
+  });
+}
+
 export function useAssignBug() {
   const qc = useQueryClient();
   return useMutation({
@@ -164,6 +181,34 @@ export function useUpdateUser() {
       apiUpdateUser(userId, patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useAssignmentConfig() {
+  return useQuery({
+    queryKey: ["assignment-config"],
+    queryFn: apiGetAssignmentConfig,
+    staleTime: 60_000,
+  });
+}
+
+export function useUpdateAssignmentConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Partial<AssignmentConfig>) => apiUpdateAssignmentConfig(patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assignment-config"] });
+    },
+  });
+}
+
+export function useCreateBug() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateBugPayload) => apiCreateBug(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bugs-my"] });
     },
   });
 }

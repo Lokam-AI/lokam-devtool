@@ -13,7 +13,6 @@ const MyCallsPage = lazy(() => import("@/pages/MyCallsPage"));
 const EvalFormPage = lazy(() => import("@/pages/EvalFormPage"));
 const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const TeamPage = lazy(() => import("@/pages/TeamPage"));
-const UserManagementPage = lazy(() => import("@/pages/UserManagementPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 const AllCallsPage = lazy(() => import("@/pages/AllCallsPage"));
 const BugsPage = lazy(() => import("@/pages/BugsPage"));
@@ -60,10 +59,6 @@ const App = () => {
               <Route
                 path="/bugs"
                 element={<RoleGuard minRole="admin"><BugsPage /></RoleGuard>}
-              />
-              <Route
-                path="/users"
-                element={<RoleGuard minRole="superadmin"><UserManagementPage /></RoleGuard>}
               />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -1,10 +1,45 @@
 from datetime import date, datetime
+from datetime import date as date_type
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.bug_report import BugReport
+
+MANUAL_SOURCE_ENV = "manual"
+
+
+async def create_manual(
+    db: AsyncSession,
+    *,
+    call_id: int | None,
+    organization_name: str | None,
+    rooftop_name: str | None,
+    bug_types: list[str],
+    description: str | None,
+    submitted_by: int,
+    submitted_by_name: str,
+) -> BugReport:
+    """Insert a manually filed bug report; external_id is set to -id after flush."""
+    bug = BugReport(
+        external_id=0,
+        source_env=MANUAL_SOURCE_ENV,
+        bug_date=date_type.today(),
+        call_id=call_id,
+        organization_name=organization_name,
+        rooftop_name=rooftop_name,
+        bug_types=bug_types or None,
+        description=description,
+        submitted_by=submitted_by,
+        submitted_by_name=submitted_by_name,
+        assigned_to=submitted_by,
+        external_created_at=datetime.utcnow(),
+    )
+    db.add(bug)
+    await db.flush()
+    bug.external_id = -bug.id
+    return bug
 
 
 async def upsert(

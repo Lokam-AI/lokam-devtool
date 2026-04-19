@@ -41,13 +41,16 @@ async def list_for_reviewer(
     db: AsyncSession,
     user_id: int,
     status: str | None = None,
+    call_id: int | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> list[Eval]:
-    """Return Eval rows assigned to the given reviewer with optional status filter and pagination."""
+    """Return Eval rows assigned to the given reviewer with optional filters and pagination."""
     query = select(Eval).where(Eval.assigned_to == user_id)
     if status is not None:
         query = query.where(Eval.eval_status == status)
+    if call_id is not None:
+        query = query.where(Eval.call_id == call_id)
     result = await db.execute(query.order_by(Eval.id).limit(limit).offset(offset))
     return list(result.scalars().all())
 

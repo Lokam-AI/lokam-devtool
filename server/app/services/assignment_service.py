@@ -1,12 +1,18 @@
+from __future__ import annotations
+
+import random
+from collections import defaultdict
 from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import CALL_TARGETS, FILL_PRIORITY, MAX_CALLS_PER_USER
+from app.core.config import FILL_PRIORITY
 from app.models.eval import Eval
 from app.models.raw_call import RawCall
 from app.repositories import eval_repo, raw_call_repo, user_repo
 from app.schemas.eval import EvalCreate
+from app.schemas.assignment_config import AssignmentConfigRead
+from app.services.assignment_config_service import get_config
 
 PROMOTER_NPS_MIN = 9
 DETRACTOR_NPS_MAX = 6
@@ -22,12 +28,16 @@ async def assign_calls_for_date(db: AsyncSession, call_date: date, source_env: s
     if not unassigned:
         return 0
 
+    config = await get_config(db)
     user_load = await _build_reviewer_load(db, [u.id for u in users], call_date)
     buckets = _categorize_calls(unassigned)
 
+    shuffled_users = users.copy()
+    random.shuffle(shuffled_users)
+
     records: list[EvalCreate] = []
-    for user in users:
-        picked = _pick_calls_for_user(buckets, user_load.get(user.id, 0))
+    for user in shuffled_users:
+        picked = _pick_calls_for_user(buckets, user_load.get(user.id, 0), config)
         for call in picked:
             records.append(_build_eval_create(call, user.id))
 
@@ -36,36 +46,83 @@ async def assign_calls_for_date(db: AsyncSession, call_date: date, source_env: s
     return len(records)
 
 
+def _interleave_by_rooftop(calls: list[RawCall]) -> list[RawCall]:
+    """Round-robin interleave calls across rooftops so picks naturally span multiple rooftops."""
+    groups: dict[str, list[RawCall]] = defaultdict(list)
+    for call in calls:
+        key = call.rooftop_name or call.organization_name or "__unknown__"
+        groups[key].append(call)
+    for group in groups.values():
+        random.shuffle(group)
+    result: list[RawCall] = []
+    iters = [iter(g) for g in groups.values()]
+    while iters:
+        next_iters = []
+        for it in iters:
+            try:
+                result.append(next(it))
+                next_iters.append(it)
+            except StopIteration:
+                pass
+        iters = next_iters
+    return result
+
+
 def _categorize_calls(calls: list[RawCall]) -> dict[str, list[RawCall]]:
-    """Split calls into na, promoter, detractor, and missed buckets."""
-    buckets: dict[str, list[RawCall]] = {"na": [], "promoter": [], "detractor": [], "missed": []}
+    """Split calls into na, promoter, detractor, and missed buckets, interleaved by rooftop."""
+    raw: dict[str, list[RawCall]] = {"na": [], "promoter": [], "detractor": [], "missed": []}
     for call in calls:
         if call.call_status != "Completed":
-            buckets["missed"].append(call)
+            raw["missed"].append(call)
         elif call.nps_score is None or (call.nps_score > DETRACTOR_NPS_MAX and call.nps_score < PROMOTER_NPS_MIN):
-            buckets["na"].append(call)
+            raw["na"].append(call)
         elif call.nps_score >= PROMOTER_NPS_MIN:
-            buckets["promoter"].append(call)
+            raw["promoter"].append(call)
         else:
-            buckets["detractor"].append(call)
-    return buckets
+            raw["detractor"].append(call)
+    return {category: _interleave_by_rooftop(bucket) for category, bucket in raw.items()}
 
 
-def _pick_calls_for_user(buckets: dict[str, list[RawCall]], current_load: int) -> list[RawCall]:
-    """Draw up to MAX_CALLS_PER_USER calls from shared buckets using targets then fallback priority."""
-    remaining = MAX_CALLS_PER_USER - current_load
+NA_MIN_DURATION_SEC = 40
+
+
+def _pick_na_calls(available: list[RawCall], count: int) -> list[RawCall]:
+    """Pick up to `count` NA calls, ensuring the first slot is a 40s+ call when one exists."""
+    if count <= 0:
+        return []
+    long_calls  = [c for c in available if (c.duration_sec or 0) >= NA_MIN_DURATION_SEC]
+    short_calls = [c for c in available if (c.duration_sec or 0) < NA_MIN_DURATION_SEC]
+    picks: list[RawCall] = []
+    if long_calls:
+        picks.append(long_calls.pop(0))
+    remaining_slots = count - len(picks)
+    rest = long_calls + short_calls
+    picks.extend(rest[:remaining_slots])
+    return picks
+
+
+def _pick_calls_for_user(
+    buckets: dict[str, list[RawCall]], current_load: int, config: AssignmentConfigRead
+) -> list[RawCall]:
+    """Draw up to config.max_calls_per_user calls from shared buckets using targets then fallback priority."""
+    remaining = config.max_calls_per_user - current_load
     if remaining <= 0:
         return []
 
     picks: list[RawCall] = []
+    targets = config.call_targets.model_dump()
 
     for category in FILL_PRIORITY:
-        target = CALL_TARGETS[category]
+        target = targets[category]
         available = buckets[category]
-        take = min(target, len(available), remaining)
-        picks.extend(available[:take])
-        buckets[category] = available[take:]
-        remaining -= take
+        if category == "na":
+            selected = _pick_na_calls(available, min(target, remaining))
+        else:
+            selected = available[:min(target, remaining)]
+        picks.extend(selected)
+        for call in selected:
+            available.remove(call)
+        remaining -= len(selected)
         if remaining == 0:
             return picks
 

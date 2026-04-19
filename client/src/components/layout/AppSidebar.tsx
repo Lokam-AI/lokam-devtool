@@ -6,7 +6,6 @@ import {
   PhoneCall,
   Settings,
   Users,
-  UserCog,
   LogOut,
   ChevronsUpDown,
   Shield,
@@ -59,9 +58,6 @@ const ADMIN_NAV = [
   { title: "Team Overview",  url: "/team",      icon: Users    },
 ];
 
-const SUPERADMIN_NAV = [
-  { title: "User Management", url: "/users", icon: UserCog },
-];
 
 const ROLE_CONFIG: Record<string, {
   label: string; icon: typeof Shield;
@@ -169,21 +165,6 @@ export function AppSidebar() {
             </SidebarGroup>
           )}
 
-          {/* Superadmin nav */}
-          {isAtLeast("superadmin") && (
-            <SidebarGroup className="p-0 mt-4">
-              {!collapsed && (
-                <SectionHeader label="System" />
-              )}
-              <SidebarGroupContent>
-                <SidebarMenu className="space-y-px">
-                  {SUPERADMIN_NAV.map((item) => (
-                    <NavItem key={item.url} item={item} collapsed={collapsed} pathname={location.pathname} />
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
         </SidebarContent>
 
         {/* ── Footer ───────────────────────────────────────────────── */}

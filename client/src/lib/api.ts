@@ -9,10 +9,10 @@ import type {
   BugReport,
   SystemHealth,
   EnvConfig,
+  AssignmentConfig,
 } from "@/types";
 
-// Backend base URL — during dev the Vite proxy forwards /api → localhost:8000
-const API_BASE = "/api/v1";
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api/v1`;
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -208,7 +208,7 @@ export const apiGetCall = async (id: string): Promise<CallWithEval | undefined> 
     // Fetch call and evals concurrently
     const [callRes, evalsRes] = await Promise.all([
       api.get<BackendRawCall>(`/calls/${id}`).catch(() => null),
-      api.get<BackendEval[]>("/evals/my").catch(() => ({ data: [] as BackendEval[] })),
+      api.get<BackendEval[]>(`/evals/my?call_id=${id}`).catch(() => ({ data: [] as BackendEval[] })),
     ]);
 
     if (!callRes) return undefined;
@@ -318,6 +318,20 @@ interface BackendUser {
   is_active: boolean;
   must_change_password: boolean;
 }
+
+/** GET /admin/assignment-config — returns current assignment config (superadmin only) */
+export const apiGetAssignmentConfig = async (): Promise<AssignmentConfig> => {
+  const { data } = await api.get<AssignmentConfig>("/admin/assignment-config");
+  return data;
+};
+
+/** PATCH /admin/assignment-config — update assignment config (superadmin only) */
+export const apiUpdateAssignmentConfig = async (
+  patch: Partial<AssignmentConfig>
+): Promise<AssignmentConfig> => {
+  const { data } = await api.patch<AssignmentConfig>("/admin/assignment-config", patch);
+  return data;
+};
 
 /** GET /health — returns backend liveness status */
 export const apiGetHealth = async (): Promise<SystemHealth> => {
@@ -458,6 +472,37 @@ export const apiAssignBug = async (bugId: number, userId: number | null): Promis
 /** PATCH /bugs/:id/resolve — mark a bug resolved or reopen it (any role) */
 export const apiResolveBug = async (bugId: number, isResolved: boolean): Promise<BugReport> => {
   const { data } = await api.patch<BugReport>(`/bugs/${bugId}/resolve`, { is_resolved: isResolved });
+  return data;
+};
+
+export interface CreateBugPayload {
+  call_id?: number | null;
+  organization_name?: string | null;
+  rooftop_name?: string | null;
+  bug_types: string[];
+  description?: string | null;
+}
+
+export const apiCreateBug = async (payload: CreateBugPayload): Promise<BugReport> => {
+  const { data } = await api.post<BugReport>("/bugs", payload);
+  return data;
+};
+
+export interface DashboardStats {
+  nps: { promoters: number; neutrals: number; detractors: number; unscored: number };
+  correction_rate: number;
+  open_bugs: number;
+  sync: {
+    last_call_sync: string | null;
+    calls_today: number;
+    last_bug_sync: string | null;
+    bugs_today: number;
+  };
+}
+
+/** GET /stats/dashboard — aggregate stats for the admin dashboard */
+export const apiGetDashboardStats = async (): Promise<DashboardStats> => {
+  const { data } = await api.get<DashboardStats>("/stats/dashboard");
   return data;
 };
 

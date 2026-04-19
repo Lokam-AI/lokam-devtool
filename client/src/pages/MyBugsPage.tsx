@@ -1,23 +1,28 @@
 import { useState, useMemo, useEffect } from "react";
 import { Bug, AlertTriangle, RefreshCw, Filter, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMyBugs, useMyBugsCount, useResolveBug } from "@/hooks/use-calls";
+import { apiGetMyBugs } from "@/lib/api";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { BugDetailDrawer } from "@/components/bugs/BugDetailDrawer";
 import { BugTypeChip } from "@/pages/BugsPage";
 import type { BugReport } from "@/types";
+import { parseUtc } from "@/lib/utils";
 
 const FF = '"cv01", "ss03"' as const;
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-US", {
+  return parseUtc(iso).toLocaleString(undefined, {
     month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 15;
+const STALE_MS = 5 * 60 * 1000;
 
 export default function MyBugsPage() {
+  const qc = useQueryClient();
   const resolveBug = useResolveBug();
   const [selected, setSelected] = useState<BugReport | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "resolved">("all");
@@ -27,23 +32,28 @@ export default function MyBugsPage() {
 
   useEffect(() => { setPage(0); }, [statusFilter, orgFilter, bugTypeFilter]);
 
-  const bugsParams = useMemo(() => ({
-    is_resolved:       statusFilter === "open" ? false : statusFilter === "resolved" ? true : undefined,
-    organization_name: orgFilter || undefined,
-    bug_type:          bugTypeFilter || undefined,
-    limit:             PAGE_SIZE,
-    offset:            page * PAGE_SIZE,
-  }), [statusFilter, orgFilter, bugTypeFilter, page]);
-
-  const countParams = useMemo(() => ({
+  const filterBase = useMemo(() => ({
     is_resolved:       statusFilter === "open" ? false : statusFilter === "resolved" ? true : undefined,
     organization_name: orgFilter || undefined,
     bug_type:          bugTypeFilter || undefined,
   }), [statusFilter, orgFilter, bugTypeFilter]);
 
+  const bugsParams = useMemo(() => ({
+    ...filterBase,
+    limit:  PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+  }), [filterBase, page]);
+
+  const countParams = filterBase;
+
   const { data: bugs = [], isLoading, isFetching, refetch } = useMyBugs(bugsParams);
   const { data: totalCount = 0 } = useMyBugsCount(countParams);
   const { data: openCount = 0 } = useMyBugsCount({ is_resolved: false });
+
+  useEffect(() => {
+    const nextParams = { ...bugsParams, offset: (page + 1) * PAGE_SIZE };
+    qc.prefetchQuery({ queryKey: ["bugs-my", nextParams], queryFn: () => apiGetMyBugs(nextParams), staleTime: STALE_MS });
+  }, [bugsParams]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const selectedLive = selected ? (bugs.find((b) => b.id === selected.id) ?? selected) : null;

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useUsers, useCreateUser, useUpdateUser } from "@/hooks/use-calls";
+import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth-store";
@@ -394,18 +395,38 @@ export default function UserManagementPage() {
 
                       {/* Role */}
                       <td className="px-6 py-5">
-                        <span
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider border"
-                          style={{
-                            background: role.bg,
-                            color: role.color,
-                            borderColor: role.border,
-                            fontWeight: 510,
-                            fontFeatureSettings: FF,
-                          }}
-                        >
-                          {role.label}
-                        </span>
+                        {isSuperadmin && u.role !== "superadmin" ? (
+                          <DropdownSelect
+                            size="sm"
+                            value={u.role}
+                            options={[
+                              { value: "reviewer", label: "Reviewer" },
+                              { value: "admin",    label: "Admin" },
+                            ]}
+                            onChange={(newRoleVal) => {
+                              updateUser.mutate(
+                                { userId: u.id, patch: { role: newRoleVal } },
+                                {
+                                  onSuccess: () => toast.success(`${u.name} is now ${newRoleVal}`),
+                                  onError: () => toast.error("Failed to update role"),
+                                }
+                              );
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider border"
+                            style={{
+                              background: role.bg,
+                              color: role.color,
+                              borderColor: role.border,
+                              fontWeight: 510,
+                              fontFeatureSettings: FF,
+                            }}
+                          >
+                            {role.label}
+                          </span>
+                        )}
                       </td>
 
                       {/* Status */}
