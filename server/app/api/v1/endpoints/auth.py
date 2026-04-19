@@ -44,7 +44,7 @@ async def login(
         value=token_response.access_token,
         httponly=True,
         max_age=COOKIE_MAX_AGE,
-        samesite="lax",
+        samesite="none" if settings.ENVIRONMENT != "development" else "lax",
         secure=settings.ENVIRONMENT != "development",
     )
     return token_response
