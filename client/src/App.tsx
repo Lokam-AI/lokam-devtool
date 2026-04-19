@@ -34,10 +34,9 @@ const App = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/change-password" element={<ChangePasswordPage />} />
+            <Route path="/login" element={<Suspense fallback={<PageLoader />}><LoginPage /></Suspense>} />
+            <Route path="/change-password" element={<Suspense fallback={<PageLoader />}><ChangePasswordPage /></Suspense>} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
@@ -63,7 +62,6 @@ const App = () => {
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
-        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
