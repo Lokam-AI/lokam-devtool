@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
@@ -8,13 +9,22 @@ from fastapi.responses import JSONResponse
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.rate_limit import RateLimitError
+from app.core.scheduler import daily_sync_loop
 from app.exceptions import AppError, AuthError, ConflictError, NotFoundError, PermissionDeniedError
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Run startup/shutdown logic around the application lifecycle."""
-    yield
+    task = asyncio.create_task(daily_sync_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(

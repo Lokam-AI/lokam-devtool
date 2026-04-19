@@ -1,38 +1,54 @@
 # Lokam DevTool
 
-Internal developer tool with a FastAPI backend and React frontend.
+Internal developer productivity platform with a FastAPI backend and React frontend.
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Python 3.11+, FastAPI, SQLAlchemy, Alembic |
+| Frontend | React, TypeScript, Vite, Bun |
+| Database | PostgreSQL 14+ |
+| Auth | JWT (HS256) + Fernet encryption |
 
 ## Prerequisites
 
 - Python 3.11+
-- Node.js 18+ / Bun
+- Node.js 18+ or [Bun](https://bun.sh)
 - PostgreSQL 14+
 
 ---
 
-## Backend Setup
+## Quick Start
 
-### 1. Create and activate a virtual environment
+### 1. Backend
 
 ```bash
 cd server
-python -m venv .venv
-source .venv/bin/activate
-```
-
-### 2. Install dependencies
-
-```bash
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env          # fill in values (see table below)
+./setup_local_db.sh           # interactive: creates DB + runs migrations
+python start_server.py
 ```
 
-### 3. Configure environment variables
+API available at `http://localhost:8000` · Docs at `http://localhost:8000/docs`
+
+### 2. Frontend
 
 ```bash
-cp .env.example .env
+cd client
+bun install                   # or: npm install
+bun run dev                   # or: npm run dev
 ```
 
-Edit `.env` and fill in the required values:
+App available at `http://localhost:8080` (proxies `/api/*` → `http://localhost:8000`)
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env` in the `server/` directory and fill in:
 
 | Variable | Required | Description |
 |---|---|---|
@@ -41,74 +57,11 @@ Edit `.env` and fill in the required values:
 | `DB_USER` | yes | PostgreSQL user |
 | `DB_PASSWORD` | yes | PostgreSQL password |
 | `DB_NAME` | yes | Database name (default: `devtool`) |
-| `SECRET_KEY` | yes | JWT signing key — generate with `openssl rand -hex 32` |
-| `FERNET_KEY` | yes | Encryption key — generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `SECRET_KEY` | yes | JWT signing key — `openssl rand -hex 32` |
+| `FERNET_KEY` | yes | Encryption key — `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 | `ENVIRONMENT` | no | `development` \| `staging` \| `production` (default: `development`) |
-| `PLAYGROUND_BASE_URL` | no | Base URL for the lokamspace playground environment |
+| `PLAYGROUND_BASE_URL` | no | Base URL for the lokamspace playground |
 | `PLAYGROUND_API_KEY` | no | API key for the calls-export endpoint |
-
-### 4. Create the database and run migrations
-
-```bash
-./setup_local_db.sh --setup-db   # creates the database
-./setup_local_db.sh --migrate    # runs alembic upgrade head
-```
-
-Or interactively:
-
-```bash
-./setup_local_db.sh
-```
-
-### 5. Start the backend server
-
-```bash
-python start_server.py
-```
-
-The API is available at `http://localhost:8000`.  
-Interactive API docs: `http://localhost:8000/docs`
-
-Optional flags:
-
-```bash
-python start_server.py --port 9000     # custom port
-python start_server.py --no-reload     # disable auto-reload
-```
-
----
-
-## Frontend Setup
-
-### 1. Install dependencies
-
-```bash
-cd client
-npm install        # or: bun install
-```
-
-### 2. Start the dev server
-
-```bash
-npm run dev        # or: bun run dev
-```
-
-The app is available at `http://localhost:8080`.  
-API requests to `/api/*` are proxied to `http://localhost:8000`.
-
----
-
-## Running Both Together
-
-Open two terminals:
-
-```bash
-# Terminal 1 — backend
-cd server && source .venv/bin/activate && python start_server.py
-
-# Terminal 2 — frontend
-cd client && npm run dev
-```
 
 ---
 
@@ -116,25 +69,58 @@ cd client && npm run dev
 
 ```bash
 ./setup_local_db.sh --setup-db    # create database (idempotent)
-./setup_local_db.sh --migrate     # run pending migrations
+./setup_local_db.sh --migrate     # run pending Alembic migrations
 ./setup_local_db.sh --reset-db    # drop + recreate + migrate (destructive)
 ./setup_local_db.sh --drop-db     # drop database (destructive)
 ```
 
 ---
 
-## Running Tests
-
-### Backend
+## Backend Server Options
 
 ```bash
-cd server
-pytest
+python start_server.py                # default: port 8000, auto-reload on
+python start_server.py --port 9000    # custom port
+python start_server.py --no-reload    # disable auto-reload
 ```
 
-### Frontend
+---
+
+## Testing
 
 ```bash
-cd client
-npm run test
+# Backend
+cd server && pytest
+
+# Frontend
+cd client && bun run test
+```
+
+---
+
+## Project Structure
+
+```
+lokam-devtool/
+├── server/          # FastAPI application
+│   ├── routers/     # HTTP layer (routes only)
+│   ├── services/    # Business logic
+│   ├── repositories/# Database access
+│   ├── models/      # SQLAlchemy ORM models
+│   ├── schemas/     # Pydantic request/response models
+│   └── alembic/     # Database migrations
+└── client/          # React + TypeScript frontend
+    └── src/
+```
+
+---
+
+## Running Both Servers
+
+```bash
+# Terminal 1 — backend
+cd server && source .venv/bin/activate && python start_server.py
+
+# Terminal 2 — frontend
+cd client && bun run dev
 ```

@@ -12,9 +12,13 @@ BUGS_EXPORT_PATH = "/api/v1/internal/bugs-export"
 HTTP_TIMEOUT_SECONDS = 30
 
 
+APP_ENV_NAME = "app"
+
+
 async def sync_bugs_for_date(db: AsyncSession, bug_date: date) -> dict[str, int]:
-    """Fetch bug reports from all active envs for a date concurrently and upsert."""
-    envs = await env_config_repo.list_active(db)
+    """Fetch bug reports from the app env for a date and upsert."""
+    env = await env_config_repo.get_by_name(db, APP_ENV_NAME)
+    envs = [env] if env is not None else []
     if not envs:
         return {}
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
