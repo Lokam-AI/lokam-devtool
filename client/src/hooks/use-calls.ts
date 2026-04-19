@@ -66,6 +66,9 @@ export function useSubmitEval() {
       qc.invalidateQueries({ queryKey: ["calls"] });
       qc.invalidateQueries({ queryKey: ["calls-count"] });
       qc.removeQueries({ queryKey: ["call", result.call_id] });
+      qc.invalidateQueries({ queryKey: ["all-calls"] });
+      qc.invalidateQueries({ queryKey: ["all-calls-count"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
     },
   });
 }
@@ -213,6 +216,9 @@ export function useCreateBug() {
     mutationFn: (payload: CreateBugPayload) => apiCreateBug(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["bugs-my"] });
+      qc.invalidateQueries({ queryKey: ["bugs"] });
+      qc.invalidateQueries({ queryKey: ["bugs-count"] });
+      qc.invalidateQueries({ queryKey: ["bugs-stats"] });
     },
   });
 }

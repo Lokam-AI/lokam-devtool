@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth-store";
 import lokamIcon from "../../assets/LOKAM_SECONDARY_LOGO_WHITE.svg";
 
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [loading,  setLoading]  = useState(false);
   const login    = useAuthStore((s) => s.login);
   const navigate = useNavigate();
+  const qc       = useQueryClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,6 +21,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
+      qc.clear();
       navigate("/dashboard", { replace: true });
     } catch {
       setError("Invalid credentials. Please try again.");

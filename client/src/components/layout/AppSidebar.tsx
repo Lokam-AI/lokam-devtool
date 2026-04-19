@@ -1,4 +1,5 @@
 import { useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import lokamLogo from "../../../assets/LOKAM_PRIMARY_WHITE_FULL_LOGO.svg";
 import lokamIcon from "../../../assets/LOKAM_SECONDARY_LOGO_WHITE.svg";
 import {
@@ -73,6 +74,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { user, logout, isAtLeast } = useAuthStore();
   const location = useLocation();
+  const qc = useQueryClient();
 
   const roleInfo = ROLE_CONFIG[user?.role ?? "reviewer"] ?? ROLE_CONFIG.reviewer;
   const RoleIcon = roleInfo.icon;
@@ -315,7 +317,7 @@ export function AppSidebar() {
                   (e.currentTarget as HTMLButtonElement).style.color = "#62666d";
                   (e.currentTarget as HTMLButtonElement).style.background = "transparent";
                 }}
-                onClick={logout}
+                onClick={() => { qc.clear(); logout(); }}
               >
                 <LogOut className="h-3.5 w-3.5 shrink-0" />
                 <span>Sign out</span>
