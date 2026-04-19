@@ -12,6 +12,7 @@ class RawCallCreate(BaseModel):
     organization_name: str | None = None
     rooftop_name: str | None = None
     campaign_name: str | None = None
+    lead_type: str | None = None
     call_status: str | None = None
     direction: str | None = None
     duration_sec: int | None = None

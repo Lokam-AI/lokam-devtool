@@ -332,7 +332,7 @@ export default function MyCallsPage() {
                       key={call.id}
                       call={call}
                       ev={ev}
-                      onNavigate={() => navigate(`/eval/${call.id}`)}
+                      onNavigate={() => navigate(`/eval/${call.id}`, { state: { editable: true } })}
                     />
                   ))
               }

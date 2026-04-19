@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useCall, useCalls, useSubmitEval, useCreateBug } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -83,6 +83,7 @@ function EvalFormInner({
   navigate: ReturnType<typeof useNavigate>;
   submitEval: ReturnType<typeof useSubmitEval>;
 }) {
+  const location = useLocation();
   const saved = evalData.status === "completed";
   const [bugModalOpen, setBugModalOpen] = useState(false);
 
@@ -243,14 +244,14 @@ function EvalFormInner({
       await submitEval.mutateAsync({ evalId: evalData.id, data: evalUpdate });
       toast.success("Evaluation submitted");
       const next = allCalls?.find((c) => c.eval.status === "pending" && c.call.id !== callData.id);
-      if (next) navigate(`/eval/${next.call.id}`, { replace: true });
+      if (next) navigate(`/eval/${next.call.id}`, { replace: true, state: { editable: true } });
       else navigate("/calls", { replace: true });
     } catch {
       toast.error("Failed to submit evaluation");
     }
   };
 
-  const isReadOnly    = !evalData.id;
+  const isReadOnly    = !(location.state as { editable?: boolean } | null)?.editable;
   const durationStr   = `${Math.floor(callData.duration / 60)}m ${callData.duration % 60}s`;
   const positiveTags  = (callData.ai_positive_mentions ?? []).filter(Boolean);
   const detractorTags = (callData.ai_detractors ?? []).filter(Boolean);
@@ -365,6 +366,28 @@ function EvalFormInner({
             />
             {callData.ai_nps_score !== null && (
               <StatPill label="NPS Score" value={`${callData.ai_nps_score}/10`} highlight npsScore={callData.ai_nps_score} />
+            )}
+            {callData.call_metadata?.email_escalated && (
+              <div
+                className="px-3 py-1.5 rounded-md flex items-center gap-2 border"
+                style={{
+                  background: "rgba(251,146,60,0.08)",
+                  borderColor: "rgba(251,146,60,0.25)",
+                }}
+              >
+                <span
+                  className="material-symbols-outlined text-sm"
+                  style={{ color: "#fb923c", fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20", fontSize: "14px" }}
+                >
+                  mail
+                </span>
+                <span
+                  className="text-[10px] uppercase tracking-widest"
+                  style={{ color: "#fb923c", fontWeight: 510, fontFeatureSettings: FF }}
+                >
+                  Email Sent
+                </span>
+              </div>
             )}
           </div>
         </div>

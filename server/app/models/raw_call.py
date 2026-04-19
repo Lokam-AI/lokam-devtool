@@ -24,6 +24,7 @@ class RawCall(Base, TimestampMixin):
     organization_name: Mapped[str | None] = mapped_column(String(150))
     rooftop_name: Mapped[str | None] = mapped_column(String(150))
     campaign_name: Mapped[str | None] = mapped_column(String(150))
+    lead_type: Mapped[str | None] = mapped_column(String(50))
     # Call metadata
     call_status: Mapped[str | None] = mapped_column(String(20))
     direction: Mapped[str | None] = mapped_column(String(10))

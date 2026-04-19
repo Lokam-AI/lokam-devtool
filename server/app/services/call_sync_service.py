@@ -41,9 +41,13 @@ async def _sync_single_env(db: AsyncSession, client: httpx.AsyncClient, env: obj
     response.raise_for_status()
     payload = response.json()
 
+    SUPPORTED_LEAD_TYPE = "SERVICE_POST_RO"
+
     calls_data: list[dict] = payload if isinstance(payload, list) else payload.get("calls", [])
     upserted = 0
     for item in calls_data:
+        if item.get("lead_type") != SUPPORTED_LEAD_TYPE:
+            continue
         item["source_env"] = env.name
         if "id" in item and "lokam_call_id" not in item:
             item["lokam_call_id"] = item.pop("id")

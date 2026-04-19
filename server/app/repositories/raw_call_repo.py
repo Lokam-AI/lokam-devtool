@@ -49,6 +49,7 @@ async def get_unassigned_for_date(db: AsyncSession, call_date: date, source_env:
     query = (
         select(RawCall)
         .where(RawCall.call_date == call_date)
+        .where(RawCall.lead_type == "SERVICE_POST_RO")
         .where(RawCall.lokam_call_id.not_in(assigned_ids_subq))
     )
     if source_env is not None:

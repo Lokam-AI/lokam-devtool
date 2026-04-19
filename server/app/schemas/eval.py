@@ -12,6 +12,7 @@ class EvalCreate(BaseModel):
     call_id: int  # stores lokam_call_id from raw_calls
     assigned_to: int
     call_status: str | None = None
+    lead_type: str | None = None
     raw_transcript: str | None = None
     formatted_transcript: str | None = None
     recording_url: str | None = None
@@ -47,6 +48,7 @@ class EvalRead(BaseModel):
     call_id: int
     assigned_to: int
     call_status: str | None = None
+    lead_type: str | None = None
     raw_transcript: str | None = None
     formatted_transcript: str | None = None
     recording_url: str | None = None

@@ -25,6 +25,7 @@ class Eval(Base, TimestampMixin):
     call_id: Mapped[int] = mapped_column(Integer, nullable=False)  # stores lokam_call_id
     # Denormalized context
     call_status: Mapped[str | None] = mapped_column(String(20))
+    lead_type: Mapped[str | None] = mapped_column(String(50))
     raw_transcript: Mapped[str | None] = mapped_column(Text)
     formatted_transcript: Mapped[str | None] = mapped_column(Text)
     recording_url: Mapped[str | None] = mapped_column(Text)

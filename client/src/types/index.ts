@@ -15,6 +15,7 @@ export interface RawCall {
   date: string;
   duration: number;
   campaign: string;
+  lead_type: string | null;
   organization_name: string;
   rooftop_name: string;
   call_status: string;
@@ -31,6 +32,7 @@ export interface RawCall {
   ai_detractors: string[];
   ai_is_resolved: boolean;
   ai_callback_requested: boolean;
+  call_metadata?: Record<string, unknown> | null;
 }
 
 export interface Eval {

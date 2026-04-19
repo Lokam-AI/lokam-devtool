@@ -10,9 +10,10 @@ import { useAuthStore } from "@/store/auth-store";
 const FF = '"cv01", "ss03"' as const;
 
 const SEED_MODES = [
-  { value: "--check-and-seed", label: "Check & Seed" },
-  { value: "--seed-only",      label: "Seed Only"    },
-  { value: "--check-only",     label: "Check Only"   },
+  { value: "--check-and-seed",  label: "Check & Seed"    },
+  { value: "--force-recreate",  label: "Force Recreate"  },
+  { value: "--dry-run",         label: "Dry Run"         },
+  { value: "--stats-only",      label: "Stats Only"      },
 ];
 
 const WAVEFORM_HEIGHTS = [4, 6, 4, 6, 8, 6, 4, 6, 4, 12, 6, 4, 8, 5, 4, 7];
@@ -25,10 +26,10 @@ function yesterday() {
 
 export default function AdminPage() {
   const [envs, setEnvs]                       = useState<EnvConfig[]>([]);
-  const [acsEnv, setAcsEnv]                   = useState("");
+  const [acsEnvs, setAcsEnvs]                 = useState<string[]>([]);
   const [seedEnv, setSeedEnv]                 = useState("");
   const [showAcsConfirm, setShowAcsConfirm]   = useState(false);
-  const [seedMode, setSeedMode]               = useState("--check-and-seed");
+  const [seedMode, setSeedMode]               = useState("--force-recreate");
   const [seedOrg, setSeedOrg]                 = useState("");
   const [seedRooftops, setSeedRooftops]       = useState("");
   const [seedRunning, setSeedRunning]         = useState(false);
@@ -41,21 +42,21 @@ export default function AdminPage() {
   useEffect(() => {
     apiGetEnvs().then((data) => {
       setEnvs(data);
-      const nonApp = data.find((e) => e.name !== "app");
-      if (nonApp) setAcsEnv(nonApp.name);
-      if (data.length > 0) setSeedEnv(data[0].name);
+      const arena = data.find((e) => e.name === "arena");
+      setSeedEnv(arena ? "arena" : (data[0]?.name ?? ""));
     }).catch(() => {});
   }, []);
 
   const envOptions    = envs.map((e) => ({ value: e.name, label: e.name }));
-  const acsEnvOptions = envs.filter((e) => e.name !== "app").map((e) => ({ value: e.name, label: e.name }));
+  const acsEnvOptions = envs.filter((e) => e.name !== "app");
 
   const handleAcsDisable = async () => {
+    if (acsEnvs.length === 0) return;
     try {
-      await api.post(`/admin/envs/${acsEnv}/acs`, { enabled: false });
-      toast.success(`ACS disabled on ${acsEnv}`);
+      await Promise.all(acsEnvs.map((env) => api.post(`/admin/envs/${env}/acs`, { enabled: false })));
+      toast.success(`ACS disabled on ${acsEnvs.join(", ")}`);
     } catch {
-      toast.error("Failed to disable ACS");
+      toast.error("Failed to disable ACS on one or more envs");
     }
   };
 
@@ -135,6 +136,21 @@ export default function AdminPage() {
         {/* ── Left: ACS + Seed ── */}
         <div className="col-span-12 lg:col-span-4 flex flex-col gap-3 min-h-0">
 
+          <div className="flex items-center gap-2 shrink-0">
+            <span
+              className="material-symbols-outlined text-base"
+              style={{ color: "#62666d", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+            >
+              settings
+            </span>
+            <h3
+              className="text-xs uppercase tracking-widest"
+              style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              Power Tools
+            </h3>
+          </div>
+
           {/* ACS Toggle */}
           <div
             className="rounded-lg p-4 flex flex-col gap-3 border-l-2 shrink-0 border"
@@ -145,42 +161,74 @@ export default function AdminPage() {
               borderLeftWidth: "2px",
             }}
           >
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-                  style={{ background: "rgba(113,112,255,0.1)" }}
+            <div className="flex items-center gap-2">
+              <div
+                className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                style={{ background: "rgba(113,112,255,0.1)" }}
+              >
+                <span
+                  className="material-symbols-outlined text-sm"
+                  style={{ color: "#7170ff", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
                 >
-                  <span
-                    className="material-symbols-outlined text-sm"
-                    style={{ color: "#7170ff", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
-                  >
-                    security
-                  </span>
-                </div>
-                <h2
-                  className="text-xs uppercase tracking-widest"
-                  style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
-                >
-                  ACS Toggle
-                </h2>
+                  security
+                </span>
               </div>
-              <DropdownSelect
-                value={acsEnv}
-                onChange={setAcsEnv}
-                options={acsEnvOptions}
-                size="sm"
-              />
+              <h2
+                className="text-xs uppercase tracking-widest"
+                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+              >
+                ACS Toggle
+              </h2>
             </div>
-            <p
-              className="text-xs leading-relaxed"
-              style={{ color: "#8a8f98", fontFeatureSettings: FF }}
-            >
-              Real-time monitoring and scoring for active communications.
-            </p>
+            <div className="flex flex-col gap-2">
+              {acsEnvOptions.map((env) => {
+                const checked = acsEnvs.includes(env.name);
+                return (
+                  <label
+                    key={env.name}
+                    className="flex items-center gap-2.5 cursor-pointer group"
+                  >
+                    <div
+                      className="w-4 h-4 rounded flex items-center justify-center border transition-all shrink-0"
+                      style={{
+                        background: checked ? "rgba(113,112,255,0.2)" : "rgba(255,255,255,0.02)",
+                        borderColor: checked ? "rgba(113,112,255,0.5)" : "rgba(255,255,255,0.12)",
+                      }}
+                    >
+                      {checked && (
+                        <span
+                          className="material-symbols-outlined"
+                          style={{ color: "#7170ff", fontSize: "11px", fontVariationSettings: "'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 20" }}
+                        >
+                          check
+                        </span>
+                      )}
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={checked}
+                        onChange={(e) => {
+                          setAcsEnvs(e.target.checked
+                            ? [...acsEnvs, env.name]
+                            : acsEnvs.filter((n) => n !== env.name)
+                          );
+                        }}
+                      />
+                    </div>
+                    <span
+                      className="text-xs capitalize"
+                      style={{ color: checked ? "#d0d6e0" : "#8a8f98", fontFeatureSettings: FF }}
+                    >
+                      {env.name}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
             <button
               onClick={() => setShowAcsConfirm(true)}
-              className="w-full py-2 rounded-md text-xs uppercase tracking-widest transition-all active:scale-[0.98] border"
+              disabled={acsEnvs.length === 0}
+              className="w-full py-2 rounded-md text-xs uppercase tracking-widest transition-all active:scale-[0.98] border disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
                 background: "rgba(255,113,108,0.08)",
                 color: "#ff716c",
@@ -188,7 +236,7 @@ export default function AdminPage() {
                 fontWeight: 510,
                 fontFeatureSettings: FF,
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,113,108,0.14)"; }}
+              onMouseEnter={(e) => { if (acsEnvs.length > 0) e.currentTarget.style.background = "rgba(255,113,108,0.14)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,113,108,0.08)"; }}
             >
               Disable ACS
@@ -553,7 +601,12 @@ export default function AdminPage() {
                 style={{ color: "#8a8f98", fontFeatureSettings: FF }}
               >
                 This will stop real-time scoring on{" "}
-                <span style={{ color: "#7170ff" }}>{acsEnv}</span>. Can be re-enabled at any time.
+                {acsEnvs.map((e, i) => (
+                  <span key={e}>
+                    <span style={{ color: "#7170ff" }}>{e}</span>
+                    {i < acsEnvs.length - 1 ? ", " : ""}
+                  </span>
+                ))}. Can be re-enabled at any time.
               </p>
             </div>
             <div className="flex gap-2">

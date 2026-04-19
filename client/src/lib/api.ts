@@ -40,6 +40,7 @@ function mapCall(r: BackendRawCall): RawCall {
     date: r.call_date,
     duration: r.duration_sec ?? 0,
     campaign: r.campaign_name ?? "",
+    lead_type: r.lead_type ?? null,
     organization_name: r.organization_name ?? "",
     rooftop_name: r.rooftop_name ?? "",
     call_status: r.call_status ?? "",
@@ -56,6 +57,7 @@ function mapCall(r: BackendRawCall): RawCall {
     ai_detractors: Array.isArray(r.detractors) ? r.detractors : [],
     ai_is_resolved: !r.is_incomplete_call,
     ai_callback_requested: false,
+    call_metadata: r.call_metadata ?? null,
   };
 }
 
@@ -93,6 +95,7 @@ interface BackendRawCall {
   call_date: string;
   duration_sec: number | null;
   campaign_name: string | null;
+  lead_type: string | null;
   organization_name: string | null;
   rooftop_name: string | null;
   call_status: string | null;
@@ -109,6 +112,7 @@ interface BackendRawCall {
   formatted_transcript: string | null;
   raw_transcript: string | null;
   recording_url: string | null;
+  call_metadata: Record<string, unknown> | null;
 }
 
 interface BackendEval {

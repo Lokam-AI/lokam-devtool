@@ -158,6 +158,7 @@ def _build_eval_create(call: RawCall, user_id: int) -> EvalCreate:
         call_id=call.lokam_call_id,
         assigned_to=user_id,
         call_status=call.call_status,
+        lead_type=call.lead_type,
         raw_transcript=call.raw_transcript,
         formatted_transcript=call.formatted_transcript,
         recording_url=call.recording_url,
