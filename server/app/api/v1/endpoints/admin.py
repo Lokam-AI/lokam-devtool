@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import AsyncSessionLocal
 from app.dependencies import get_db, require_admin, require_superadmin
 from app.models.user import User
 from app.repositories import env_config_repo
-from app.schemas.admin import ACSToggleRequest, ProxyHealthResponse, SeedRunRequest
+from app.schemas.admin import ACSToggleRequest, ProxyHealthResponse, SeedRunRequest, SyncRequest, SyncResponse
 from app.schemas.assignment_config import AssignmentConfigRead, AssignmentConfigUpdate
 from app.schemas.env_config import EnvConfigCreate, EnvConfigRead, EnvConfigUpdate
 from app.services import admin_proxy_service
 from app.services import assignment_config_service
+from app.services.bug_sync_service import sync_bugs_for_date
+from app.services.call_sync_service import sync_calls_for_date
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -111,6 +114,21 @@ async def run_seed(
         organization_name=body.organization_name,
         rooftop_names=body.rooftop_names,
     )
+
+
+@router.post("/sync", response_model=SyncResponse)
+async def run_sync(
+    body: SyncRequest,
+    _: User = Depends(require_superadmin),
+) -> SyncResponse:
+    """Trigger call and bug sync for a given date; superadmin only."""
+    async with AsyncSessionLocal() as call_session:
+        calls = await sync_calls_for_date(call_session, body.date)
+        await call_session.commit()
+    async with AsyncSessionLocal() as bug_session:
+        bugs = await sync_bugs_for_date(bug_session, body.date)
+        await bug_session.commit()
+    return SyncResponse(date=body.date, calls=calls, bugs=bugs)
 
 
 @router.get("/envs/{env_name}/health", response_model=ProxyHealthResponse)

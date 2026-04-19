@@ -245,7 +245,7 @@ export default function UserManagementPage() {
                 Role
               </label>
               <div className="flex gap-2 h-[46px]">
-                {(["reviewer", "admin", ...(isSuperadmin ? ["superadmin"] : [])] as UserRole[]).map((r) => {
+                {(["reviewer", "admin"] as UserRole[]).map((r) => {
                   const active = newRole === r;
                   const cfg = ROLE_CONFIG[r];
                   return (

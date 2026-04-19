@@ -93,8 +93,10 @@ export interface BugReport {
 }
 
 export interface SystemHealth {
-  /** "ok" when the backend is reachable, "unreachable" otherwise. */
   status: string;
+  active_calls?: number;
+  queue_depth?: number;
+  workers?: number;
 }
 
 export type Environment = string;

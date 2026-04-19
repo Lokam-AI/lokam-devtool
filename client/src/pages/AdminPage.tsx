@@ -3,8 +3,9 @@ import { useHealth } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { toast } from "sonner";
-import type { Environment, EnvConfig } from "@/types";
+import type { EnvConfig } from "@/types";
 import api, { apiGetEnvs } from "@/lib/api";
+import { useAuthStore } from "@/store/auth-store";
 
 const FF = '"cv01", "ss03"' as const;
 
@@ -16,27 +17,43 @@ const SEED_MODES = [
 
 const WAVEFORM_HEIGHTS = [4, 6, 4, 6, 8, 6, 4, 6, 4, 12, 6, 4, 8, 5, 4, 7];
 
+function yesterday() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function AdminPage() {
   const [envs, setEnvs]                       = useState<EnvConfig[]>([]);
-  const [env, setEnv]                         = useState<Environment>("");
+  const [acsEnv, setAcsEnv]                   = useState("");
+  const [seedEnv, setSeedEnv]                 = useState("");
   const [showAcsConfirm, setShowAcsConfirm]   = useState(false);
   const [seedMode, setSeedMode]               = useState("--check-and-seed");
   const [seedOrg, setSeedOrg]                 = useState("");
   const [seedRooftops, setSeedRooftops]       = useState("");
   const [seedRunning, setSeedRunning]         = useState(false);
+  const [syncDate, setSyncDate]               = useState(yesterday);
+  const [syncRunning, setSyncRunning]         = useState(false);
+  const [syncResult, setSyncResult]           = useState<{ calls: Record<string, number>; bugs: Record<string, number> } | null>(null);
   const { data: health, isLoading }           = useHealth();
+  const isSuperadmin                          = useAuthStore((s) => s.hasRole("superadmin"));
 
   useEffect(() => {
     apiGetEnvs().then((data) => {
       setEnvs(data);
-      if (data.length > 0) setEnv(data[0].name);
+      const nonApp = data.find((e) => e.name !== "app");
+      if (nonApp) setAcsEnv(nonApp.name);
+      if (data.length > 0) setSeedEnv(data[0].name);
     }).catch(() => {});
   }, []);
 
+  const envOptions    = envs.map((e) => ({ value: e.name, label: e.name }));
+  const acsEnvOptions = envs.filter((e) => e.name !== "app").map((e) => ({ value: e.name, label: e.name }));
+
   const handleAcsDisable = async () => {
     try {
-      await api.post(`/admin/envs/${env}/acs`, { enabled: false });
-      toast.success(`ACS disabled on ${env}`);
+      await api.post(`/admin/envs/${acsEnv}/acs`, { enabled: false });
+      toast.success(`ACS disabled on ${acsEnv}`);
     } catch {
       toast.error("Failed to disable ACS");
     }
@@ -50,7 +67,7 @@ export default function AdminPage() {
     }
     setSeedRunning(true);
     try {
-      await api.post(`/admin/envs/${env}/seed`, {
+      await api.post(`/admin/envs/${seedEnv}/seed`, {
         mode: seedMode,
         organization_name: seedOrg.trim(),
         rooftop_names: rooftopList,
@@ -63,6 +80,22 @@ export default function AdminPage() {
     }
   };
 
+  const handleRunSync = async () => {
+    setSyncRunning(true);
+    setSyncResult(null);
+    try {
+      const { data } = await api.post("/admin/sync", { date: syncDate });
+      setSyncResult({ calls: data.calls, bugs: data.bugs });
+      const totalCalls = Object.values(data.calls as Record<string, number>).reduce((a, b) => a + b, 0);
+      const totalBugs  = Object.values(data.bugs  as Record<string, number>).reduce((a, b) => a + b, 0);
+      toast.success(`Sync complete — ${totalCalls} calls, ${totalBugs} bugs`);
+    } catch {
+      toast.error("Sync failed");
+    } finally {
+      setSyncRunning(false);
+    }
+  };
+
   const activeCalls = health?.active_calls ?? 0;
   const queueDepth  = health?.queue_depth  ?? 0;
   const workers     = health?.workers      ?? 0;
@@ -72,43 +105,28 @@ export default function AdminPage() {
     <div className="h-full flex flex-col gap-3 animate-in fade-in duration-500 overflow-hidden">
 
       {/* ── Header ── */}
-      <div className="flex justify-between items-center shrink-0">
-        <div>
-          <h1
-            className="text-2xl"
-            style={{
-              color: "#f7f8f8",
-              fontWeight: 510,
-              letterSpacing: "-0.288px",
-              fontFeatureSettings: FF,
-            }}
-          >
-            Admin Controls
-          </h1>
-          <p
-            className="text-xs flex items-center gap-1.5 mt-0.5"
-            style={{ color: "#62666d", fontFeatureSettings: FF }}
-          >
-            <span
-              className="w-1.5 h-1.5 rounded-full animate-pulse inline-block"
-              style={{ background: "#10b981" }}
-            />
-            Administration Console
-          </p>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label
-            className="text-[9px] uppercase tracking-widest pl-1"
-            style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
-          >
-            Environment
-          </label>
-          <DropdownSelect
-            value={env}
-            onChange={(v) => setEnv(v as Environment)}
-            options={envs.map((e) => ({ value: e.name, label: e.name }))}
+      <div className="shrink-0">
+        <h1
+          className="text-2xl"
+          style={{
+            color: "#f7f8f8",
+            fontWeight: 510,
+            letterSpacing: "-0.288px",
+            fontFeatureSettings: FF,
+          }}
+        >
+          Admin Controls
+        </h1>
+        <p
+          className="text-xs flex items-center gap-1.5 mt-0.5"
+          style={{ color: "#62666d", fontFeatureSettings: FF }}
+        >
+          <span
+            className="w-1.5 h-1.5 rounded-full animate-pulse inline-block"
+            style={{ background: "#10b981" }}
           />
-        </div>
+          Administration Console
+        </p>
       </div>
 
       {/* ── Main grid ── */}
@@ -127,24 +145,32 @@ export default function AdminPage() {
               borderLeftWidth: "2px",
             }}
           >
-            <div className="flex items-center gap-2">
-              <div
-                className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-                style={{ background: "rgba(113,112,255,0.1)" }}
-              >
-                <span
-                  className="material-symbols-outlined text-sm"
-                  style={{ color: "#7170ff", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(113,112,255,0.1)" }}
                 >
-                  security
-                </span>
+                  <span
+                    className="material-symbols-outlined text-sm"
+                    style={{ color: "#7170ff", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                  >
+                    security
+                  </span>
+                </div>
+                <h2
+                  className="text-xs uppercase tracking-widest"
+                  style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+                >
+                  ACS Toggle
+                </h2>
               </div>
-              <h2
-                className="text-xs uppercase tracking-widest"
-                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
-              >
-                ACS Toggle
-              </h2>
+              <DropdownSelect
+                value={acsEnv}
+                onChange={setAcsEnv}
+                options={acsEnvOptions}
+                size="sm"
+              />
             </div>
             <p
               className="text-xs leading-relaxed"
@@ -178,24 +204,32 @@ export default function AdminPage() {
               borderLeft: "2px solid rgba(113,112,255,0.3)",
             }}
           >
-            <div className="flex items-center gap-2 shrink-0">
-              <div
-                className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-                style={{ background: "rgba(113,112,255,0.1)" }}
-              >
-                <span
-                  className="material-symbols-outlined text-sm"
-                  style={{ color: "#7170ff", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+            <div className="flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(113,112,255,0.1)" }}
                 >
-                  rocket_launch
-                </span>
+                  <span
+                    className="material-symbols-outlined text-sm"
+                    style={{ color: "#7170ff", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                  >
+                    rocket_launch
+                  </span>
+                </div>
+                <h2
+                  className="text-xs uppercase tracking-widest"
+                  style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+                >
+                  Seed Runner
+                </h2>
               </div>
-              <h2
-                className="text-xs uppercase tracking-widest"
-                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
-              >
-                Seed Runner
-              </h2>
+              <DropdownSelect
+                value={seedEnv}
+                onChange={setSeedEnv}
+                options={envOptions}
+                size="sm"
+              />
             </div>
 
             <div className="flex flex-col gap-2 min-h-0">
@@ -267,6 +301,91 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+
+          {/* Data Sync */}
+          {isSuperadmin && (
+            <div
+              className="rounded-lg p-4 flex flex-col gap-3 shrink-0 border"
+              style={{
+                background: "#191a1b",
+                borderColor: "rgba(255,255,255,0.08)",
+                borderLeft: "2px solid rgba(16,185,129,0.35)",
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(16,185,129,0.1)" }}
+                >
+                  <span
+                    className="material-symbols-outlined text-sm"
+                    style={{ color: "#10b981", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                  >
+                    sync
+                  </span>
+                </div>
+                <h2
+                  className="text-xs uppercase tracking-widest"
+                  style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+                >
+                  Data Sync
+                </h2>
+              </div>
+
+              <input
+                type="date"
+                value={syncDate}
+                onChange={(e) => { setSyncDate(e.target.value); setSyncResult(null); }}
+                className="w-full rounded-md px-3 py-2 text-xs border focus:outline-none shrink-0 transition-colors"
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  borderColor: "rgba(255,255,255,0.08)",
+                  color: "#d0d6e0",
+                  fontFeatureSettings: FF,
+                  colorScheme: "dark",
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(16,185,129,0.4)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+              />
+
+              {syncResult && (
+                <div
+                  className="rounded-md px-3 py-2 text-xs"
+                  style={{ background: "rgba(16,185,129,0.06)", color: "#8a8f98", fontFeatureSettings: FF }}
+                >
+                  {Object.entries(syncResult.calls).map(([e, n]) => (
+                    <div key={e}>{e}: <span style={{ color: "#10b981" }}>{n} calls</span></div>
+                  ))}
+                  {Object.entries(syncResult.bugs).map(([e, n]) => (
+                    <div key={e}>{e}: <span style={{ color: "#10b981" }}>{n} bugs</span></div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={handleRunSync}
+                disabled={syncRunning || !syncDate}
+                className="w-full py-2 rounded-md text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed border"
+                style={{
+                  background: syncRunning ? "rgba(16,185,129,0.08)" : "rgba(16,185,129,0.12)",
+                  color: "#10b981",
+                  borderColor: "rgba(16,185,129,0.2)",
+                  fontWeight: 510,
+                  fontFeatureSettings: FF,
+                }}
+                onMouseEnter={(e) => { if (!syncRunning) (e.currentTarget as HTMLButtonElement).style.background = "rgba(16,185,129,0.2)"; }}
+                onMouseLeave={(e) => { if (!syncRunning) (e.currentTarget as HTMLButtonElement).style.background = "rgba(16,185,129,0.12)"; }}
+              >
+                <span
+                  className={`material-symbols-outlined text-sm ${syncRunning ? "animate-spin" : ""}`}
+                  style={{ fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                >
+                  {syncRunning ? "refresh" : "sync"}
+                </span>
+                {syncRunning ? "Syncing…" : "Run Sync"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Right: System Health ── */}
@@ -434,7 +553,7 @@ export default function AdminPage() {
                 style={{ color: "#8a8f98", fontFeatureSettings: FF }}
               >
                 This will stop real-time scoring on{" "}
-                <span style={{ color: "#7170ff" }}>{env}</span>. Can be re-enabled at any time.
+                <span style={{ color: "#7170ff" }}>{acsEnv}</span>. Can be re-enabled at any time.
               </p>
             </div>
             <div className="flex gap-2">

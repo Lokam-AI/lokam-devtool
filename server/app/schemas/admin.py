@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel
 
 
@@ -13,6 +15,20 @@ class SeedRunRequest(BaseModel):
     mode: str = "--check-and-seed"
     organization_name: str
     rooftop_names: list[str]
+
+
+class SyncRequest(BaseModel):
+    """Schema for triggering a manual data sync for a given date."""
+
+    date: date
+
+
+class SyncResponse(BaseModel):
+    """Schema for the sync result summary."""
+
+    date: date
+    calls: dict[str, int]
+    bugs: dict[str, int]
 
 
 class ProxyHealthResponse(BaseModel):

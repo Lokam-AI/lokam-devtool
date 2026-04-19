@@ -28,6 +28,7 @@ import {
 } from "@/lib/api";
 import type { AssignmentConfig } from "@/types";
 import type { Eval } from "@/types";
+import { useAuthStore } from "@/store/auth-store";
 
 const STALE_MS = 5 * 60 * 1000;
 
@@ -70,7 +71,8 @@ export function useSubmitEval() {
 }
 
 export function useTeam() {
-  return useQuery({ queryKey: ["team"], queryFn: apiGetTeam });
+  const isAdmin = useAuthStore((s) => s.isAtLeast("admin"));
+  return useQuery({ queryKey: ["team"], queryFn: apiGetTeam, enabled: isAdmin });
 }
 
 export function useHealth() {
@@ -152,10 +154,12 @@ export function useResolveBug() {
 }
 
 export function useDashboardStats() {
+  const isAdmin = useAuthStore((s) => s.isAtLeast("admin"));
   return useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: apiGetDashboardStats,
     staleTime: 60 * 1000,
+    enabled: isAdmin,
   });
 }
 
