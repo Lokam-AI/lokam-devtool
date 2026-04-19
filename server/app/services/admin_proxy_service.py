@@ -10,7 +10,7 @@ from app.schemas.admin import ProxyHealthResponse
 ACS_PATH = "/api/v1/internal/acs/toggle"
 SEED_PATH = "/api/v1/internal/seed/run"
 HEALTH_PATH = "/api/v1/internal/health"
-HTTP_TIMEOUT_SECONDS = 30
+HTTP_TIMEOUT_SECONDS = 120
 
 
 async def toggle_acs(db: AsyncSession, env_name: str, *, enabled: bool) -> dict:
