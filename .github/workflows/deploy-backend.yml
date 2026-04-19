@@ -8,6 +8,10 @@ on:
       - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,11 +20,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Log in to Amazon ECR
@@ -41,89 +44,17 @@ jobs:
           docker push $REGISTRY/$REPOSITORY:latest
           echo "image=$REGISTRY/$REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Trigger App Runner deployment
-        env:
-          SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
-          AWS_REGION:  ${{ secrets.AWS_REGION }}
-        run: |
-          TIMEOUT=600
-          ELAPSED=0
-          INTERVAL=30
-
-          echo "Waiting for service to be in RUNNING state..."
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS=$(aws apprunner describe-service \
-              --service-arn "$SERVICE_ARN" \
-              --region "$AWS_REGION" \
-              --query 'Service.Status' \
-              --output text)
-
-            echo "Status: $STATUS (${ELAPSED}s elapsed)"
-
-            case "$STATUS" in
-              RUNNING)
-                echo "Service is RUNNING — triggering deployment"
-                break
-                ;;
-              OPERATION_IN_PROGRESS|CREATE_IN_PROGRESS|UPDATE_IN_PROGRESS)
-                sleep $INTERVAL
-                ELAPSED=$((ELAPSED + INTERVAL))
-                ;;
-              PAUSED|DELETE_FAILED|CREATE_FAILED|UPDATE_FAILED)
-                echo "Service is in terminal error state: $STATUS"
-                exit 1
-                ;;
-              *)
-                echo "Unexpected state: $STATUS — waiting"
-                sleep $INTERVAL
-                ELAPSED=$((ELAPSED + INTERVAL))
-                ;;
-            esac
-          done
-
-          if [ $ELAPSED -ge $TIMEOUT ]; then
-            echo "Timed out waiting for service to reach RUNNING state"
-            exit 1
-          fi
-
-          aws apprunner start-deployment \
-            --service-arn "$SERVICE_ARN" \
-            --region "$AWS_REGION"
-
-          echo "Deployment triggered — waiting for completion..."
-          ELAPSED=0
-
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS=$(aws apprunner describe-service \
-              --service-arn "$SERVICE_ARN" \
-              --region "$AWS_REGION" \
-              --query 'Service.Status' \
-              --output text)
-
-            echo "Status: $STATUS (${ELAPSED}s elapsed)"
-
-            case "$STATUS" in
-              RUNNING)
-                echo "Deployment completed successfully"
-                exit 0
-                ;;
-              OPERATION_IN_PROGRESS)
-                sleep $INTERVAL
-                ELAPSED=$((ELAPSED + INTERVAL))
-                ;;
-              PAUSED|DELETE_FAILED|CREATE_FAILED|UPDATE_FAILED)
-                echo "Deployment failed — service entered state: $STATUS"
-                exit 1
-                ;;
-              *)
-                echo "Unexpected state during deployment: $STATUS"
-                exit 1
-                ;;
-            esac
-          done
-
-          echo "Timed out waiting for deployment to complete"
-          exit 1
+      - name: Deploy to ECS Express
+        uses: aws-actions/amazon-ecs-deploy-express-service@v1
+        with:
+          service-name: ${{ secrets.ECS_SERVICE_NAME }}
+          image: ${{ steps.build.outputs.image }}
+          execution-role-arn: ${{ secrets.ECS_EXECUTION_ROLE_ARN }}
+          infrastructure-role-arn: ${{ secrets.ECS_INFRASTRUCTURE_ROLE_ARN }}
+          container-port: 8000
+          health-check-path: /api/v1/health
+          cpu: 512
+          memory: 1024
 
       - name: Slack — success
         if: success()
