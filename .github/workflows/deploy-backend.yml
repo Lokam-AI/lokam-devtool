@@ -55,6 +55,18 @@ jobs:
           health-check-path: /api/v1/health
           cpu: 512
           memory: 1024
+          secrets: |
+            [
+              {"name":"DB_HOST",        "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:DB_HOST::"},
+              {"name":"DB_PORT",        "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:DB_PORT::"},
+              {"name":"DB_USER",        "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:DB_USER::"},
+              {"name":"DB_PASSWORD",    "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:DB_PASSWORD::"},
+              {"name":"DB_NAME",        "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:DB_NAME::"},
+              {"name":"SECRET_KEY",     "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:SECRET_KEY::"},
+              {"name":"FERNET_KEY",     "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:FERNET_KEY::"},
+              {"name":"ALLOWED_ORIGINS","valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:ALLOWED_ORIGINS::"},
+              {"name":"ENVIRONMENT",    "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:ENVIRONMENT::"}
+            ]
 
       - name: Slack — success
         if: success()
