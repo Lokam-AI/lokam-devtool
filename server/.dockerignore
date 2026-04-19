@@ -3,10 +3,17 @@
 .venv
 venv
 __pycache__
+**/__pycache__
 *.pyc
 *.pyo
+*.pyd
 .pytest_cache
+.mypy_cache
+.ruff_cache
 tests/
 .git
 .gitignore
 *.md
+setup_local_db.sh
+start_server.py
+sync_yesterday.py
