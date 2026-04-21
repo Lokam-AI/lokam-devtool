@@ -68,18 +68,27 @@ def _interleave_by_rooftop(calls: list[RawCall]) -> list[RawCall]:
     return result
 
 
+PASSIVE_NPS_MIN = 7
+PASSIVE_NPS_MAX = 8
+
+MISSED_ENDED_REASONS = {"voicemail", "call_screening", "callback_requested", "dnc_request"}
+
+
 def _categorize_calls(calls: list[RawCall]) -> dict[str, list[RawCall]]:
-    """Split calls into na, promoter, detractor, and missed buckets, interleaved by rooftop."""
-    raw: dict[str, list[RawCall]] = {"na": [], "promoter": [], "detractor": [], "missed": []}
+    """Split calls into na, passive, promoter, detractor, and missed buckets, interleaved by rooftop."""
+    raw: dict[str, list[RawCall]] = {"na": [], "passive": [], "promoter": [], "detractor": [], "missed": []}
     for call in calls:
         if call.call_status != "Completed":
-            raw["missed"].append(call)
-        elif call.nps_score is None or (call.nps_score > DETRACTOR_NPS_MAX and call.nps_score < PROMOTER_NPS_MIN):
+            if call.ended_reason in MISSED_ENDED_REASONS:
+                raw["missed"].append(call)
+        elif call.nps_score is None:
             raw["na"].append(call)
         elif call.nps_score >= PROMOTER_NPS_MIN:
             raw["promoter"].append(call)
-        else:
+        elif call.nps_score <= DETRACTOR_NPS_MAX:
             raw["detractor"].append(call)
+        else:
+            raw["passive"].append(call)
     return {category: _interleave_by_rooftop(bucket) for category, bucket in raw.items()}
 
 
@@ -87,17 +96,14 @@ NA_MIN_DURATION_SEC = 40
 
 
 def _pick_na_calls(available: list[RawCall], count: int) -> list[RawCall]:
-    """Pick up to `count` NA calls, ensuring the first slot is a 40s+ call when one exists."""
+    """Pick up to `count` NA calls; at most 1 may be under 40s, all others must be 40s+."""
     if count <= 0:
         return []
     long_calls  = [c for c in available if (c.duration_sec or 0) >= NA_MIN_DURATION_SEC]
     short_calls = [c for c in available if (c.duration_sec or 0) < NA_MIN_DURATION_SEC]
-    picks: list[RawCall] = []
-    if long_calls:
-        picks.append(long_calls.pop(0))
-    remaining_slots = count - len(picks)
-    rest = long_calls + short_calls
-    picks.extend(rest[:remaining_slots])
+    picks: list[RawCall] = long_calls[:count]
+    if len(picks) < count and short_calls:
+        picks.append(short_calls[0])
     return picks
 
 
@@ -111,12 +117,14 @@ def _pick_calls_for_user(
 
     picks: list[RawCall] = []
     targets = config.call_targets.model_dump()
+    short_na_picked = False
 
     for category in FILL_PRIORITY:
         target = targets[category]
         available = buckets[category]
         if category == "na":
             selected = _pick_na_calls(available, min(target, remaining))
+            short_na_picked = any((c.duration_sec or 0) < NA_MIN_DURATION_SEC for c in selected)
         else:
             selected = available[:min(target, remaining)]
         picks.extend(selected)
@@ -126,15 +134,33 @@ def _pick_calls_for_user(
         if remaining == 0:
             return picks
 
-    # Fallback: fill remaining slots from any category still available, in priority order
-    for category in FILL_PRIORITY:
-        if remaining == 0:
+    # Fallback: round-robin across categories in fill-priority order, 1 call per category per round.
+    # For NA, respect the 1-short-call-per-user cap.
+    while remaining > 0:
+        picked_any = False
+        for category in FILL_PRIORITY:
+            if remaining == 0:
+                break
+            available = buckets[category]
+            if not available:
+                continue
+            if category == "na":
+                eligible = _pick_na_calls(available, 1) if not short_na_picked else (
+                    [c for c in available if (c.duration_sec or 0) >= NA_MIN_DURATION_SEC][:1]
+                )
+                if not eligible:
+                    continue
+                if not short_na_picked and (eligible[0].duration_sec or 0) < NA_MIN_DURATION_SEC:
+                    short_na_picked = True
+                picks.append(eligible[0])
+                available.remove(eligible[0])
+            else:
+                picks.append(available[0])
+                buckets[category] = available[1:]
+            remaining -= 1
+            picked_any = True
+        if not picked_any:
             break
-        available = buckets[category]
-        take = min(len(available), remaining)
-        picks.extend(available[:take])
-        buckets[category] = available[take:]
-        remaining -= take
 
     return picks
 

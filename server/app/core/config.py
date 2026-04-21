@@ -56,5 +56,5 @@ class Settings(BaseSettings):
 settings = Settings()
 
 MAX_CALLS_PER_USER: int = 5
-CALL_TARGETS: dict[str, int] = {"na": 2, "detractor": 1, "promoter": 1, "missed": 1}
-FILL_PRIORITY: list[str] = ["na", "promoter", "detractor", "missed"]
+CALL_TARGETS: dict[str, int] = {"na": 2, "passive": 0, "detractor": 1, "promoter": 1, "missed": 1}
+FILL_PRIORITY: list[str] = ["na", "detractor", "missed", "promoter", "passive"]

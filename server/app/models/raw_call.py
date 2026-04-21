@@ -27,6 +27,8 @@ class RawCall(Base, TimestampMixin):
     lead_type: Mapped[str | None] = mapped_column(String(50))
     # Call metadata
     call_status: Mapped[str | None] = mapped_column(String(20))
+    ended_reason: Mapped[str | None] = mapped_column(String(100))
+    review_link_sent: Mapped[bool | None] = mapped_column(Boolean)
     direction: Mapped[str | None] = mapped_column(String(10))
     duration_sec: Mapped[int | None] = mapped_column(Integer)
     call_date: Mapped[date] = mapped_column(Date, nullable=False)

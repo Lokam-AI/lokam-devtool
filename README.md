@@ -115,6 +115,52 @@ lokam-devtool/
 
 ---
 
+## Call Assignment
+
+The assignment service (`server/app/services/assignment_service.py`) distributes calls to active reviewers daily.
+
+### Eligibility
+
+Only calls meeting all of the following criteria enter the assignment pool:
+
+- `direction = outbound`
+- `lead_type = SERVICE_POST_RO`
+- Not already assigned to any reviewer for the given date
+
+### Buckets
+
+Eligible calls are split into five buckets before assignment:
+
+| Bucket | Criteria |
+|---|---|
+| `na` | Completed, no NPS score |
+| `detractor` | Completed, NPS ≤ 6 |
+| `passive` | Completed, NPS 7–8 |
+| `promoter` | Completed, NPS ≥ 9 |
+| `missed` | Not completed, `ended_reason` in `voicemail`, `call_screening`, `callback_requested`, `dnc_request` |
+
+Within each bucket, calls are interleaved round-robin across rooftops so picks naturally span multiple locations.
+
+### Per-User Assignment
+
+Each reviewer is assigned up to `max_calls_per_user` calls (configurable via the Assignment Config UI). Assignment runs in two passes:
+
+**Pass 1 — target fill:** For each bucket in priority order, pick up to the configured target count for that bucket.
+
+**Pass 2 — fallback fill:** If slots remain after targets are met, cycle through buckets in priority order picking one call per bucket per round until slots are full or all buckets are exhausted.
+
+Fill priority order: `na → detractor → missed → promoter → passive`
+
+### NA Call Duration Rule
+
+At most **1 NA call per reviewer** may have a duration under 40 seconds. All other NA calls assigned to a reviewer must be 40 seconds or longer. This cap is enforced through both the target-fill and fallback-fill passes.
+
+### Configuration
+
+Targets and the per-user cap are adjustable at runtime via the Assignment Config section in the admin UI without a code deploy.
+
+---
+
 ## Running Both Servers
 
 ```bash

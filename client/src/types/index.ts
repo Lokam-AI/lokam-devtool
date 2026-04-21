@@ -19,6 +19,8 @@ export interface RawCall {
   organization_name: string;
   rooftop_name: string;
   call_status: string;
+  ended_reason: string | null;
+  review_link_sent: boolean | null;
   direction: string;
   customer_name: string;
   customer_phone: string;
@@ -112,6 +114,7 @@ export interface EnvConfig {
 
 export interface CallTargets {
   na: number;
+  passive: number;
   detractor: number;
   promoter: number;
   missed: number;

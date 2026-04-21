@@ -4,7 +4,7 @@ import { useCall, useCalls, useSubmitEval, useCreateBug } from "@/hooks/use-call
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Loader2, Phone, MapPin, ArrowUpRight, ArrowDownLeft,
+  Loader2, Phone, MapPin,
   Bot, Play, Pause, Check, X, ChevronRight, Bug,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -356,16 +356,33 @@ function EvalFormInner({
           {/* Stat pills */}
           <div className="flex items-center gap-2">
             <StatPill label="Duration"  value={durationStr} />
-            <StatPill
-              label="Direction"
-              value={callData.direction?.toUpperCase() ?? "—"}
-              accent
-              icon={callData.direction === "outbound"
-                ? <ArrowUpRight className="h-3 w-3" />
-                : <ArrowDownLeft className="h-3 w-3" />}
-            />
             {callData.ai_nps_score !== null && (
               <StatPill label="NPS Score" value={`${callData.ai_nps_score}/10`} highlight npsScore={callData.ai_nps_score} />
+            )}
+            {callData.ended_reason && (
+              <StatPill label="Ended Reason" value={callData.ended_reason} />
+            )}
+            {callData.review_link_sent && (
+              <div
+                className="px-3 py-1.5 rounded-md flex items-center gap-2 border"
+                style={{
+                  background: "rgba(16,185,129,0.08)",
+                  borderColor: "rgba(16,185,129,0.25)",
+                }}
+              >
+                <span
+                  className="material-symbols-outlined text-sm"
+                  style={{ color: "#10b981", fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20", fontSize: "14px" }}
+                >
+                  star
+                </span>
+                <span
+                  className="text-[10px] uppercase tracking-widest"
+                  style={{ color: "#10b981", fontWeight: 510, fontFeatureSettings: FF }}
+                >
+                  Review Link Sent
+                </span>
+              </div>
             )}
             {callData.call_metadata?.email_escalated && (
               <div

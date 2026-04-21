@@ -44,6 +44,8 @@ function mapCall(r: BackendRawCall): RawCall {
     organization_name: r.organization_name ?? "",
     rooftop_name: r.rooftop_name ?? "",
     call_status: r.call_status ?? "",
+    ended_reason: r.ended_reason ?? null,
+    review_link_sent: r.review_link_sent ?? null,
     direction: r.direction ?? "",
     customer_name: r.customer_name_masked ?? "",
     customer_phone: r.customer_phone_masked ?? "",
@@ -99,6 +101,8 @@ interface BackendRawCall {
   organization_name: string | null;
   rooftop_name: string | null;
   call_status: string | null;
+  ended_reason: string | null;
+  review_link_sent: boolean | null;
   direction: string | null;
   customer_name_masked: string | null;
   customer_phone_masked: string | null;

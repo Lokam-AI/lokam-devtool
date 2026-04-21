@@ -11,6 +11,7 @@ const FF = '"cv01", "ss03"' as const;
 
 const CATEGORY_LABELS: Record<string, string> = {
   na: "N/A",
+  passive: "Passive",
   detractor: "Detractor",
   promoter: "Promoter",
   missed: "Missed",
@@ -24,6 +25,7 @@ const ROLE_CONFIG: Record<string, { label: string; bg: string; color: string; bo
 
 const CATEGORY_CONFIG = [
   { key: "na",         label: "N/A",        color: "#7170ff", bg: "rgba(113,112,255,0.08)",  border: "rgba(113,112,255,0.2)"  },
+  { key: "passive",    label: "Passive",    color: "#eab308", bg: "rgba(234,179,8,0.08)",    border: "rgba(234,179,8,0.2)"    },
   { key: "detractor",  label: "Detractor",  color: "#f87171", bg: "rgba(248,113,113,0.08)",  border: "rgba(248,113,113,0.2)"  },
   { key: "promoter",   label: "Promoter",   color: "#10b981", bg: "rgba(16,185,129,0.08)",   border: "rgba(16,185,129,0.2)"   },
   { key: "missed",     label: "Missed",     color: "#8a8f98", bg: "rgba(138,143,152,0.08)",  border: "rgba(138,143,152,0.15)" },
@@ -36,7 +38,7 @@ function AssignmentConfigPanel() {
   const update = useUpdateAssignmentConfig();
 
   const [maxCalls, setMaxCalls] = useState<number>(5);
-  const [targets, setTargets] = useState<Record<CatKey, number>>({ na: 2, detractor: 1, promoter: 1, missed: 1 });
+  const [targets, setTargets] = useState<Record<CatKey, number>>({ na: 2, passive: 0, detractor: 1, promoter: 1, missed: 1 });
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {

@@ -9,8 +9,6 @@ import { CallFilterBar, DEFAULT_FILTERS } from "@/components/ui/call-filters";
 import { useMyCallsFilterStore } from "@/store/filter-store";
 import { parseUtc } from "@/lib/utils";
 import {
-  ArrowUpRight,
-  ArrowDownLeft,
   Inbox,
   ChevronLeft,
   ChevronRight,
@@ -305,7 +303,7 @@ export default function MyCallsPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                {["Call ID", "Organization", "Campaign", "Date", "Status", "Direction", "Duration", "NPS", "Action"].map((h) => (
+                {["Call ID", "Organization", "Campaign", "Date", "NPS", "Call Status", "Duration", "Eval Status", "Action"].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-3 text-[10px] uppercase tracking-widest whitespace-nowrap"
@@ -471,7 +469,7 @@ function CallRow({
 }: {
   call: {
     id: string; call_id: string; organization_name: string; rooftop_name: string;
-    campaign: string; date: string; direction: string; duration: number; ai_nps_score: number | null;
+    campaign: string; date: string; call_status: string; duration: number; ai_nps_score: number | null;
     source_env?: string;
   };
   ev: { status: string };
@@ -533,14 +531,17 @@ function CallRow({
         {parseUtc(call.date).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false })}
       </td>
 
-      {/* Status pill */}
-      <td className="px-4 py-3">
-        <StatusPill status={ev.status} />
+      {/* NPS */}
+      <td className="px-4 py-3 text-sm">
+        {call.ai_nps_score !== null
+          ? <NpsValue score={call.ai_nps_score} />
+          : <span style={{ color: "#62666d" }}>—</span>
+        }
       </td>
 
-      {/* Direction */}
+      {/* Call status pill */}
       <td className="px-4 py-3">
-        <DirectionIcon direction={call.direction} />
+        <CallStatusPill status={call.call_status} />
       </td>
 
       {/* Duration */}
@@ -551,12 +552,9 @@ function CallRow({
         {formatDuration(call.duration)}
       </td>
 
-      {/* NPS */}
-      <td className="px-4 py-3 text-sm">
-        {call.ai_nps_score !== null
-          ? <NpsValue score={call.ai_nps_score} />
-          : <span style={{ color: "#62666d" }}>—</span>
-        }
+      {/* Eval status pill */}
+      <td className="px-4 py-3">
+        <StatusPill status={ev.status} />
       </td>
 
       {/* Action */}
@@ -614,11 +612,11 @@ function StatusPill({ status }: { status: string }) {
       <span
         className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider"
         style={{
-          background: "rgba(16,185,129,0.12)",
-          color: "#10b981",
+          background: "rgba(113,112,255,0.12)",
+          color: "#7170ff",
           fontWeight: 510,
           fontFeatureSettings: '"cv01", "ss03"',
-          border: "1px solid rgba(16,185,129,0.2)",
+          border: "1px solid rgba(113,112,255,0.2)",
         }}
       >
         Completed
@@ -642,17 +640,41 @@ function StatusPill({ status }: { status: string }) {
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
-/*  Direction icon                                                      */
+/*  Call status pill                                                    */
 /* ──────────────────────────────────────────────────────────────────── */
 
-function DirectionIcon({ direction }: { direction: string }) {
-  if (direction === "outbound") {
-    return <ArrowUpRight className="h-4 w-4" style={{ color: "#62666d" }} />;
+function CallStatusPill({ status }: { status: string }) {
+  if (status === "Completed") {
+    return (
+      <span
+        className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider"
+        style={{
+          background: "rgba(16,185,129,0.12)",
+          color: "#10b981",
+          fontWeight: 510,
+          fontFeatureSettings: '"cv01", "ss03"',
+          border: "1px solid rgba(16,185,129,0.2)",
+        }}
+      >
+        Completed
+      </span>
+    );
   }
-  if (direction === "inbound") {
-    return <ArrowDownLeft className="h-4 w-4" style={{ color: "#62666d" }} />;
-  }
-  return <span style={{ color: "#62666d" }}>—</span>;
+  if (!status) return <span style={{ color: "#62666d" }}>—</span>;
+  return (
+    <span
+      className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider"
+      style={{
+        background: "rgba(255,113,108,0.1)",
+        color: "#ff716c",
+        fontWeight: 510,
+        fontFeatureSettings: '"cv01", "ss03"',
+        border: "1px solid rgba(255,113,108,0.2)",
+      }}
+    >
+      {status}
+    </span>
+  );
 }
 
 /* ──────────────────────────────────────────────────────────────────── */

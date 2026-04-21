@@ -5,6 +5,7 @@ class CallTargets(BaseModel):
     """Per-category call assignment quotas."""
 
     na: int = Field(ge=0)
+    passive: int = Field(ge=0, default=0)
     detractor: int = Field(ge=0)
     promoter: int = Field(ge=0)
     missed: int = Field(ge=0)
@@ -12,7 +13,7 @@ class CallTargets(BaseModel):
     @property
     def total(self) -> int:
         """Return the sum of all category targets."""
-        return self.na + self.detractor + self.promoter + self.missed
+        return self.na + self.passive + self.detractor + self.promoter + self.missed
 
 
 class AssignmentConfigRead(BaseModel):

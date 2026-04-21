@@ -14,6 +14,8 @@ class RawCallCreate(BaseModel):
     campaign_name: str | None = None
     lead_type: str | None = None
     call_status: str | None = None
+    ended_reason: str | None = None
+    review_link_sent: bool | None = None
     direction: str | None = None
     duration_sec: int | None = None
     nps_score: int | None = None
