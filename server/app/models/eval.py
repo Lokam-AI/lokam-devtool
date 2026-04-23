@@ -1,13 +1,16 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
 
 VALID_EVAL_STATUSES = ("pending", "in_progress", "completed")
+DEFAULT_EVAL_STATUS = "pending"
+DEFAULT_HAS_CORRECTIONS = False
+HAS_CORRECTIONS_SERVER_DEFAULT = "false"
 
 
 class Eval(Base, TimestampMixin):
@@ -48,9 +51,20 @@ class Eval(Base, TimestampMixin):
     # Assignment & status
     assigned_to: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     eval_status: Mapped[str] = mapped_column(String(20), nullable=False)
-    has_corrections: Mapped[bool] = mapped_column(Boolean)
+    has_corrections: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=DEFAULT_HAS_CORRECTIONS,
+        server_default=text(HAS_CORRECTIONS_SERVER_DEFAULT),
+    )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False))
 
-    def __init__(self, *, eval_status: str = "pending", has_corrections: bool = False, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *,
+        eval_status: str = DEFAULT_EVAL_STATUS,
+        has_corrections: bool = DEFAULT_HAS_CORRECTIONS,
+        **kwargs: Any,
+    ) -> None:
         """Initialize Eval with pending status and no corrections by default."""
         super().__init__(eval_status=eval_status, has_corrections=has_corrections, **kwargs)

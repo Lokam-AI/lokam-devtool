@@ -64,6 +64,17 @@ async def get_next_pending(db: AsyncSession, user_id: int) -> EvalRead | None:
     return EvalRead.model_validate(ev)
 
 
+def _normalize_correction_value(value: object | None) -> object | None:
+    """Normalize empty strings/containers to None for correction comparisons."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, (list, dict)):
+        return value or None
+    return value
+
+
 def _compute_has_corrections(raw_call: object, submitted: dict) -> bool:
     """Return True if any submitted gt_ field differs from the original AI output."""
     field_map = {
@@ -85,6 +96,9 @@ def _compute_has_corrections(raw_call: object, submitted: dict) -> bool:
         # bool fields in RawCall may be NULL when the AI didn't set them; treat NULL as False
         if isinstance(submitted_val, bool):
             original_val = bool(original_val) if original_val is not None else False
+        else:
+            submitted_val = _normalize_correction_value(submitted_val)
+            original_val = _normalize_correction_value(original_val)
         if submitted_val != original_val:
             return True
     return False

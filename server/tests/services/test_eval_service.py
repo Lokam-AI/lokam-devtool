@@ -57,6 +57,13 @@ def test_compute_has_corrections_empty_submission() -> None:
     assert _compute_has_corrections(raw, {}) is False
 
 
+def test_compute_has_corrections_empty_containers_match_none() -> None:
+    """has_corrections is False when empty containers mirror missing AI output."""
+    raw = _make_raw_call(positive_mentions=None, detractors=None)
+    submitted = {"gt_positive_mentions": [], "gt_detractors": []}
+    assert _compute_has_corrections(raw, submitted) is False
+
+
 @pytest.mark.asyncio
 async def test_submit_eval_sets_completed() -> None:
     """submit_eval marks the eval as completed and computes has_corrections."""
