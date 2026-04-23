@@ -896,6 +896,8 @@ const BUG_TYPE_OPTIONS = [
   "Missing Recording",
   "Data Mismatch",
   "Duplicate Call",
+  "Review Link",
+  "Escalation Email",
   "Other",
 ] as const;
 

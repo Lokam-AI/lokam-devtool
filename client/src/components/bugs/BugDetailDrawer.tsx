@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { X, UserCheck, UserX, CheckCircle2, RotateCcw, ExternalLink } from "lucide-react";
 import type { BugReport, User } from "@/types";
 import { BugTypeChip } from "@/pages/BugsPage";
@@ -68,6 +69,7 @@ export function BugDetailDrawer({
   assigning = false,
   resolving,
 }: Props) {
+  const navigate = useNavigate();
   const [selectedUserId, setSelectedUserId] = useState<string>("");
 
   useEffect(() => {
@@ -304,9 +306,14 @@ export function BugDetailDrawer({
 
             {bug.call_id && (
               <Field label="Call ID">
-                <span style={{ fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace", fontSize: "12px", color: "#7170ff" }}>
+                <button
+                  onClick={() => navigate(`/eval/${bug.call_id}`)}
+                  className="flex items-center gap-1 transition-opacity hover:opacity-70"
+                  style={{ fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace", fontSize: "12px", color: "#7170ff" }}
+                >
                   #{bug.call_id}
-                </span>
+                  <ExternalLink className="h-3 w-3" />
+                </button>
               </Field>
             )}
 

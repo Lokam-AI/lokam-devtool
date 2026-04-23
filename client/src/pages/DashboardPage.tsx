@@ -103,7 +103,7 @@ export default function DashboardPage() {
                 style={{ background: "#5e6ad2", color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#828fff"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#5e6ad2"; }}
-                onClick={() => firstPendingId ? navigate(`/eval/${firstPendingId}`) : navigate("/calls")}
+                onClick={() => firstPendingId ? navigate(`/eval/${firstPendingId}`, { state: { editable: true } }) : navigate("/calls")}
               >
                 Start Reviewing
               </button>
@@ -390,8 +390,8 @@ export default function DashboardPage() {
         {/* Reviewer bottleneck / team progress */}
         <div className="col-span-12 lg:col-span-5 flex flex-col gap-5">
 
-          {/* Bottleneck: top reviewers by pending */}
-          {isAdmin && team && team.length > 0 && (
+          {/* Queue Bottleneck — visible to all roles */}
+          {team && team.length > 0 && (
             <div
               className="rounded-xl p-6 border flex flex-col gap-5"
               style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
@@ -428,28 +428,6 @@ export default function DashboardPage() {
                           }}
                         />
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Team progress for non-admins */}
-          {!isAdmin && team && team.length > 0 && (
-            <div className="rounded-xl p-5 border" style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}>
-              <p className="text-[10px] uppercase tracking-widest mb-4" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>Team Progress</p>
-              <div className="space-y-3">
-                {team.slice(0, 3).map((m) => (
-                  <div key={m.id} className="flex items-center gap-4">
-                    <div className="w-16 text-[10px] uppercase tracking-widest truncate" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>
-                      {m.name.split(" ")[0]}
-                    </div>
-                    <div className="flex-1 h-px rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                      <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${m.completion_pct}%`, background: "#5e6ad2" }} />
-                    </div>
-                    <div className="w-8 text-right text-[10px]" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>
-                      {m.completion_pct}%
                     </div>
                   </div>
                 ))}

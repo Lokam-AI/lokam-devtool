@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, require_admin
+from app.dependencies import get_db, get_current_user
 from app.models.user import User
 from app.repositories import eval_repo, user_repo
 from app.schemas.team import TeamMemberStats
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/team", tags=["team"])
 @router.get("", response_model=list[TeamMemberStats])
 async def get_team_overview(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(get_current_user),
 ) -> list[TeamMemberStats]:
     """Return per-reviewer eval statistics for the team overview; admin+ only."""
     users = await user_repo.list_all_active(db)

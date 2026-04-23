@@ -78,8 +78,13 @@ def _compute_has_corrections(raw_call: object, submitted: dict) -> bool:
         "gt_escalation_needed": "escalation_needed",
     }
     for gt_field, original_field in field_map.items():
-        if gt_field in submitted:
-            original_value = getattr(raw_call, original_field, None)
-            if submitted[gt_field] != original_value:
-                return True
+        if gt_field not in submitted:
+            continue
+        submitted_val = submitted[gt_field]
+        original_val = getattr(raw_call, original_field, None)
+        # bool fields in RawCall may be NULL when the AI didn't set them; treat NULL as False
+        if isinstance(submitted_val, bool):
+            original_val = bool(original_val) if original_val is not None else False
+        if submitted_val != original_val:
+            return True
     return False

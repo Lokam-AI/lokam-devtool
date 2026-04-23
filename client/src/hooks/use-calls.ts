@@ -74,8 +74,7 @@ export function useSubmitEval() {
 }
 
 export function useTeam() {
-  const isAdmin = useAuthStore((s) => s.isAtLeast("admin"));
-  return useQuery({ queryKey: ["team"], queryFn: apiGetTeam, enabled: isAdmin });
+  return useQuery({ queryKey: ["team"], queryFn: apiGetTeam });
 }
 
 export function useHealth() {
