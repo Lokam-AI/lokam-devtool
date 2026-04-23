@@ -17,6 +17,7 @@ const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 const AllCallsPage = lazy(() => import("@/pages/AllCallsPage"));
 const BugsPage = lazy(() => import("@/pages/BugsPage"));
 const MyBugsPage = lazy(() => import("@/pages/MyBugsPage"));
+const CallDetailPage = lazy(() => import("@/pages/CallDetailPage"));
 
 function PageLoader() {
   return (
@@ -43,6 +44,7 @@ const App = () => {
               <Route path="/my-bugs" element={<MyBugsPage />} />
               <Route path="/calls" element={<MyCallsPage />} />
               <Route path="/eval/:id" element={<EvalFormPage />} />
+              <Route path="/call/:id" element={<CallDetailPage />} />
               <Route
                 path="/all-calls"
                 element={<RoleGuard minRole="admin"><AllCallsPage /></RoleGuard>}

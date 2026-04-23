@@ -169,8 +169,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Row 2: NPS + Open Bugs + Sync Health ──────────────────────── */}
-      {isAdmin && (
-        <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-6">
 
           {/* NPS Distribution */}
           <div
@@ -347,7 +346,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      )}
 
       {/* ── Row 3: Review log + reviewer bottleneck ───────────────────── */}
       <div className="grid grid-cols-12 gap-6">

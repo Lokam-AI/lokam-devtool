@@ -240,7 +240,7 @@ export default function AllCallsPage() {
                     </tr>
                   ))
                 : filtered.map((call) => (
-                    <CallRow key={call.id} call={call} onView={() => navigate(`/eval/${call.id}`)} />
+                    <CallRow key={call.id} call={call} onView={() => navigate(`/call/${call.id}`)} />
                   ))
               }
             </tbody>

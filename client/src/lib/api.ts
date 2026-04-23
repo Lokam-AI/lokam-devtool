@@ -250,6 +250,12 @@ export const apiGetCall = async (id: string): Promise<CallWithEval | undefined> 
   }
 };
 
+/** GET /calls/:id — fetch a single raw call by lokam_call_id without eval context */
+export const apiGetRawCall = async (id: string): Promise<RawCall> => {
+  const res = await api.get<BackendRawCall>(`/calls/${id}`);
+  return mapCall(res.data);
+};
+
 /** PATCH /evals/:evalId — submit ground-truth corrections */
 export const apiSubmitEval = async (evalId: string, data: Partial<Eval>): Promise<Eval> => {
   const body: Record<string, unknown> = {};

@@ -3,6 +3,7 @@ import {
   apiGetCalls,
   apiGetCallsCount,
   apiGetCall,
+  apiGetRawCall,
   apiSubmitEval,
   apiGetTeam,
   apiGetHealth,
@@ -28,7 +29,6 @@ import {
 } from "@/lib/api";
 import type { AssignmentConfig } from "@/types";
 import type { Eval } from "@/types";
-import { useAuthStore } from "@/store/auth-store";
 
 const STALE_MS = 5 * 60 * 1000;
 
@@ -156,12 +156,10 @@ export function useResolveBug() {
 }
 
 export function useDashboardStats() {
-  const isAdmin = useAuthStore((s) => s.isAtLeast("admin"));
   return useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: apiGetDashboardStats,
     staleTime: 60 * 1000,
-    enabled: isAdmin,
   });
 }
 
@@ -206,6 +204,14 @@ export function useUpdateAssignmentConfig() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assignment-config"] });
     },
+  });
+}
+
+export function useRawCall(id: string) {
+  return useQuery({
+    queryKey: ["raw-call", id],
+    queryFn: () => apiGetRawCall(id),
+    enabled: !!id,
   });
 }
 

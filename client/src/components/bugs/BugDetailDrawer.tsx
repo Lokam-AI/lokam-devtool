@@ -307,7 +307,7 @@ export function BugDetailDrawer({
             {bug.call_id && (
               <Field label="Call ID">
                 <button
-                  onClick={() => navigate(`/eval/${bug.call_id}`)}
+                  onClick={() => navigate(`/call/${bug.call_id}`)}
                   className="flex items-center gap-1 transition-opacity hover:opacity-70"
                   style={{ fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace", fontSize: "12px", color: "#7170ff" }}
                 >
