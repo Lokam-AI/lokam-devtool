@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
-from app.dependencies import get_db, require_admin, require_superadmin
+from app.dependencies import get_db, require_admin, require_reviewer, require_superadmin
 from app.models.user import User
 from app.repositories import env_config_repo
 from app.schemas.admin import ACSToggleRequest, ProxyHealthResponse, SeedRunRequest, SyncRequest, SyncResponse
@@ -38,9 +38,9 @@ async def update_assignment_config(
 @router.get("/envs", response_model=list[EnvConfigRead])
 async def list_envs(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_reviewer),
 ) -> list[EnvConfigRead]:
-    """Return all environment configurations; admin+ only."""
+    """Return all environment configurations; reviewer+ only."""
     rows = await env_config_repo.list_all(db)
     return [EnvConfigRead.model_validate(r) for r in rows]
 

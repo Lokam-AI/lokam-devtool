@@ -52,11 +52,14 @@ const MAIN_NAV = [
   { title: "My Bugs",   url: "/my-bugs",   icon: Bug             },
 ];
 
+const REVIEWER_NAV = [
+  { title: "All Calls",   url: "/all-calls", icon: Database },
+  { title: "Bug Reports", url: "/bugs",      icon: Bug      },
+];
+
 const ADMIN_NAV = [
-  { title: "All Calls",      url: "/all-calls", icon: Database },
-  { title: "Bug Reports",    url: "/bugs",      icon: Bug      },
-  { title: "Admin Controls", url: "/admin",     icon: Settings },
-  { title: "Team Overview",  url: "/team",      icon: Users    },
+  { title: "Admin Controls", url: "/admin", icon: Settings },
+  { title: "Team Overview",  url: "/team",  icon: Users    },
 ];
 
 
@@ -151,15 +154,18 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
 
-          {/* Admin nav */}
-          {isAtLeast("admin") && (
+          {/* Reviewer + admin nav */}
+          {isAtLeast("reviewer") && (
             <SidebarGroup className="p-0 mt-4">
               {!collapsed && (
                 <SectionHeader label="Workspace" />
               )}
               <SidebarGroupContent>
                 <SidebarMenu className="space-y-px">
-                  {ADMIN_NAV.map((item) => (
+                  {REVIEWER_NAV.map((item) => (
+                    <NavItem key={item.url} item={item} collapsed={collapsed} pathname={location.pathname} />
+                  ))}
+                  {isAtLeast("admin") && ADMIN_NAV.map((item) => (
                     <NavItem key={item.url} item={item} collapsed={collapsed} pathname={location.pathname} />
                   ))}
                 </SidebarMenu>

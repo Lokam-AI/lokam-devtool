@@ -34,6 +34,13 @@ async def get_current_user(
     return user
 
 
+async def require_reviewer(current_user: User = Depends(get_current_user)) -> User:
+    """Raise PermissionError unless the current user is reviewer, admin, or superadmin."""
+    if current_user.role not in ("reviewer", "admin", "superadmin"):
+        raise PermissionDeniedError("Reviewer access required")
+    return current_user
+
+
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Raise PermissionError unless the current user is admin or superadmin."""
     if current_user.role not in ("admin", "superadmin"):

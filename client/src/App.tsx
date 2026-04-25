@@ -47,7 +47,7 @@ const App = () => {
               <Route path="/call/:id" element={<CallDetailPage />} />
               <Route
                 path="/all-calls"
-                element={<RoleGuard minRole="admin"><AllCallsPage /></RoleGuard>}
+                element={<RoleGuard minRole="reviewer"><AllCallsPage /></RoleGuard>}
               />
               <Route
                 path="/admin"
@@ -59,7 +59,7 @@ const App = () => {
               />
               <Route
                 path="/bugs"
-                element={<RoleGuard minRole="admin"><BugsPage /></RoleGuard>}
+                element={<RoleGuard minRole="reviewer"><BugsPage /></RoleGuard>}
               />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

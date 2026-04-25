@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_current_user, get_db, require_admin
+from app.dependencies import get_current_user, get_db, require_admin, require_reviewer
 from app.models.user import User
 from app.repositories import bug_report_repo
 from app.schemas.bug_report import BugReportCreate, BugReportRead
@@ -92,9 +92,9 @@ async def list_bugs(
     limit: int = Query(default=PAGE_SIZE, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_reviewer),
 ) -> list[BugReportRead]:
-    """Return bug reports within an inclusive date range with optional filters and pagination; admin+ only."""
+    """Return bug reports within an inclusive date range with optional filters and pagination; reviewer+ only."""
     if (date_to - date_from).days > MAX_DATE_RANGE_DAYS:
         raise HTTPException(status_code=400, detail=f"Date range exceeds {MAX_DATE_RANGE_DAYS} days.")
     rows = await bug_report_repo.list_by_date_range(
@@ -113,9 +113,9 @@ async def count_bugs(
     is_resolved: bool | None = Query(default=None),
     bug_type: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_reviewer),
 ) -> dict[str, int]:
-    """Return count of bug reports matching filters; admin+ only."""
+    """Return count of bug reports matching filters; reviewer+ only."""
     total = await bug_report_repo.count_by_date_range(
         db, date_from, date_to, source_env=source_env, organization_name=organization_name,
         is_resolved=is_resolved, bug_type=bug_type,
@@ -129,9 +129,9 @@ async def bug_stats(
     date_to: date = Query(...),
     source_env: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_reviewer),
 ) -> dict:
-    """Return summary stats (total, unique orgs/rooftops, top bug type) for a date range; admin+ only."""
+    """Return summary stats (total, unique orgs/rooftops, top bug type) for a date range; reviewer+ only."""
     if (date_to - date_from).days > MAX_DATE_RANGE_DAYS:
         raise HTTPException(status_code=400, detail=f"Date range exceeds {MAX_DATE_RANGE_DAYS} days.")
     return await bug_report_repo.stats_by_date_range(db, date_from, date_to, source_env=source_env)

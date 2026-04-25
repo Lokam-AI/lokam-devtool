@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 PAGE_SIZE = 30
 
-from app.dependencies import get_current_user, get_db, require_admin
+from app.dependencies import get_current_user, get_db, require_admin, require_reviewer
 from app.exceptions import NotFoundError
 from app.models.user import User
 from app.schemas.raw_call import RawCallRead
@@ -41,9 +41,9 @@ async def list_all_calls(
     limit: int = Query(default=PAGE_SIZE, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_reviewer),
 ) -> list[RawCallRead]:
-    """Return all raw calls with optional filters and pagination; admin+ only."""
+    """Return all raw calls with optional filters and pagination; reviewer+ only."""
     rows = await raw_call_repo.list_all(
         db, source_env, call_status, date_from, date_to,
         search, organization_name, nps_filter, sort_by, sort_dir, limit, offset,
@@ -61,9 +61,9 @@ async def count_all_calls(
     organization_name: str | None = Query(default=None),
     nps_filter: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_reviewer),
 ) -> dict[str, int]:
-    """Return count of all raw calls matching filters; admin+ only."""
+    """Return count of all raw calls matching filters; reviewer+ only."""
     total = await raw_call_repo.count_all(
         db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter,
     )
