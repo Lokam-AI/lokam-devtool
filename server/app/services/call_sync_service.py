@@ -51,12 +51,25 @@ async def _sync_single_env(db: AsyncSession, client: httpx.AsyncClient, env: obj
         item["source_env"] = env.name
         if "id" in item and "lokam_call_id" not in item:
             item["lokam_call_id"] = item.pop("id")
+        metadata = item.get("call_metadata") or {}
+        if "escalation_needed" not in item:
+            item["escalation_needed"] = metadata.get("escalation_needed")
         schema = RawCallCreate(**item)
+        if _is_post_call_sms(schema.overall_feedback):
+            continue
         await raw_call_repo.upsert_by_lokam_call_id(db, schema)
         upserted += 1
 
     await assignment_service.assign_calls_for_date(db, call_date, source_env=env.name)
     return upserted
+
+
+POST_CALL_SMS_MARKER = "post-call sms"
+
+
+def _is_post_call_sms(overall_feedback: str | None) -> bool:
+    """Return True if overall_feedback indicates a post-call SMS interaction."""
+    return bool(overall_feedback and POST_CALL_SMS_MARKER in overall_feedback.lower())
 
 
 def _decrypt_env_secrets(secrets: dict) -> dict:

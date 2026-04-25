@@ -1,11 +1,13 @@
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RawCallCreate(BaseModel):
     """Schema for ingesting a raw call from lokamspace."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     lokam_call_id: int
     call_date: date
@@ -20,9 +22,9 @@ class RawCallCreate(BaseModel):
     duration_sec: int | None = None
     nps_score: int | None = None
     call_summary: str | None = None
-    overall_feedback: str | None = None
+    overall_feedback: str | None = Field(default=None, alias="feedback_summary")
     positive_mentions: Any | None = None
-    detractors: Any | None = None
+    detractors: Any | None = Field(default=None, alias="areas_to_improve")
     is_incomplete_call: bool | None = None
     incomplete_reason: str | None = None
     is_dnc_request: bool | None = None
