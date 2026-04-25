@@ -89,23 +89,23 @@ function EvalFormInner({
 
   const [fields, setFields] = useState<Record<string, FieldState>>(() => {
     const gtMatchesAi = (gt: unknown, ai: unknown) =>
-      gt === null || gt === undefined || JSON.stringify(gt) === JSON.stringify(ai);
+      gt === undefined || JSON.stringify(gt) === JSON.stringify(ai);
     return {
       nps_score: {
         correct: !saved || gtMatchesAi(evalData.gt_nps_score, callData.ai_nps_score),
-        value: saved && evalData.gt_nps_score != null ? evalData.gt_nps_score : callData.ai_nps_score,
+        value: saved ? evalData.gt_nps_score : callData.ai_nps_score,
       },
       call_summary: {
         correct: !saved || gtMatchesAi(evalData.gt_call_summary, callData.ai_call_summary),
-        value: saved && evalData.gt_call_summary != null ? evalData.gt_call_summary : callData.ai_call_summary,
+        value: saved ? evalData.gt_call_summary : callData.ai_call_summary,
       },
       positive_mentions: {
         correct: !saved || gtMatchesAi(evalData.gt_positive_mentions, callData.ai_positive_mentions),
-        value: saved && evalData.gt_positive_mentions != null ? evalData.gt_positive_mentions : (callData.ai_positive_mentions ?? []),
+        value: saved ? (evalData.gt_positive_mentions ?? []) : (callData.ai_positive_mentions ?? []),
       },
       detractors: {
         correct: !saved || gtMatchesAi(evalData.gt_detractors, callData.ai_detractors),
-        value: saved && evalData.gt_detractors != null ? evalData.gt_detractors : (callData.ai_detractors ?? []),
+        value: saved ? (evalData.gt_detractors ?? []) : (callData.ai_detractors ?? []),
       },
     };
   });
@@ -127,23 +127,23 @@ function EvalFormInner({
   useEffect(() => {
     if (evalData.status !== "completed") return;
     const gtMatchesAi = (gt: unknown, ai: unknown) =>
-      gt === null || gt === undefined || JSON.stringify(gt) === JSON.stringify(ai);
+      gt === undefined || JSON.stringify(gt) === JSON.stringify(ai);
     setFields({
       nps_score: {
         correct: gtMatchesAi(evalData.gt_nps_score, callData.ai_nps_score),
-        value: evalData.gt_nps_score != null ? evalData.gt_nps_score : callData.ai_nps_score,
+        value: evalData.gt_nps_score,
       },
       call_summary: {
         correct: gtMatchesAi(evalData.gt_call_summary, callData.ai_call_summary),
-        value: evalData.gt_call_summary != null ? evalData.gt_call_summary : callData.ai_call_summary,
+        value: evalData.gt_call_summary,
       },
       positive_mentions: {
         correct: gtMatchesAi(evalData.gt_positive_mentions, callData.ai_positive_mentions),
-        value: evalData.gt_positive_mentions != null ? evalData.gt_positive_mentions : (callData.ai_positive_mentions ?? []),
+        value: evalData.gt_positive_mentions ?? [],
       },
       detractors: {
         correct: gtMatchesAi(evalData.gt_detractors, callData.ai_detractors),
-        value: evalData.gt_detractors != null ? evalData.gt_detractors : (callData.ai_detractors ?? []),
+        value: evalData.gt_detractors ?? [],
       },
     });
     setIsNotIncomplete(evalData.gt_is_resolved !== null ? (evalData.gt_is_resolved ?? true) : (callData.ai_is_resolved ?? true));

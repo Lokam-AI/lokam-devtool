@@ -64,7 +64,9 @@ export default function MyCallsPage() {
   }), [filters]);
 
   const { data, isLoading, isError } = useCalls(callParams);
-  const { data: totalCount } = useCallsCount(countParams);
+  const { data: totalCount }    = useCallsCount(countParams);
+  const { data: completedCount } = useCallsCount({ ...countParams, eval_status: "completed" });
+  const { data: pendingCount }   = useCallsCount({ ...countParams, eval_status: "pending" });
 
   const qc = useQueryClient();
   useEffect(() => {
@@ -78,12 +80,12 @@ export default function MyCallsPage() {
 
   const stats = useMemo(() => {
     const total = totalCount ?? 0;
-    const completed = (data ?? []).filter((c) => c.eval.status === "completed").length;
-    const pending = (data ?? []).filter((c) => c.eval.status === "pending").length;
+    const completed = completedCount ?? 0;
+    const pending = pendingCount ?? 0;
     const totalDuration = (data ?? []).reduce((sum, c) => sum + c.call.duration, 0);
     const avgDuration = (data ?? []).length > 0 ? Math.round(totalDuration / (data ?? []).length) : 0;
     return { total, pending, completed, avgDuration };
-  }, [data, totalCount]);
+  }, [data, totalCount, completedCount, pendingCount]);
 
   const orgOptions = useMemo(() =>
     [...new Set((data ?? []).map((c) => c.call.organization_name).filter(Boolean))].sort(),

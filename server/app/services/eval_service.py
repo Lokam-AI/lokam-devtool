@@ -45,7 +45,7 @@ async def submit_eval(
         raise PermissionDeniedError("You are not assigned to this evaluation")
 
     raw_call = await raw_call_repo.get_by_lokam_call_id(db, ev.call_id)
-    changes = payload.model_dump(exclude_none=True)
+    changes = payload.model_dump(exclude_unset=True)
 
     has_corrections = _compute_has_corrections(raw_call, changes) if raw_call else False
     changes["has_corrections"] = has_corrections

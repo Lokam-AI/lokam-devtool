@@ -81,6 +81,13 @@ export default function AllCallsPage() {
     staleTime: STALE_MS,
   });
 
+  const completedCountParams = useMemo(() => ({ ...countParams, call_status: "Completed" }), [countParams]);
+  const { data: completedTotalCount } = useQuery({
+    queryKey: ["all-calls-count", completedCountParams],
+    queryFn: () => apiGetAllCallsCount(completedCountParams),
+    staleTime: STALE_MS,
+  });
+
   const qc = useQueryClient();
   useEffect(() => {
     const nextParams = { ...queryParams, offset: (page + 1) * PAGE_SIZE };
@@ -110,11 +117,6 @@ export default function AllCallsPage() {
     if (scored.length === 0) return null;
     return (scored.reduce((sum, c) => sum + (c.ai_nps_score ?? 0), 0) / scored.length).toFixed(1);
   }, [calls]);
-
-  const completedCount = useMemo(
-    () => calls?.filter((c) => c.call_status === "Completed").length ?? 0,
-    [calls]
-  );
 
   const totalPages = totalCount ? Math.ceil(totalCount / PAGE_SIZE) : 0;
   const hasFilters = filters.search || filters.callStatus !== "all" ||
@@ -184,7 +186,7 @@ export default function AllCallsPage() {
         />
         <MetricCard
           label="Active Sessions"
-          value={isLoading ? "—" : completedCount.toString()}
+          value={completedTotalCount !== undefined ? completedTotalCount.toString() : "—"}
           badge={{ text: "Live", color: "#7170ff" }}
           icon={<Zap className="h-4 w-4" style={{ color: "#62666d" }} />}
           loading={isLoading}
