@@ -70,6 +70,24 @@ async def count_all_calls(
     return {"count": total}
 
 
+@router.get("/all/stats")
+async def stats_all_calls(
+    source_env: str | None = Query(default=None),
+    call_status: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    search: str | None = Query(default=None),
+    organization_name: str | None = Query(default=None),
+    nps_filter: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_reviewer),
+) -> dict:
+    """Return avg_duration_sec and avg_nps across all raw calls matching filters; reviewer+ only."""
+    return await raw_call_repo.stats_all(
+        db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter,
+    )
+
+
 @router.get("/{call_id}", response_model=RawCallRead)
 async def get_call(
     call_id: int,

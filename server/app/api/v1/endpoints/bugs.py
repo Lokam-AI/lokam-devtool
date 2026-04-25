@@ -128,13 +128,20 @@ async def bug_stats(
     date_from: date = Query(...),
     date_to: date = Query(...),
     source_env: str | None = Query(None),
+    organization_name: str | None = Query(None),
+    bug_type: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_reviewer),
 ) -> dict:
     """Return summary stats (total, unique orgs/rooftops, top bug type) for a date range; reviewer+ only."""
     if (date_to - date_from).days > MAX_DATE_RANGE_DAYS:
         raise HTTPException(status_code=400, detail=f"Date range exceeds {MAX_DATE_RANGE_DAYS} days.")
-    return await bug_report_repo.stats_by_date_range(db, date_from, date_to, source_env=source_env)
+    return await bug_report_repo.stats_by_date_range(
+        db, date_from, date_to,
+        source_env=source_env,
+        organization_name=organization_name,
+        bug_type=bug_type,
+    )
 
 
 @router.patch("/{bug_id}/resolve", response_model=BugReportRead)

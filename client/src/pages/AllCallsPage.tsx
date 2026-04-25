@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { apiGetAllCalls, apiGetAllCallsCount, apiGetEnvs } from "@/lib/api";
+import { useAllCallsStats } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CallFilterBar, DEFAULT_FILTERS } from "@/components/ui/call-filters";
 import { useAllCallsFilterStore } from "@/store/filter-store";
@@ -88,6 +89,8 @@ export default function AllCallsPage() {
     staleTime: STALE_MS,
   });
 
+  const { data: callStats } = useAllCallsStats(countParams);
+
   const qc = useQueryClient();
   useEffect(() => {
     const nextParams = { ...queryParams, offset: (page + 1) * PAGE_SIZE };
@@ -106,17 +109,8 @@ export default function AllCallsPage() {
   const calls = batchData ?? [];
   const filtered = calls;
 
-  const avgDuration = useMemo(() => {
-    if (!calls || calls.length === 0) return 0;
-    return Math.round(calls.reduce((s, c) => s + c.duration, 0) / calls.length);
-  }, [calls]);
-
-  const avgNps = useMemo(() => {
-    if (!calls) return null;
-    const scored = calls.filter((c) => c.ai_nps_score !== null);
-    if (scored.length === 0) return null;
-    return (scored.reduce((sum, c) => sum + (c.ai_nps_score ?? 0), 0) / scored.length).toFixed(1);
-  }, [calls]);
+  const avgDuration = callStats?.avg_duration_sec ?? null;
+  const avgNps = callStats?.avg_nps != null ? callStats.avg_nps.toFixed(1) : null;
 
   const totalPages = totalCount ? Math.ceil(totalCount / PAGE_SIZE) : 0;
   const hasFilters = filters.search || filters.callStatus !== "all" ||
@@ -163,33 +157,30 @@ export default function AllCallsPage() {
         <MetricCard
           label="Total Calls"
           value={totalCount !== undefined ? totalCount.toLocaleString() : "—"}
-          badge={{ text: "+12%", color: "#10b981" }}
+          badge={{ text: "All", color: "#62666d" }}
           icon={<PhoneCall className="h-4 w-4" style={{ color: "#62666d" }} />}
           loading={false}
         />
         <MetricCard
           label="Avg Duration"
-          value={isLoading ? "—" : formatDuration(avgDuration)}
-          badge={{ text: "Stable", color: "#62666d" }}
+          value={avgDuration != null ? formatDuration(avgDuration) : "—"}
+          badge={{ text: "All calls", color: "#62666d" }}
           icon={<Timer className="h-4 w-4" style={{ color: "#62666d" }} />}
           loading={isLoading}
         />
         <MetricCard
           label="Avg NPS"
-          value={isLoading ? "—" : (avgNps ?? "N/A")}
-          badge={{
-            text: avgNps && parseFloat(avgNps) < 7 ? "-0.2" : "Optimal",
-            color: avgNps && parseFloat(avgNps) < 7 ? "#ff716c" : "#10b981",
-          }}
+          value={avgNps ?? "—"}
+          badge={{ text: "All calls", color: "#62666d" }}
           icon={<Star className="h-4 w-4" style={{ color: "#62666d" }} />}
           loading={isLoading}
         />
         <MetricCard
-          label="Active Sessions"
-          value={completedTotalCount !== undefined ? completedTotalCount.toString() : "—"}
-          badge={{ text: "Live", color: "#7170ff" }}
+          label="Completed Calls"
+          value={completedTotalCount !== undefined ? completedTotalCount.toLocaleString() : "—"}
+          badge={{ text: "Completed", color: "#10b981" }}
           icon={<Zap className="h-4 w-4" style={{ color: "#62666d" }} />}
-          loading={isLoading}
+          loading={false}
         />
       </div>
 

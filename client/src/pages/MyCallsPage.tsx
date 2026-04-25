@@ -2,7 +2,7 @@ import { useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCalls, useCallsCount } from "@/hooks/use-calls";
+import { useCalls, useCallsCount, useMyCallsStats } from "@/hooks/use-calls";
 import { apiGetCalls } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CallFilterBar, DEFAULT_FILTERS } from "@/components/ui/call-filters";
@@ -67,6 +67,7 @@ export default function MyCallsPage() {
   const { data: totalCount }    = useCallsCount(countParams);
   const { data: completedCount } = useCallsCount({ ...countParams, eval_status: "completed" });
   const { data: pendingCount }   = useCallsCount({ ...countParams, eval_status: "pending" });
+  const { data: myCallStats }    = useMyCallsStats(countParams);
 
   const qc = useQueryClient();
   useEffect(() => {
@@ -78,14 +79,12 @@ export default function MyCallsPage() {
   const safePage = Math.min(page, totalPages);
   const paginated = data ?? [];
 
-  const stats = useMemo(() => {
-    const total = totalCount ?? 0;
-    const completed = completedCount ?? 0;
-    const pending = pendingCount ?? 0;
-    const totalDuration = (data ?? []).reduce((sum, c) => sum + c.call.duration, 0);
-    const avgDuration = (data ?? []).length > 0 ? Math.round(totalDuration / (data ?? []).length) : 0;
-    return { total, pending, completed, avgDuration };
-  }, [data, totalCount, completedCount, pendingCount]);
+  const stats = useMemo(() => ({
+    total: totalCount ?? 0,
+    completed: completedCount ?? 0,
+    pending: pendingCount ?? 0,
+    avgDuration: myCallStats?.avg_duration_sec ?? null,
+  }), [totalCount, completedCount, pendingCount, myCallStats]);
 
   const orgOptions = useMemo(() =>
     [...new Set((data ?? []).map((c) => c.call.organization_name).filter(Boolean))].sort(),
@@ -267,7 +266,7 @@ export default function MyCallsPage() {
                 className="text-2xl"
                 style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
               >
-                {formatDuration(stats.avgDuration)}
+                {stats.avgDuration != null ? formatDuration(stats.avgDuration) : "—"}
               </h2>
             )}
             <span

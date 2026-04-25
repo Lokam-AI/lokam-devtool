@@ -211,6 +211,16 @@ export const apiGetCallsCount = async (params?: Omit<MyCallsParams, "limit" | "o
   return data.count;
 };
 
+export interface MyCallsStatsResult {
+  avg_duration_sec: number | null;
+}
+
+/** GET /evals/my/calls/stats — avg duration across all reviewer-assigned calls matching filters */
+export const apiGetMyCallsStats = async (params?: Omit<MyCallsParams, "limit" | "offset" | "sort_by" | "sort_dir">): Promise<MyCallsStatsResult> => {
+  const { data } = await api.get<MyCallsStatsResult>("/evals/my/calls/stats", { params });
+  return data;
+};
+
 /** GET single call with its eval by lokam_call_id.
  *  Fetches the call directly (1 request) then scans /evals/my to match (1 request).
  *  Total: 2 requests regardless of how many evals the user has.
@@ -419,6 +429,17 @@ export const apiGetAllCallsCount = async (params?: Omit<AllCallsParams, "limit" 
   return data.count;
 };
 
+export interface AllCallsStatsResult {
+  avg_duration_sec: number | null;
+  avg_nps: number | null;
+}
+
+/** GET /calls/all/stats — avg duration and avg NPS across all calls matching filters (reviewer+) */
+export const apiGetAllCallsStats = async (params?: Omit<AllCallsParams, "limit" | "offset" | "sort_by" | "sort_dir">): Promise<AllCallsStatsResult> => {
+  const { data } = await api.get<AllCallsStatsResult>("/calls/all/stats", { params });
+  return data;
+};
+
 /** GET /admin/envs — returns all environment configurations (admin+) */
 export const apiGetEnvs = async (): Promise<EnvConfig[]> => {
   const { data } = await api.get<EnvConfig[]>("/admin/envs");
@@ -464,7 +485,7 @@ export const apiGetBugsCount = async (params: Omit<BugsParams, "limit" | "offset
 };
 
 /** GET /bugs/stats — summary stats for a date range (admin+) */
-export const apiGetBugsStats = async (params: { date_from: string; date_to: string; source_env?: string }): Promise<BugsStatsResult> => {
+export const apiGetBugsStats = async (params: { date_from: string; date_to: string; source_env?: string; organization_name?: string; bug_type?: string }): Promise<BugsStatsResult> => {
   const { data } = await api.get<BugsStatsResult>("/bugs/stats", { params });
   return data;
 };

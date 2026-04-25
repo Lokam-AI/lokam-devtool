@@ -120,9 +120,11 @@ export default function BugsPage() {
   }), [filterBase, page]);
 
   const statsParams = useMemo(() => ({
-    date_from: dateFrom,
-    date_to:   dateTo,
-  }), [dateFrom, dateTo]);
+    date_from:         dateFrom,
+    date_to:           dateTo,
+    organization_name: orgFilter || undefined,
+    bug_type:          bugTypeFilter || undefined,
+  }), [dateFrom, dateTo, orgFilter, bugTypeFilter]);
 
   const countParams = useMemo(() => ({
     date_from:         dateFrom,
@@ -149,9 +151,6 @@ export default function BugsPage() {
   const orgOptions     = useMemo(() => Array.from(new Set(bugs.map((b) => b.organization_name).filter(Boolean) as string[])).sort(), [bugs]);
   const bugTypeOptions = useMemo(() => Array.from(new Set(bugs.flatMap((b) => b.bug_types ?? []))).sort(), [bugs]);
 
-  const uniqueOrgs     = bugStats?.unique_orgs ?? 0;
-  const uniqueRooftops = bugStats?.unique_rooftops ?? 0;
-  const topBugType     = bugStats?.top_bug_type ?? "—";
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -276,9 +275,9 @@ export default function BugsPage() {
       {/* ── Metric cards ───────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard icon={Bug}       label="Total Bugs"      value={bugStats?.total_bugs ?? "—"} accent />
-        <MetricCard icon={Building2} label="Unique Orgs"     value={uniqueOrgs}     />
-        <MetricCard icon={MapPin}    label="Unique Rooftops" value={uniqueRooftops} />
-        <MetricCard icon={Tag}       label="Top Bug Type"    value={topBugType}     />
+        <MetricCard icon={Building2} label="Unique Orgs"     value={bugStats?.unique_orgs ?? "—"} />
+        <MetricCard icon={MapPin}    label="Unique Rooftops" value={bugStats?.unique_rooftops ?? "—"} />
+        <MetricCard icon={Tag}       label="Top Bug Type"    value={bugStats?.top_bug_type ?? "—"} />
       </div>
 
       {/* ── Table ──────────────────────────────────────────────── */}

@@ -152,11 +152,19 @@ async def stats_by_date_range(
     date_from: date,
     date_to: date,
     source_env: str | None = None,
+    organization_name: str | None = None,
+    bug_type: str | None = None,
 ) -> dict:
-    """Return summary stats (unique orgs, rooftops, top bug type) for a date range."""
-    rows = await list_by_date_range(db, date_from, date_to, source_env=source_env, limit=10000, offset=0)
+    """Return summary stats (unique orgs, rooftops, top bug type) for a date range with optional filters."""
+    rows = await list_by_date_range(
+        db, date_from, date_to,
+        source_env=source_env,
+        organization_name=organization_name,
+        bug_type=bug_type,
+        limit=10000, offset=0,
+    )
     unique_orgs = len({r.organization_name for r in rows if r.organization_name})
-    unique_rooftops = len({r.rooftop_id for r in rows if r.rooftop_id})
+    unique_rooftops = len({r.rooftop_name for r in rows if r.rooftop_name})
     type_counts: dict[str, int] = {}
     for r in rows:
         for t in (r.bug_types or []):

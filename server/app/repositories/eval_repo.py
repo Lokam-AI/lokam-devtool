@@ -231,6 +231,57 @@ async def count_calls_for_reviewer(
     return result.scalar_one()
 
 
+async def stats_calls_for_reviewer(
+    db: AsyncSession,
+    user_id: int,
+    eval_status: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    search: str | None = None,
+    organization_name: str | None = None,
+    nps_filter: str | None = None,
+) -> dict:
+    """Return avg_duration_sec for all reviewer-assigned call+eval pairs matching filters."""
+    from sqlalchemy import cast
+    from sqlalchemy.types import String
+
+    query = (
+        select(func.avg(RawCall.duration_sec).label("avg_duration"))
+        .select_from(Eval)
+        .join(RawCall, Eval.call_id == RawCall.lokam_call_id)
+        .where(Eval.assigned_to == user_id)
+    )
+    if eval_status is not None:
+        query = query.where(Eval.eval_status == eval_status)
+    if date_from is not None:
+        query = query.where(RawCall.call_date >= date_from)
+    if date_to is not None:
+        query = query.where(RawCall.call_date <= date_to)
+    if organization_name is not None:
+        query = query.where(RawCall.organization_name == organization_name)
+    if search is not None:
+        term = f"%{search}%"
+        query = query.where(
+            or_(
+                RawCall.organization_name.ilike(term),
+                RawCall.campaign_name.ilike(term),
+                RawCall.rooftop_name.ilike(term),
+                cast(RawCall.lokam_call_id, String).ilike(term),
+            )
+        )
+    if nps_filter == "promoter":
+        query = query.where(RawCall.nps_score >= 9)
+    elif nps_filter == "passive":
+        query = query.where(RawCall.nps_score >= 7, RawCall.nps_score <= 8)
+    elif nps_filter == "detractor":
+        query = query.where(RawCall.nps_score <= 6)
+    result = await db.execute(query)
+    row = result.one()
+    return {
+        "avg_duration_sec": round(row.avg_duration) if row.avg_duration is not None else None,
+    }
+
+
 async def get_next_pending(db: AsyncSession, user_id: int) -> Eval | None:
     """Return the first pending Eval for the given reviewer, or None."""
     result = await db.execute(

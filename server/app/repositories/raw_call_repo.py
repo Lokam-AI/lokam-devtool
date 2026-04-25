@@ -152,6 +152,30 @@ async def count_all(
     return result.scalar_one()
 
 
+async def stats_all(
+    db: AsyncSession,
+    source_env: str | None = None,
+    call_status: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    search: str | None = None,
+    organization_name: str | None = None,
+    nps_filter: str | None = None,
+) -> dict:
+    """Return avg_duration_sec and avg_nps for all RawCall rows matching filters."""
+    query = select(
+        func.avg(RawCall.duration_sec).label("avg_duration"),
+        func.avg(RawCall.nps_score).label("avg_nps"),
+    )
+    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter)
+    result = await db.execute(query)
+    row = result.one()
+    return {
+        "avg_duration_sec": round(row.avg_duration) if row.avg_duration is not None else None,
+        "avg_nps": round(float(row.avg_nps), 1) if row.avg_nps is not None else None,
+    }
+
+
 async def get_by_id(db: AsyncSession, call_id: int) -> RawCall | None:
     """Return the RawCall with the given internal id, or None if not found."""
     result = await db.execute(select(RawCall).where(RawCall.id == call_id))

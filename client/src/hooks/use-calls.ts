@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import {
   apiGetCalls,
   apiGetCallsCount,
+  apiGetMyCallsStats,
+  apiGetAllCallsStats,
   apiGetCall,
   apiGetRawCall,
   apiSubmitEval,
@@ -23,6 +25,9 @@ import {
   apiCreateBug,
   type CreateBugPayload,
   type MyCallsParams,
+  type MyCallsStatsResult,
+  type AllCallsStatsResult,
+  type AllCallsParams,
   type BugsParams,
   type BugsStatsResult,
   type MyBugsParams,
@@ -45,6 +50,22 @@ export function useCallsCount(params?: Omit<MyCallsParams, "limit" | "offset" | 
   return useQuery({
     queryKey: ["calls-count", params],
     queryFn: () => apiGetCallsCount(params),
+    staleTime: STALE_MS,
+  });
+}
+
+export function useMyCallsStats(params?: Omit<MyCallsParams, "limit" | "offset" | "sort_by" | "sort_dir">): ReturnType<typeof useQuery<MyCallsStatsResult>> {
+  return useQuery({
+    queryKey: ["my-calls-stats", params],
+    queryFn: () => apiGetMyCallsStats(params),
+    staleTime: STALE_MS,
+  });
+}
+
+export function useAllCallsStats(params?: Omit<AllCallsParams, "limit" | "offset" | "sort_by" | "sort_dir">): ReturnType<typeof useQuery<AllCallsStatsResult>> {
+  return useQuery({
+    queryKey: ["all-calls-stats", params],
+    queryFn: () => apiGetAllCallsStats(params),
     staleTime: STALE_MS,
   });
 }
@@ -114,7 +135,7 @@ export function useBugsCount(params: Omit<BugsParams, "limit" | "offset">) {
   });
 }
 
-export function useBugsStats(params: { date_from: string; date_to: string; source_env?: string }) {
+export function useBugsStats(params: { date_from: string; date_to: string; source_env?: string; organization_name?: string; bug_type?: string }) {
   return useQuery({
     queryKey: ["bugs-stats", params],
     queryFn: () => apiGetBugsStats(params),
