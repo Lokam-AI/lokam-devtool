@@ -117,10 +117,10 @@ function EvalFormInner({
     saved ? (evalData.gt_incomplete_reason ?? "") : ""
   );
   const [isDncRequest, setIsDncRequest]         = useState<boolean>(
-    saved ? (evalData.gt_is_dnc_request ?? false) : false
+    saved ? (evalData.gt_is_dnc_request ?? false) : (callData.ai_is_dnc_request ?? false)
   );
   const [escalationNeeded, setEscalationNeeded] = useState<boolean>(
-    saved ? (evalData.gt_escalation_needed ?? false) : false
+    saved ? (evalData.gt_escalation_needed ?? false) : (callData.ai_escalation_needed ?? false)
   );
 
   // Sync state when React Query delivers fresh data after a stale-cache mount.

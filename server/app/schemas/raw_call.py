@@ -22,9 +22,9 @@ class RawCallCreate(BaseModel):
     duration_sec: int | None = None
     nps_score: int | None = None
     call_summary: str | None = None
-    overall_feedback: str | None = Field(default=None, alias="feedback_summary")
+    overall_feedback: str | None = Field(default=None, validation_alias="feedback_summary")
     positive_mentions: Any | None = None
-    detractors: Any | None = Field(default=None, alias="areas_to_improve")
+    detractors: Any | None = Field(default=None, validation_alias="areas_to_improve")
     is_incomplete_call: bool | None = None
     incomplete_reason: str | None = None
     is_dnc_request: bool | None = None

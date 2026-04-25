@@ -58,6 +58,8 @@ function mapCall(r: BackendRawCall): RawCall {
     ai_positive_mentions: Array.isArray(r.positive_mentions) ? r.positive_mentions : [],
     ai_detractors: Array.isArray(r.detractors) ? r.detractors : [],
     ai_is_resolved: !r.is_incomplete_call,
+    ai_is_dnc_request: r.is_dnc_request ?? false,
+    ai_escalation_needed: r.escalation_needed ?? false,
     ai_callback_requested: false,
     call_metadata: r.call_metadata ?? null,
   };
@@ -113,6 +115,8 @@ interface BackendRawCall {
   positive_mentions: unknown | null;
   detractors: unknown | null;
   is_incomplete_call: boolean | null;
+  is_dnc_request: boolean | null;
+  escalation_needed: boolean | null;
   formatted_transcript: string | null;
   raw_transcript: string | null;
   recording_url: string | null;

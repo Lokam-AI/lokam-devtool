@@ -33,6 +33,8 @@ export interface RawCall {
   ai_positive_mentions: string[];
   ai_detractors: string[];
   ai_is_resolved: boolean;
+  ai_is_dnc_request: boolean;
+  ai_escalation_needed: boolean;
   ai_callback_requested: boolean;
   call_metadata?: Record<string, unknown> | null;
 }
