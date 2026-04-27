@@ -918,11 +918,11 @@ const BUG_TYPE_OPTIONS = [
   "Wrong Organization",
   "Incorrect Call Status",
   "Missing Recording",
-  "Data Mismatch",
   "Duplicate Call",
   "Review Link",
   "Escalation Email",
   "Voice Agent",
+  "Postcall Prompt",
   "Other",
 ] as const;
 
