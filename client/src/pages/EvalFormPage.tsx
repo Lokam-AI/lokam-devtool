@@ -898,6 +898,7 @@ const BUG_TYPE_OPTIONS = [
   "Duplicate Call",
   "Review Link",
   "Escalation Email",
+  "Voice Agent",
   "Other",
 ] as const;
 

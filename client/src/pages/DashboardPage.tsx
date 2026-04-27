@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useAuthStore } from "@/store/auth-store";
 import { parseUtc } from "@/lib/utils";
-import { useCalls, useHealth, useTeam, useDashboardStats } from "@/hooks/use-calls";
+import { useCalls, useCallsCount, useHealth, useTeam, useDashboardStats } from "@/hooks/use-calls";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bug, RefreshCw, AlertTriangle } from "lucide-react";
@@ -29,15 +29,19 @@ function relativeTime(iso: string | null): string {
 
 export default function DashboardPage() {
   const isAdmin = useAuthStore((s) => s.isAtLeast)("admin");
-  const { data: calls, isLoading: callsLoading, isError: callsError } = useCalls();
+  const { data: calls, isLoading: recentCallsLoading, isError: callsError } = useCalls({ limit: 5 });
+  const { data: pendingCount,   isLoading: pendingLoading   } = useCallsCount({ eval_status: "pending"   });
+  const { data: completedCount, isLoading: completedLoading } = useCallsCount({ eval_status: "completed" });
+  const { data: firstPendingCalls } = useCalls({ eval_status: "pending", limit: 1 });
   const { data: health, isLoading: healthLoading } = useHealth();
   const { data: team } = useTeam();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const navigate = useNavigate();
 
-  const pending        = calls?.filter((c) => c.eval.status === "pending").length   ?? 0;
-  const completed      = calls?.filter((c) => c.eval.status === "completed").length ?? 0;
-  const firstPendingId = calls?.find((c) => c.eval.status === "pending")?.call.id;
+  const callsLoading   = recentCallsLoading || pendingLoading || completedLoading;
+  const pending        = pendingCount   ?? 0;
+  const completed      = completedCount ?? 0;
+  const firstPendingId = firstPendingCalls?.[0]?.call.id;
 
   const backendOnline = !healthLoading && health?.status === "ok";
 

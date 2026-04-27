@@ -453,6 +453,7 @@ export interface BugsParams {
   organization_name?: string;
   is_resolved?: boolean;
   bug_type?: string;
+  is_internal?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -468,6 +469,7 @@ export interface MyBugsParams {
   is_resolved?: boolean;
   organization_name?: string;
   bug_type?: string;
+  is_internal?: boolean;
   limit?: number;
   offset?: number;
 }

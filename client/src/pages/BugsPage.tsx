@@ -95,12 +95,13 @@ const STALE_MS = 5 * 60 * 1000;
 export default function BugsPage() {
   const [range, setRange] = useState<DateRange | undefined>(thisMonthRange);
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "resolved">("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "internal" | "clients">("all");
   const [orgFilter, setOrgFilter] = useState<string>("");
   const [bugTypeFilter, setBugTypeFilter] = useState<string>("");
   const [selected, setSelected] = useState<BugReport | null>(null);
   const [page, setPage] = useState(0);
 
-  useEffect(() => { setPage(0); }, [range, statusFilter, orgFilter, bugTypeFilter]);
+  useEffect(() => { setPage(0); }, [range, statusFilter, sourceFilter, orgFilter, bugTypeFilter]);
 
   const dateFrom = range?.from ? toIso(range.from) : "";
   const dateTo   = range?.to   ? toIso(range.to)   : dateFrom;
@@ -111,7 +112,8 @@ export default function BugsPage() {
     organization_name: orgFilter || undefined,
     is_resolved:       statusFilter === "open" ? false : statusFilter === "resolved" ? true : undefined,
     bug_type:          bugTypeFilter || undefined,
-  }), [dateFrom, dateTo, orgFilter, statusFilter, bugTypeFilter]);
+    is_internal:       sourceFilter === "internal" ? true : sourceFilter === "clients" ? false : undefined,
+  }), [dateFrom, dateTo, orgFilter, statusFilter, bugTypeFilter, sourceFilter]);
 
   const bugsParams = useMemo(() => ({
     ...filterBase,
@@ -154,7 +156,7 @@ export default function BugsPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const activeFilterCount = [statusFilter !== "all", !!orgFilter, !!bugTypeFilter].filter(Boolean).length;
+  const activeFilterCount = [statusFilter !== "all", sourceFilter !== "all", !!orgFilter, !!bugTypeFilter].filter(Boolean).length;
 
 
   // Keep drawer in sync when list refreshes
@@ -226,6 +228,24 @@ export default function BugsPage() {
         {/* Divider */}
         <div className="h-4 w-px mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
 
+        {/* Source */}
+        {(["all", "internal", "clients"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setSourceFilter(s)}
+            className="h-7 px-2.5 rounded-md text-[12px] capitalize transition-colors"
+            style={sourceFilter === s
+              ? { background: "rgba(113,112,255,0.12)", border: "1px solid rgba(113,112,255,0.25)", color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }
+              : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "#8a8f98", fontFeatureSettings: FF }
+            }
+          >
+            {s}
+          </button>
+        ))}
+
+        {/* Divider */}
+        <div className="h-4 w-px mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
+
         {/* Org filter */}
         {orgOptions.length > 0 && (
           <DropdownSelect
@@ -255,7 +275,7 @@ export default function BugsPage() {
         {/* Clear all */}
         {activeFilterCount > 0 && (
           <button
-            onClick={() => { setStatusFilter("all"); setOrgFilter(""); setBugTypeFilter(""); }}
+            onClick={() => { setStatusFilter("all"); setSourceFilter("all"); setOrgFilter(""); setBugTypeFilter(""); }}
             className="h-7 px-2 text-[12px] flex items-center gap-1 rounded-md transition-colors"
             style={{ color: "#62666d", fontFeatureSettings: FF }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#ff716c"; }}

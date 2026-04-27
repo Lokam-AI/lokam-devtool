@@ -26,17 +26,19 @@ export default function MyBugsPage() {
   const resolveBug = useResolveBug();
   const [selected, setSelected] = useState<BugReport | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "resolved">("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "internal" | "clients">("all");
   const [orgFilter, setOrgFilter] = useState<string>("");
   const [bugTypeFilter, setBugTypeFilter] = useState<string>("");
   const [page, setPage] = useState(0);
 
-  useEffect(() => { setPage(0); }, [statusFilter, orgFilter, bugTypeFilter]);
+  useEffect(() => { setPage(0); }, [statusFilter, sourceFilter, orgFilter, bugTypeFilter]);
 
   const filterBase = useMemo(() => ({
     is_resolved:       statusFilter === "open" ? false : statusFilter === "resolved" ? true : undefined,
     organization_name: orgFilter || undefined,
     bug_type:          bugTypeFilter || undefined,
-  }), [statusFilter, orgFilter, bugTypeFilter]);
+    is_internal:       sourceFilter === "internal" ? true : sourceFilter === "clients" ? false : undefined,
+  }), [statusFilter, orgFilter, bugTypeFilter, sourceFilter]);
 
   const bugsParams = useMemo(() => ({
     ...filterBase,
@@ -61,7 +63,7 @@ export default function MyBugsPage() {
   const orgOptions     = useMemo(() => Array.from(new Set(bugs.map((b) => b.organization_name).filter(Boolean) as string[])).sort(), [bugs]);
   const bugTypeOptions = useMemo(() => Array.from(new Set(bugs.flatMap((b) => b.bug_types ?? []))).sort(), [bugs]);
 
-  const activeFilterCount = [statusFilter !== "all", !!orgFilter, !!bugTypeFilter].filter(Boolean).length;
+  const activeFilterCount = [statusFilter !== "all", sourceFilter !== "all", !!orgFilter, !!bugTypeFilter].filter(Boolean).length;
 
   return (
     <div
@@ -137,6 +139,22 @@ export default function MyBugsPage() {
 
           <div className="h-4 w-px mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
 
+          {(["all", "internal", "clients"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSourceFilter(s)}
+              className="h-7 px-2.5 rounded-md text-[12px] capitalize"
+              style={sourceFilter === s
+                ? { background: "rgba(113,112,255,0.12)", border: "1px solid rgba(113,112,255,0.25)", color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }
+                : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "#8a8f98", fontFeatureSettings: FF }
+              }
+            >
+              {s}
+            </button>
+          ))}
+
+          <div className="h-4 w-px mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
+
           {orgOptions.length > 1 && (
             <DropdownSelect
               value={orgFilter}
@@ -163,7 +181,7 @@ export default function MyBugsPage() {
 
           {activeFilterCount > 0 && (
             <button
-              onClick={() => { setStatusFilter("all"); setOrgFilter(""); setBugTypeFilter(""); }}
+              onClick={() => { setStatusFilter("all"); setSourceFilter("all"); setOrgFilter(""); setBugTypeFilter(""); }}
               className="h-7 px-2 text-[12px] flex items-center gap-1 rounded-md"
               style={{ color: "#62666d", fontFeatureSettings: FF }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#ff716c"; }}

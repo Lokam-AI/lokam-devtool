@@ -52,6 +52,7 @@ async def list_my_bugs(
     is_resolved: bool | None = Query(default=None),
     organization_name: str | None = Query(default=None),
     bug_type: str | None = Query(default=None),
+    is_internal: bool | None = Query(default=None),
     limit: int = Query(default=PAGE_SIZE, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -60,7 +61,8 @@ async def list_my_bugs(
     """Return bug reports assigned to the current user with optional filters; any authenticated role."""
     rows = await bug_report_repo.list_assigned_to(
         db, current_user.id, is_resolved=is_resolved,
-        organization_name=organization_name, bug_type=bug_type, limit=limit, offset=offset,
+        organization_name=organization_name, bug_type=bug_type, is_internal=is_internal,
+        limit=limit, offset=offset,
     )
     return [BugReportRead.model_validate(r) for r in rows]
 
@@ -70,13 +72,14 @@ async def count_my_bugs(
     is_resolved: bool | None = Query(default=None),
     organization_name: str | None = Query(default=None),
     bug_type: str | None = Query(default=None),
+    is_internal: bool | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, int]:
     """Return count of bug reports assigned to the current user matching filters."""
     total = await bug_report_repo.count_assigned_to(
         db, current_user.id, is_resolved=is_resolved,
-        organization_name=organization_name, bug_type=bug_type,
+        organization_name=organization_name, bug_type=bug_type, is_internal=is_internal,
     )
     return {"count": total}
 
@@ -89,6 +92,7 @@ async def list_bugs(
     organization_name: str | None = Query(None),
     is_resolved: bool | None = Query(default=None),
     bug_type: str | None = Query(default=None),
+    is_internal: bool | None = Query(default=None),
     limit: int = Query(default=PAGE_SIZE, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -99,7 +103,7 @@ async def list_bugs(
         raise HTTPException(status_code=400, detail=f"Date range exceeds {MAX_DATE_RANGE_DAYS} days.")
     rows = await bug_report_repo.list_by_date_range(
         db, date_from, date_to, source_env=source_env, organization_name=organization_name,
-        is_resolved=is_resolved, bug_type=bug_type, limit=limit, offset=offset,
+        is_resolved=is_resolved, bug_type=bug_type, is_internal=is_internal, limit=limit, offset=offset,
     )
     return [BugReportRead.model_validate(r) for r in rows]
 
@@ -112,13 +116,14 @@ async def count_bugs(
     organization_name: str | None = Query(None),
     is_resolved: bool | None = Query(default=None),
     bug_type: str | None = Query(default=None),
+    is_internal: bool | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_reviewer),
 ) -> dict[str, int]:
     """Return count of bug reports matching filters; reviewer+ only."""
     total = await bug_report_repo.count_by_date_range(
         db, date_from, date_to, source_env=source_env, organization_name=organization_name,
-        is_resolved=is_resolved, bug_type=bug_type,
+        is_resolved=is_resolved, bug_type=bug_type, is_internal=is_internal,
     )
     return {"count": total}
 

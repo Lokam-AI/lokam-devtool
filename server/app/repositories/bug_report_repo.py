@@ -97,6 +97,7 @@ def _apply_bug_date_filters(
     organization_name: str | None,
     is_resolved: bool | None,
     bug_type: str | None,
+    is_internal: bool | None = None,
 ) -> object:
     """Apply shared filter clauses to a BugReport select query."""
     query = query.where(BugReport.bug_date >= date_from, BugReport.bug_date <= date_to)
@@ -108,6 +109,10 @@ def _apply_bug_date_filters(
         query = query.where(BugReport.is_resolved == is_resolved)
     if bug_type is not None:
         query = query.where(BugReport.bug_types.contains([bug_type]))
+    if is_internal is True:
+        query = query.where(BugReport.external_id < 0)
+    elif is_internal is False:
+        query = query.where(BugReport.external_id >= 0)
     return query
 
 
@@ -119,12 +124,13 @@ async def list_by_date_range(
     organization_name: str | None = None,
     is_resolved: bool | None = None,
     bug_type: str | None = None,
+    is_internal: bool | None = None,
     limit: int = 30,
     offset: int = 0,
 ) -> list[BugReport]:
     """Return BugReport rows within an inclusive date range with optional filters and pagination."""
     query = select(BugReport)
-    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type)
+    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type, is_internal)
     result = await db.execute(
         query.order_by(BugReport.bug_date.desc(), BugReport.id.desc()).limit(limit).offset(offset)
     )
@@ -139,10 +145,11 @@ async def count_by_date_range(
     organization_name: str | None = None,
     is_resolved: bool | None = None,
     bug_type: str | None = None,
+    is_internal: bool | None = None,
 ) -> int:
     """Return count of BugReport rows matching filters."""
     query = select(func.count(BugReport.id))
-    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type)
+    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type, is_internal)
     result = await db.execute(query)
     return result.scalar_one()
 
@@ -212,6 +219,7 @@ async def list_assigned_to(
     is_resolved: bool | None = None,
     organization_name: str | None = None,
     bug_type: str | None = None,
+    is_internal: bool | None = None,
     limit: int = 30,
     offset: int = 0,
 ) -> list[BugReport]:
@@ -223,6 +231,10 @@ async def list_assigned_to(
         query = query.where(BugReport.organization_name == organization_name)
     if bug_type is not None:
         query = query.where(BugReport.bug_types.contains([bug_type]))
+    if is_internal is True:
+        query = query.where(BugReport.external_id < 0)
+    elif is_internal is False:
+        query = query.where(BugReport.external_id >= 0)
     result = await db.execute(
         query.order_by(BugReport.bug_date.desc(), BugReport.id.desc()).limit(limit).offset(offset)
     )
@@ -235,6 +247,7 @@ async def count_assigned_to(
     is_resolved: bool | None = None,
     organization_name: str | None = None,
     bug_type: str | None = None,
+    is_internal: bool | None = None,
 ) -> int:
     """Return count of BugReport rows assigned to the given user matching filters."""
     query = select(func.count(BugReport.id)).where(BugReport.assigned_to == user_id)
@@ -244,6 +257,10 @@ async def count_assigned_to(
         query = query.where(BugReport.organization_name == organization_name)
     if bug_type is not None:
         query = query.where(BugReport.bug_types.contains([bug_type]))
+    if is_internal is True:
+        query = query.where(BugReport.external_id < 0)
+    elif is_internal is False:
+        query = query.where(BugReport.external_id >= 0)
     result = await db.execute(query)
     return result.scalar_one()
 
