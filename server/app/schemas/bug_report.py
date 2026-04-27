@@ -12,6 +12,7 @@ class BugReportCreate(BaseModel):
     rooftop_name: str | None = None
     bug_types: list[str] = []
     description: str | None = None
+    assigned_to: int | None = None
 
 
 class BugReportRead(BaseModel):

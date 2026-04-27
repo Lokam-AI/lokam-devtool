@@ -522,6 +522,7 @@ export interface CreateBugPayload {
   rooftop_name?: string | null;
   bug_types: string[];
   description?: string | null;
+  assigned_to?: number | null;
 }
 
 export const apiCreateBug = async (payload: CreateBugPayload): Promise<BugReport> => {

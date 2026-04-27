@@ -33,7 +33,7 @@ async def create_bug(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> BugReportRead:
-    """Create a manual bug report filed from the devtool UI; assigned to the submitting user."""
+    """Create a manual bug report filed from the devtool UI; assigned to chosen user or submitter."""
     bug = await bug_report_repo.create_manual(
         db,
         call_id=body.call_id,
@@ -43,6 +43,7 @@ async def create_bug(
         description=body.description,
         submitted_by=current_user.id,
         submitted_by_name=current_user.name,
+        assigned_to=body.assigned_to,
     )
     return BugReportRead.model_validate(bug)
 

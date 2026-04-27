@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useCall, useCalls, useSubmitEval, useCreateBug } from "@/hooks/use-calls";
+import { useCall, useCalls, useSubmitEval, useCreateBug, useTeam } from "@/hooks/use-calls";
+import { useAuthStore } from "@/store/auth-store";
+import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -859,15 +861,37 @@ function EvalFormInner({
             }
           </button>
           {!isReadOnly && (
-            <button
-              className="w-full py-2 text-[10px] uppercase tracking-widest transition-colors"
-              style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
-              onMouseEnter={(e) => { (e.currentTarget).style.color = "#8a8f98"; }}
-              onMouseLeave={(e) => { (e.currentTarget).style.color = "#62666d"; }}
-              onClick={() => navigate("/calls")}
-            >
-              Cancel
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                className="w-full py-2 text-[10px] uppercase tracking-widest transition-colors"
+                style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+                onMouseEnter={(e) => { (e.currentTarget).style.color = "#8a8f98"; }}
+                onMouseLeave={(e) => { (e.currentTarget).style.color = "#62666d"; }}
+                onClick={() => navigate("/calls")}
+              >
+                Cancel
+              </button>
+              <button
+                className="w-full py-2 text-[10px] uppercase tracking-widest transition-colors"
+                style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
+                onMouseEnter={(e) => { (e.currentTarget).style.color = "#7170ff"; }}
+                onMouseLeave={(e) => { (e.currentTarget).style.color = "#62666d"; }}
+                onClick={() => {
+                  const list = allCalls ?? [];
+                  const currentIdx = list.findIndex((c) => c.call.id === callData.id);
+                  const next = list
+                    .slice(currentIdx + 1)
+                    .find((c) => c.eval.status === "pending");
+                  if (next) navigate(`/eval/${next.call.id}`, { replace: true, state: { editable: true } });
+                  else {
+                    toast.info("No more pending calls");
+                    navigate("/calls", { replace: true });
+                  }
+                }}
+              >
+                Skip
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -911,8 +935,18 @@ function ReportBugModal({
   onClose: () => void;
 }) {
   const createBug = useCreateBug();
+  const currentUser = useAuthStore((s) => s.user);
+  const { data: team = [] } = useTeam();
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [description, setDescription]     = useState("");
+  const [assigneeId, setAssigneeId]       = useState<string>(currentUser?.id ?? "");
+
+  const assigneeOptions = [
+    ...(currentUser && !team.some((m) => m.id === currentUser.id)
+      ? [{ value: currentUser.id, label: `${currentUser.name} — ${currentUser.role}` }]
+      : []),
+    ...team.map((m) => ({ value: m.id, label: `${m.name} — ${m.role}` })),
+  ];
 
   const toggleType = (t: string) =>
     setSelectedTypes((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
@@ -929,6 +963,7 @@ function ReportBugModal({
         rooftop_name: rooftopName || null,
         bug_types: selectedTypes,
         description: description.trim() || null,
+        assigned_to: assigneeId ? Number(assigneeId) : null,
       });
       toast.success("Bug reported");
       onClose();
@@ -1008,6 +1043,22 @@ function ReportBugModal({
                 );
               })}
             </div>
+          </div>
+
+          {/* Assignee */}
+          <div>
+            <p
+              className="text-[10px] uppercase tracking-widest mb-2"
+              style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
+            >
+              Assignee
+            </p>
+            <DropdownSelect
+              value={assigneeId}
+              onChange={setAssigneeId}
+              options={assigneeOptions}
+              fullWidth
+            />
           </div>
 
           {/* Description */}

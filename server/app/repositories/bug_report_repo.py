@@ -20,6 +20,7 @@ async def create_manual(
     description: str | None,
     submitted_by: int,
     submitted_by_name: str,
+    assigned_to: int | None = None,
 ) -> BugReport:
     """Insert a manually filed bug report; external_id is set to -id after flush."""
     bug = BugReport(
@@ -33,7 +34,7 @@ async def create_manual(
         description=description,
         submitted_by=submitted_by,
         submitted_by_name=submitted_by_name,
-        assigned_to=submitted_by,
+        assigned_to=assigned_to if assigned_to is not None else submitted_by,
         external_created_at=datetime.utcnow(),
     )
     db.add(bug)
