@@ -1,18 +1,25 @@
 """Backfill is_post_call_sms_survey by re-syncing all dates with existing calls.
 
 Uses APP_BASE_URL + APP_API_KEY from .env directly, bypassing env_configs decryption.
+
+Run from repo root:
+    python scripts/backfill_sms_flag.py
 """
 import asyncio
 import logging
+import os
+import sys
 from datetime import date, timedelta
+from pathlib import Path
+
+# Allow running from repo root without PYTHONPATH override
+sys.path.insert(0, str(Path(__file__).parent.parent / "server"))
 
 import httpx
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).parent.parent / "server" / ".env")
 logging.basicConfig(level=logging.WARNING)
-
-import os  # noqa: E402
 
 from app.core.database import AsyncSessionLocal  # noqa: E402
 from app.repositories import raw_call_repo  # noqa: E402
