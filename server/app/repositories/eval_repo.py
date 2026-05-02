@@ -150,9 +150,9 @@ def _build_calls_for_reviewer_query(
     elif nps_filter == "detractor":
         query = query.where(RawCall.nps_score <= 6)
     if post_call_sms == "yes":
-        query = query.where(RawCall.is_post_call_sms_survey == True)
+        query = query.where(RawCall.is_post_call_sms_survey.is_(True))
     elif post_call_sms == "no":
-        query = query.where(RawCall.is_post_call_sms_survey == False)
+        query = query.where(RawCall.is_post_call_sms_survey.is_(False))
 
     desc = sort_dir == "desc"
     if sort_by == "nps":
@@ -235,9 +235,9 @@ async def count_calls_for_reviewer(
     elif nps_filter == "detractor":
         count_q = count_q.where(RawCall.nps_score <= 6)
     if post_call_sms == "yes":
-        count_q = count_q.where(RawCall.is_post_call_sms_survey == True)
+        count_q = count_q.where(RawCall.is_post_call_sms_survey.is_(True))
     elif post_call_sms == "no":
-        count_q = count_q.where(RawCall.is_post_call_sms_survey == False)
+        count_q = count_q.where(RawCall.is_post_call_sms_survey.is_(False))
     result = await db.execute(count_q)
     return result.scalar_one()
 
@@ -288,9 +288,9 @@ async def stats_calls_for_reviewer(
     elif nps_filter == "detractor":
         query = query.where(RawCall.nps_score <= 6)
     if post_call_sms == "yes":
-        query = query.where(RawCall.is_post_call_sms_survey == True)
+        query = query.where(RawCall.is_post_call_sms_survey.is_(True))
     elif post_call_sms == "no":
-        query = query.where(RawCall.is_post_call_sms_survey == False)
+        query = query.where(RawCall.is_post_call_sms_survey.is_(False))
     result = await db.execute(query)
     row = result.one()
     return {

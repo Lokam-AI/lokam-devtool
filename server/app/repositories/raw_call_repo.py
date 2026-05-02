@@ -98,9 +98,9 @@ def _apply_call_filters(
     elif nps_filter == "detractor":
         query = query.where(RawCall.nps_score <= 6)
     if post_call_sms == "yes":
-        query = query.where(RawCall.is_post_call_sms_survey == True)
+        query = query.where(RawCall.is_post_call_sms_survey.is_(True))
     elif post_call_sms == "no":
-        query = query.where(RawCall.is_post_call_sms_survey == False)
+        query = query.where(RawCall.is_post_call_sms_survey.is_(False))
     return query
 
 
