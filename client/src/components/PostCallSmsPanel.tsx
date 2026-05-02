@@ -3,6 +3,7 @@ import { parseUtc } from "@/lib/utils";
 import type { RawCall } from "@/types";
 
 const FF = '"cv01", "ss03"' as const;
+const MONO = "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace" as const;
 
 function fmtDatetime(iso: string): string {
   return parseUtc(iso).toLocaleString(undefined, {
@@ -13,7 +14,7 @@ function fmtDatetime(iso: string): string {
   });
 }
 
-function buildOutboundBody(rooftopName: string | undefined): string {
+function buildOutboundBody(rooftopName: string | null | undefined): string {
   const company = rooftopName || "your service provider";
   return [
     `Hi [Customer], this is ${company}.`,
@@ -37,11 +38,19 @@ export function PostCallSmsPanel({ callData }: Props) {
   if (!callData.is_post_call_sms_survey) return null;
 
   const outboundBody = buildOutboundBody(callData.rooftop_name);
-  const hasReply = callData.post_call_sms_body || callData.post_call_sms_comments;
+
+  const strippedComments = callData.post_call_sms_comments
+    ? stripTimestampPrefix(callData.post_call_sms_comments)
+    : null;
+  const replyText = callData.post_call_sms_body || strippedComments;
+  const followUpText =
+    strippedComments && strippedComments !== callData.post_call_sms_body
+      ? strippedComments
+      : null;
 
   return (
     <div
-      className="relative rounded-lg p-4 overflow-hidden border"
+      className="relative rounded-lg overflow-hidden border"
       style={{
         background: "rgba(255,255,255,0.02)",
         borderColor: "rgba(255,255,255,0.08)",
@@ -51,13 +60,17 @@ export function PostCallSmsPanel({ callData }: Props) {
       <div
         className="absolute pointer-events-none inset-0"
         style={{
-          background: "radial-gradient(circle at 0% 50%, rgba(245,158,11,0.04) 0%, transparent 60%)",
+          background:
+            "radial-gradient(circle at 0% 50%, rgba(245,158,11,0.04) 0%, transparent 60%)",
         }}
       />
-      <div className="relative z-10">
 
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-3">
+      <div className="relative z-10">
+        {/* Panel header */}
+        <div
+          className="flex items-center gap-2 px-4 py-2.5 border-b"
+          style={{ borderColor: "rgba(255,255,255,0.05)" }}
+        >
           <MessageSquare className="h-3 w-3" style={{ color: "#f59e0b" }} />
           <span
             className="text-[10px] uppercase tracking-widest"
@@ -65,91 +78,127 @@ export function PostCallSmsPanel({ callData }: Props) {
           >
             Post-call SMS Survey
           </span>
-        </div>
-
-        {/* Outbound message */}
-        <div className="mb-3">
-          <span
-            className="text-[10px] uppercase tracking-widest block mb-1"
-            style={{ color: "#4a4f58", fontFeatureSettings: FF }}
-          >
-            Sent
-          </span>
-          <p
-            className="text-xs leading-relaxed whitespace-pre-line"
-            style={{ color: "#4a4f58", fontFeatureSettings: FF }}
-          >
-            {outboundBody}
-          </p>
-        </div>
-
-        {/* Customer reply */}
-        {hasReply && (
-          <div className="mb-2">
+          {callData.post_call_sms_nps != null && (
             <span
-              className="text-[10px] uppercase tracking-widest block mb-1"
+              className="ml-auto text-[10px] uppercase tracking-widest"
               style={{ color: "#62666d", fontFeatureSettings: FF }}
             >
-              Reply
+              NPS{" "}
+              <span style={{ color: "#f7f8f8", fontWeight: 600 }}>
+                {callData.post_call_sms_nps}
+              </span>
             </span>
+          )}
+        </div>
 
-            {/* NPS */}
-            {callData.post_call_sms_nps != null && (
-              <div className="flex items-center gap-2 mb-1">
+        {/* Chat bubbles */}
+        <div className="px-4 py-4 space-y-4">
+          {/* Outbound — RIGHT (message sent by Lokam to customer) */}
+          <div className="flex gap-3 max-w-[85%] ml-auto flex-row-reverse">
+            <div
+              className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center border"
+              style={{
+                background: "rgba(245,158,11,0.08)",
+                borderColor: "rgba(245,158,11,0.25)",
+              }}
+            >
+              <MessageSquare className="h-3.5 w-3.5" style={{ color: "#f59e0b" }} />
+            </div>
+            <div className="space-y-1 text-right">
+              <div className="flex items-center gap-2 justify-end">
+                {callData.post_call_sms_sent_at && (
+                  <span
+                    className="text-[10px]"
+                    style={{ color: "#62666d", fontFamily: MONO }}
+                  >
+                    {fmtDatetime(callData.post_call_sms_sent_at)}
+                  </span>
+                )}
                 <span
                   className="text-[10px] uppercase tracking-widest"
-                  style={{ color: "#62666d", fontFeatureSettings: FF }}
+                  style={{ color: "#f59e0b", fontWeight: 510, fontFeatureSettings: FF }}
                 >
-                  NPS
-                </span>
-                <span
-                  className="text-xs font-semibold"
-                  style={{ color: "#f7f8f8", fontFeatureSettings: FF }}
-                >
-                  {callData.post_call_sms_nps}
+                  Lokam
                 </span>
               </div>
-            )}
-
-            {callData.post_call_sms_body && (
-              <p
-                className="text-xs leading-relaxed"
-                style={{ color: "#8a8f98", fontFeatureSettings: FF }}
+              <div
+                className="px-4 py-3 rounded-2xl rounded-tr-sm"
+                style={{
+                  background: "rgba(245,158,11,0.06)",
+                  border: "1px solid rgba(245,158,11,0.15)",
+                }}
               >
-                {callData.post_call_sms_body}
-              </p>
-            )}
-
-            {/* Comments — only if different from body after stripping timestamp prefix */}
-            {callData.post_call_sms_comments && (() => {
-              const cleaned = stripTimestampPrefix(callData.post_call_sms_comments!);
-              return cleaned !== callData.post_call_sms_body ? (
                 <p
-                  className="text-xs leading-relaxed mt-1 pl-3 border-l"
-                  style={{ color: "#62666d", borderColor: "rgba(255,255,255,0.06)", fontFeatureSettings: FF }}
+                  className="text-sm leading-relaxed text-left whitespace-pre-line"
+                  style={{ color: "#8a8f98", fontFeatureSettings: FF }}
                 >
-                  {cleaned}
+                  {outboundBody}
                 </p>
-              ) : null;
-            })()}
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Timestamps */}
-        {(callData.post_call_sms_sent_at || callData.post_call_sms_received_at) && (
-          <div className="flex gap-4 mt-2">
-            {callData.post_call_sms_sent_at && (
-              <span className="text-[10px]" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>
-                Sent {fmtDatetime(callData.post_call_sms_sent_at)}
-              </span>
-            )}
-            {callData.post_call_sms_received_at && (
-              <span className="text-[10px]" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>
-                Reply {fmtDatetime(callData.post_call_sms_received_at)}
-              </span>
-            )}
-          </div>
-        )}
+          {/* Customer reply — LEFT */}
+          {replyText && (
+            <div className="flex gap-3 max-w-[85%]">
+              <div
+                className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px]"
+                style={{ background: "#5e6ad2", color: "#f7f8f8", fontWeight: 590 }}
+              >
+                C
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-[10px] uppercase tracking-widest"
+                    style={{ color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }}
+                  >
+                    Customer
+                  </span>
+                  {callData.post_call_sms_received_at && (
+                    <span
+                      className="text-[10px]"
+                      style={{ color: "#62666d", fontFamily: MONO }}
+                    >
+                      {fmtDatetime(callData.post_call_sms_received_at)}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className="px-4 py-3 rounded-2xl rounded-tl-sm"
+                  style={{
+                    background: "rgba(94,106,210,0.1)",
+                    border: "1px solid rgba(113,112,255,0.2)",
+                  }}
+                >
+                  <p
+                    className="text-sm leading-relaxed"
+                    style={{ color: "#d0d6e0", fontFeatureSettings: FF }}
+                  >
+                    {replyText}
+                  </p>
+                </div>
+                {/* Follow-up messages (comments thread) */}
+                {followUpText && (
+                  <div
+                    className="px-4 py-2 rounded-xl mt-1"
+                    style={{
+                      background: "rgba(94,106,210,0.06)",
+                      border: "1px solid rgba(113,112,255,0.12)",
+                    }}
+                  >
+                    <p
+                      className="text-xs leading-relaxed"
+                      style={{ color: "#8a8f98", fontFeatureSettings: FF }}
+                    >
+                      {followUpText}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

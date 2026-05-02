@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChevronLeft, Bot, Play, Pause, Phone, MapPin,
   Clock, Star, Mail, Mic, ArrowRight, ArrowLeft,
-  TrendingUp, TrendingDown, Minus, CheckCircle2, XCircle, AlertCircle,
+  TrendingUp, TrendingDown, Minus, CheckCircle2, XCircle, AlertCircle, MessageSquare,
 } from "lucide-react";
 import type { RawCall } from "@/types";
 import { parseUtc } from "@/lib/utils";
@@ -211,6 +211,21 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
             )}
             {call.ended_reason && (
               <MiniStat label="Ended" value={call.ended_reason} />
+            )}
+            {call.is_post_call_sms_survey && (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[10px] uppercase tracking-widest"
+                style={{
+                  background: "rgba(245,158,11,0.07)",
+                  borderColor: "rgba(245,158,11,0.2)",
+                  color: "#f59e0b",
+                  fontWeight: 510,
+                  fontFeatureSettings: FF,
+                }}
+              >
+                <MessageSquare className="h-3 w-3" />
+                Post-call SMS
+              </div>
             )}
             {call.review_link_sent && (
               <div
