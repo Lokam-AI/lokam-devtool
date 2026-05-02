@@ -207,6 +207,7 @@ export interface MyCallsParams {
   search?: string;
   organization_name?: string;
   nps_filter?: string;
+  post_call_sms?: string;
   sort_by?: string;
   sort_dir?: string;
   limit?: number;
@@ -425,6 +426,7 @@ export interface AllCallsParams {
   search?: string;
   organization_name?: string;
   nps_filter?: string;
+  post_call_sms?: string;
   sort_by?: string;
   sort_dir?: string;
   limit?: number;

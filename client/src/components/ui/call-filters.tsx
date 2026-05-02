@@ -18,6 +18,7 @@ export interface CallFilterState {
   dateRange: DateRange | undefined;
   sortBy: "date" | "nps" | "duration" | "status";
   sortDir: "asc" | "desc";
+  postCallSms: "all" | "yes" | "no";
 }
 
 export const DEFAULT_FILTERS: CallFilterState = {
@@ -30,6 +31,7 @@ export const DEFAULT_FILTERS: CallFilterState = {
   dateRange: undefined,
   sortBy: "date",
   sortDir: "desc",
+  postCallSms: "all",
 };
 
 /* ── Props ─────────────────────────────────────────────────────────── */
@@ -44,6 +46,7 @@ export interface CallFilterBarProps {
   showOrg?: boolean;
   showDateRange?: boolean;
   showSort?: boolean;
+  showPostCallSms?: boolean;
   envOptions?: string[];
   orgOptions?: string[];
   placeholder?: string;
@@ -76,7 +79,8 @@ export function CallFilterBar(props: CallFilterBarProps) {
     (props.showEnv         && value.env         !== "all") ||
     (props.showOrg         && value.org         !== "all") ||
     (props.showDateRange   && value.dateRange?.from)       ||
-    (props.showSort        && (value.sortBy !== "date" || value.sortDir !== "desc"))
+    (props.showSort        && (value.sortBy !== "date" || value.sortDir !== "desc")) ||
+    (props.showPostCallSms && value.postCallSms !== "all")
   );
 
   const SORT_LABELS: Record<string, string> = {
@@ -169,6 +173,32 @@ export function CallFilterBar(props: CallFilterBarProps) {
             { value: "detractor",  label: "Detractor (≤6)"   },
           ]}
         />
+      )}
+
+      {/* Post-call SMS */}
+      {props.showPostCallSms && (
+        <button
+          className="flex items-center h-9 gap-1.5 px-3 rounded-md border text-[13px] transition-all"
+          style={{
+            background: value.postCallSms === "yes" ? "rgba(113,112,255,0.15)" : "rgba(255,255,255,0.02)",
+            borderColor: value.postCallSms === "yes" ? "rgba(113,112,255,0.4)" : "rgba(255,255,255,0.08)",
+            color: value.postCallSms === "yes" ? "#fff" : "#8a8f98",
+            fontFeatureSettings: FF,
+          }}
+          onClick={() => set({ postCallSms: value.postCallSms === "yes" ? "all" : "yes" })}
+          onMouseEnter={(e) => {
+            if (value.postCallSms !== "yes") {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(113,112,255,0.3)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (value.postCallSms !== "yes") {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.08)";
+            }
+          }}
+        >
+          SMS
+        </button>
       )}
 
       {/* Environment */}
