@@ -1,7 +1,7 @@
 """add post-call SMS columns to raw_calls
 
 Revision ID: add_post_call_sms_cols
-Revises: f4b8c2d1e5a9
+Revises: a6c1d9e7f0b2
 Create Date: 2026-04-28
 
 """
@@ -18,7 +18,7 @@ depends_on = None
 
 def upgrade() -> None:
     """Add flat post-call SMS columns to raw_calls."""
-    op.add_column("raw_calls", sa.Column("is_post_call_sms_survey", sa.Boolean(), server_default="false", nullable=False))
+    op.add_column("raw_calls", sa.Column("is_post_call_sms_survey", sa.Boolean(), server_default=sa.text("false"), nullable=False))
     op.add_column("raw_calls", sa.Column("post_call_sms_body", sa.Text(), nullable=True))
     op.add_column("raw_calls", sa.Column("post_call_sms_comments", sa.Text(), nullable=True))
     op.add_column("raw_calls", sa.Column("post_call_sms_status", sa.String(20), nullable=True))

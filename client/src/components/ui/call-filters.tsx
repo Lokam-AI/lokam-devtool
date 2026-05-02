@@ -179,6 +179,8 @@ export function CallFilterBar(props: CallFilterBarProps) {
       {props.showPostCallSms && (
         <button
           className="flex items-center h-9 gap-1.5 px-3 rounded-md border text-[13px] transition-all"
+          aria-pressed={value.postCallSms === "yes"}
+          aria-label="Filter calls with post-call SMS"
           style={{
             background: value.postCallSms === "yes" ? "rgba(113,112,255,0.15)" : "rgba(255,255,255,0.02)",
             borderColor: value.postCallSms === "yes" ? "rgba(113,112,255,0.4)" : "rgba(255,255,255,0.08)",
