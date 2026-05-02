@@ -9,6 +9,7 @@ import {
   Loader2, Phone, MapPin,
   Bot, Play, Pause, Check, X, ChevronRight, Bug,
 } from "lucide-react";
+import { PostCallSmsPanel } from "@/components/PostCallSmsPanel";
 import { toast } from "sonner";
 import type { RawCall, Eval } from "@/types";
 import { parseUtc } from "@/lib/utils";
@@ -534,6 +535,9 @@ function EvalFormInner({
                 </div>
               </div>
             )}
+
+            {/* Post-call SMS panel */}
+            <PostCallSmsPanel callData={callData} />
 
             {/* Transcript */}
             <div>

@@ -54,9 +54,8 @@ async def _sync_single_env(db: AsyncSession, client: httpx.AsyncClient, env: obj
         metadata = item.get("call_metadata") or {}
         if "escalation_needed" not in item:
             item["escalation_needed"] = metadata.get("escalation_needed")
+        _flatten_post_call_sms(item)
         schema = RawCallCreate(**item)
-        if _is_post_call_sms(schema.overall_feedback):
-            continue
         await raw_call_repo.upsert_by_lokam_call_id(db, schema)
         upserted += 1
 
@@ -64,12 +63,15 @@ async def _sync_single_env(db: AsyncSession, client: httpx.AsyncClient, env: obj
     return upserted
 
 
-POST_CALL_SMS_MARKER = "post-call sms"
-
-
-def _is_post_call_sms(overall_feedback: str | None) -> bool:
-    """Return True if overall_feedback indicates a post-call SMS interaction."""
-    return bool(overall_feedback and POST_CALL_SMS_MARKER in overall_feedback.lower())
+def _flatten_post_call_sms(item: dict) -> None:
+    """Flatten nested post_call_sms dict into top-level RawCallCreate fields."""
+    sms = item.pop("post_call_sms", None) or {}
+    item["post_call_sms_body"] = sms.get("feedback_response")
+    item["post_call_sms_comments"] = sms.get("feedback_comments")
+    item["post_call_sms_status"] = sms.get("sms_status")
+    item["post_call_sms_sent_at"] = sms.get("sms_sent_at")
+    item["post_call_sms_received_at"] = sms.get("feedback_received_at")
+    item["post_call_sms_nps"] = sms.get("feedback_nps")
 
 
 def _decrypt_env_secrets(secrets: dict) -> dict:

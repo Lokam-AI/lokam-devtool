@@ -62,6 +62,13 @@ function mapCall(r: BackendRawCall): RawCall {
     ai_escalation_needed: r.escalation_needed ?? false,
     ai_callback_requested: false,
     call_metadata: r.call_metadata ?? null,
+    is_post_call_sms_survey: r.is_post_call_sms_survey ?? false,
+    post_call_sms_body: r.post_call_sms_body ?? undefined,
+    post_call_sms_comments: r.post_call_sms_comments ?? undefined,
+    post_call_sms_status: r.post_call_sms_status ?? undefined,
+    post_call_sms_sent_at: r.post_call_sms_sent_at ?? undefined,
+    post_call_sms_received_at: r.post_call_sms_received_at ?? undefined,
+    post_call_sms_nps: r.post_call_sms_nps ?? undefined,
   };
 }
 
@@ -121,6 +128,13 @@ interface BackendRawCall {
   raw_transcript: string | null;
   recording_url: string | null;
   call_metadata: Record<string, unknown> | null;
+  is_post_call_sms_survey: boolean | null;
+  post_call_sms_body: string | null;
+  post_call_sms_comments: string | null;
+  post_call_sms_status: string | null;
+  post_call_sms_sent_at: string | null;
+  post_call_sms_received_at: string | null;
+  post_call_sms_nps: number | null;
 }
 
 interface BackendEval {

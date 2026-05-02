@@ -291,3 +291,20 @@ async def get_next_pending(db: AsyncSession, user_id: int) -> Eval | None:
         .limit(1)
     )
     return result.scalar_one_or_none()
+
+
+async def list_for_golden_dataset(
+    db: AsyncSession, limit: int = 1000, offset: int = 0
+) -> list[tuple[Eval, RawCall]]:
+    """Return completed evals for golden dataset, excluding post-call SMS calls."""
+    query = (
+        select(Eval, RawCall)
+        .join(RawCall, Eval.call_id == RawCall.lokam_call_id)
+        .where(
+            Eval.eval_status == "completed",
+            RawCall.is_post_call_sms_survey == False,  # noqa: E712
+        )
+        .order_by(Eval.id)
+    )
+    result = await db.execute(query.limit(limit).offset(offset))
+    return list(result.all())

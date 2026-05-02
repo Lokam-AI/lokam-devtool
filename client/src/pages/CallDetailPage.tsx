@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { RawCall } from "@/types";
 import { parseUtc } from "@/lib/utils";
+import { PostCallSmsPanel } from "@/components/PostCallSmsPanel";
 
 const FF = '"cv01", "ss03"' as const;
 const MONO = "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace" as const;
@@ -320,6 +321,9 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
                 </div>
               </div>
             )}
+
+            {/* Post-call SMS panel */}
+            <PostCallSmsPanel callData={call} />
 
             {/* Transcript */}
             <div>
