@@ -4,7 +4,6 @@ import type { RawCall } from "@/types";
 
 const FF = '"cv01", "ss03"' as const;
 
-
 function fmtDatetime(iso: string): string {
   return parseUtc(iso).toLocaleString(undefined, {
     month: "short",
@@ -12,6 +11,17 @@ function fmtDatetime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function buildOutboundBody(rooftopName: string | undefined): string {
+  const company = rooftopName || "your service provider";
+  return [
+    `Hi [Customer], this is ${company}.`,
+    `We noticed we haven't heard back about your recent service visit.`,
+    `Was it Very Good, Good, Okay, Bad, or Very Bad?`,
+    `Just one word helps us improve.`,
+    `Reply STOP to opt out.`,
+  ].join("\n");
 }
 
 // Strip leading [ISO_TIMESTAMP] prefix that lokamspace embeds in comments
@@ -25,6 +35,9 @@ interface Props {
 
 export function PostCallSmsPanel({ callData }: Props) {
   if (!callData.is_post_call_sms_survey) return null;
+
+  const outboundBody = buildOutboundBody(callData.rooftop_name);
+  const hasReply = callData.post_call_sms_body || callData.post_call_sms_comments;
 
   return (
     <div
@@ -54,46 +67,73 @@ export function PostCallSmsPanel({ callData }: Props) {
           </span>
         </div>
 
-        {/* NPS */}
-        {callData.post_call_sms_nps != null && (
-          <div className="flex items-center gap-2 mb-2">
+        {/* Outbound message */}
+        <div className="mb-3">
+          <span
+            className="text-[10px] uppercase tracking-widest block mb-1"
+            style={{ color: "#4a4f58", fontFeatureSettings: FF }}
+          >
+            Sent
+          </span>
+          <p
+            className="text-xs leading-relaxed whitespace-pre-line"
+            style={{ color: "#4a4f58", fontFeatureSettings: FF }}
+          >
+            {outboundBody}
+          </p>
+        </div>
+
+        {/* Customer reply */}
+        {hasReply && (
+          <div className="mb-2">
             <span
-              className="text-[10px] uppercase tracking-widest"
+              className="text-[10px] uppercase tracking-widest block mb-1"
               style={{ color: "#62666d", fontFeatureSettings: FF }}
             >
-              NPS
+              Reply
             </span>
-            <span
-              className="text-xs font-semibold"
-              style={{ color: "#f7f8f8", fontFeatureSettings: FF }}
-            >
-              {callData.post_call_sms_nps}
-            </span>
+
+            {/* NPS */}
+            {callData.post_call_sms_nps != null && (
+              <div className="flex items-center gap-2 mb-1">
+                <span
+                  className="text-[10px] uppercase tracking-widest"
+                  style={{ color: "#62666d", fontFeatureSettings: FF }}
+                >
+                  NPS
+                </span>
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: "#f7f8f8", fontFeatureSettings: FF }}
+                >
+                  {callData.post_call_sms_nps}
+                </span>
+              </div>
+            )}
+
+            {callData.post_call_sms_body && (
+              <p
+                className="text-xs leading-relaxed"
+                style={{ color: "#8a8f98", fontFeatureSettings: FF }}
+              >
+                {callData.post_call_sms_body}
+              </p>
+            )}
+
+            {/* Comments — only if different from body after stripping timestamp prefix */}
+            {callData.post_call_sms_comments && (() => {
+              const cleaned = stripTimestampPrefix(callData.post_call_sms_comments!);
+              return cleaned !== callData.post_call_sms_body ? (
+                <p
+                  className="text-xs leading-relaxed mt-1 pl-3 border-l"
+                  style={{ color: "#62666d", borderColor: "rgba(255,255,255,0.06)", fontFeatureSettings: FF }}
+                >
+                  {cleaned}
+                </p>
+              ) : null;
+            })()}
           </div>
         )}
-
-        {/* SMS body */}
-        {callData.post_call_sms_body && (
-          <p
-            className="text-xs leading-relaxed mb-2"
-            style={{ color: "#8a8f98", fontFeatureSettings: FF }}
-          >
-            {callData.post_call_sms_body}
-          </p>
-        )}
-
-        {/* Comments — only if different from body after stripping timestamp prefix */}
-        {callData.post_call_sms_comments && (() => {
-          const cleaned = stripTimestampPrefix(callData.post_call_sms_comments!);
-          return cleaned !== callData.post_call_sms_body ? (
-            <p
-              className="text-xs leading-relaxed mb-2 pl-3 border-l"
-              style={{ color: "#62666d", borderColor: "rgba(255,255,255,0.06)", fontFeatureSettings: FF }}
-            >
-              {cleaned}
-            </p>
-          ) : null;
-        })()}
 
         {/* Timestamps */}
         {(callData.post_call_sms_sent_at || callData.post_call_sms_received_at) && (
