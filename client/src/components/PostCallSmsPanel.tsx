@@ -44,7 +44,7 @@ export function PostCallSmsPanel({ callData }: Props) {
     : null;
   const replyText = callData.post_call_sms_body || strippedComments;
   const followUpText =
-    strippedComments && strippedComments !== callData.post_call_sms_body
+    callData.post_call_sms_body && strippedComments && strippedComments !== callData.post_call_sms_body
       ? strippedComments
       : null;
 
