@@ -68,6 +68,7 @@ def _apply_call_filters(
     search: str | None,
     organization_name: str | None,
     nps_filter: str | None,
+    post_call_sms: str | None = None,
 ) -> object:
     """Apply shared filter clauses to a RawCall select query."""
     if source_env is not None:
@@ -96,6 +97,10 @@ def _apply_call_filters(
         query = query.where(RawCall.nps_score >= 7, RawCall.nps_score <= 8)
     elif nps_filter == "detractor":
         query = query.where(RawCall.nps_score <= 6)
+    if post_call_sms == "yes":
+        query = query.where(RawCall.is_post_call_sms_survey == True)
+    elif post_call_sms == "no":
+        query = query.where(RawCall.is_post_call_sms_survey == False)
     return query
 
 
@@ -122,6 +127,7 @@ async def list_all(
     search: str | None = None,
     organization_name: str | None = None,
     nps_filter: str | None = None,
+    post_call_sms: str | None = None,
     sort_by: str = "date",
     sort_dir: str = "desc",
     limit: int = 30,
@@ -129,7 +135,7 @@ async def list_all(
 ) -> list[RawCall]:
     """Return all RawCall rows with optional filters, ordered as requested."""
     query = select(RawCall)
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter)
+    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms)
     query = _apply_call_sort(query, sort_by, sort_dir)
     result = await db.execute(query.limit(limit).offset(offset))
     return list(result.scalars().all())
@@ -144,10 +150,11 @@ async def count_all(
     search: str | None = None,
     organization_name: str | None = None,
     nps_filter: str | None = None,
+    post_call_sms: str | None = None,
 ) -> int:
     """Return count of RawCall rows matching filters."""
     query = select(func.count(RawCall.id))
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter)
+    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms)
     result = await db.execute(query)
     return result.scalar_one()
 
@@ -161,13 +168,14 @@ async def stats_all(
     search: str | None = None,
     organization_name: str | None = None,
     nps_filter: str | None = None,
+    post_call_sms: str | None = None,
 ) -> dict:
     """Return avg_duration_sec and avg_nps for all RawCall rows matching filters."""
     query = select(
         func.avg(RawCall.duration_sec).label("avg_duration"),
         func.avg(RawCall.nps_score).label("avg_nps"),
     )
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter)
+    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms)
     result = await db.execute(query)
     row = result.one()
     return {
