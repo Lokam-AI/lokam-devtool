@@ -72,6 +72,7 @@ def _flatten_post_call_sms(item: dict) -> None:
     item["post_call_sms_sent_at"] = sms.get("sms_sent_at")
     item["post_call_sms_received_at"] = sms.get("feedback_received_at")
     item["post_call_sms_nps"] = sms.get("feedback_nps")
+    item["is_post_call_sms_survey"] = bool(sms)
 
 
 def _decrypt_env_secrets(secrets: dict) -> dict:
