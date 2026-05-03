@@ -36,6 +36,7 @@ async def list_all_calls(
     search: str | None = Query(default=None),
     organization_name: str | None = Query(default=None),
     nps_filter: str | None = Query(default=None),
+    post_call_sms: str | None = Query(default=None),
     sort_by: str = Query(default="date"),
     sort_dir: str = Query(default="desc"),
     limit: int = Query(default=PAGE_SIZE, le=200),
@@ -46,7 +47,7 @@ async def list_all_calls(
     """Return all raw calls with optional filters and pagination; reviewer+ only."""
     rows = await raw_call_repo.list_all(
         db, source_env, call_status, date_from, date_to,
-        search, organization_name, nps_filter, sort_by, sort_dir, limit, offset,
+        search, organization_name, nps_filter, post_call_sms, sort_by, sort_dir, limit, offset,
     )
     return [RawCallRead.model_validate(r) for r in rows]
 
@@ -60,12 +61,13 @@ async def count_all_calls(
     search: str | None = Query(default=None),
     organization_name: str | None = Query(default=None),
     nps_filter: str | None = Query(default=None),
+    post_call_sms: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_reviewer),
 ) -> dict[str, int]:
     """Return count of all raw calls matching filters; reviewer+ only."""
     total = await raw_call_repo.count_all(
-        db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter,
+        db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms,
     )
     return {"count": total}
 
@@ -79,12 +81,13 @@ async def stats_all_calls(
     search: str | None = Query(default=None),
     organization_name: str | None = Query(default=None),
     nps_filter: str | None = Query(default=None),
+    post_call_sms: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_reviewer),
 ) -> dict:
     """Return avg_duration_sec and avg_nps across all raw calls matching filters; reviewer+ only."""
     return await raw_call_repo.stats_all(
-        db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter,
+        db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms,
     )
 
 

@@ -42,5 +42,9 @@ Thumbs.db
 *.egg-info/
 dist/
 build/
+out/
 
 STARTER/
+
+# One-off backfill scripts (now in scripts/ folder)
+server/backfill_sms_flag.py

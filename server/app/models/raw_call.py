@@ -58,6 +58,14 @@ class RawCall(Base, TimestampMixin):
     synced_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), server_default=func.now(), nullable=False
     )
+    # Post-call SMS survey
+    is_post_call_sms_survey: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    post_call_sms_body: Mapped[str | None] = mapped_column(Text)
+    post_call_sms_comments: Mapped[str | None] = mapped_column(Text)
+    post_call_sms_status: Mapped[str | None] = mapped_column(String(20))
+    post_call_sms_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    post_call_sms_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    post_call_sms_nps: Mapped[int | None] = mapped_column(Integer)
 
     def __init__(self, *, source_env: str = "prod", **kwargs: Any) -> None:
         """Initialize RawCall with prod as the default source environment."""

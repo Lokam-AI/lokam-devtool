@@ -7,8 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Loader2, Phone, MapPin,
-  Bot, Play, Pause, Check, X, ChevronRight, Bug,
+  Bot, Play, Pause, Check, X, ChevronRight, Bug, MessageSquare,
 } from "lucide-react";
+import { PostCallSmsPanel } from "@/components/PostCallSmsPanel";
 import { toast } from "sonner";
 import type { RawCall, Eval } from "@/types";
 import { parseUtc } from "@/lib/utils";
@@ -364,6 +365,26 @@ function EvalFormInner({
             {callData.ended_reason && (
               <StatPill label="Ended Reason" value={callData.ended_reason} />
             )}
+            {callData.is_post_call_sms_survey && (
+              <div
+                className="px-3 py-1.5 rounded-md flex items-center gap-2 border"
+                style={{
+                  background: "rgba(245,158,11,0.08)",
+                  borderColor: "rgba(245,158,11,0.25)",
+                }}
+              >
+                <MessageSquare
+                  className="h-3.5 w-3.5"
+                  style={{ color: "#f59e0b" }}
+                />
+                <span
+                  className="text-[10px] uppercase tracking-widest"
+                  style={{ color: "#f59e0b", fontWeight: 510, fontFeatureSettings: FF }}
+                >
+                  Post-call SMS
+                </span>
+              </div>
+            )}
             {callData.review_link_sent && (
               <div
                 className="px-3 py-1.5 rounded-md flex items-center gap-2 border"
@@ -534,6 +555,9 @@ function EvalFormInner({
                 </div>
               </div>
             )}
+
+            {/* Post-call SMS panel */}
+            <PostCallSmsPanel callData={callData} />
 
             {/* Transcript */}
             <div>

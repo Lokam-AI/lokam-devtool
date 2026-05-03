@@ -49,6 +49,7 @@ export default function AllCallsPage() {
     search:            filters.search    || undefined,
     organization_name: filters.org       !== "all" ? filters.org        : undefined,
     nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter  : undefined,
+    post_call_sms:     filters.postCallSms !== "all" ? filters.postCallSms : undefined,
     sort_by:           filters.sortBy,
     sort_dir:          filters.sortDir,
   }), [filters]);
@@ -66,6 +67,7 @@ export default function AllCallsPage() {
     search:            filters.search    || undefined,
     organization_name: filters.org       !== "all" ? filters.org        : undefined,
     nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter  : undefined,
+    post_call_sms:     filters.postCallSms !== "all" ? filters.postCallSms : undefined,
   }), [filters]);
 
 
@@ -114,7 +116,7 @@ export default function AllCallsPage() {
 
   const totalPages = totalCount ? Math.ceil(totalCount / PAGE_SIZE) : 0;
   const hasFilters = filters.search || filters.callStatus !== "all" ||
-    filters.org !== "all" || filters.npsFilter !== "all" || !!filters.dateRange?.from ||
+    filters.postCallSms !== "all" || filters.org !== "all" || filters.npsFilter !== "all" || !!filters.dateRange?.from ||
     filters.sortBy !== "date" || filters.sortDir !== "desc";
 
   const resetFilters = () => {
@@ -190,6 +192,7 @@ export default function AllCallsPage() {
         onChange={setFilters}
         showCallStatus
         showNps
+        showPostCallSms
         showOrg
         showDateRange
         showSort

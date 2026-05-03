@@ -37,6 +37,13 @@ export interface RawCall {
   ai_escalation_needed: boolean;
   ai_callback_requested: boolean;
   call_metadata?: Record<string, unknown> | null;
+  is_post_call_sms_survey: boolean;
+  post_call_sms_body?: string;
+  post_call_sms_comments?: string;
+  post_call_sms_status?: string;
+  post_call_sms_sent_at?: string;
+  post_call_sms_received_at?: string;
+  post_call_sms_nps?: number;
 }
 
 export interface Eval {

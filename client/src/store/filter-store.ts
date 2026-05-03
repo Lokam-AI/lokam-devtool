@@ -14,6 +14,10 @@ function makeDefaultState(defaultPage: number) {
   return { filters: { ...DEFAULT_FILTERS }, page: defaultPage };
 }
 
+function mergeFilters<T extends CallFilterState>(persisted: Partial<T>, _current: T): T {
+  return { ...DEFAULT_FILTERS, ...persisted } as T;
+}
+
 export const useMyCallsFilterStore = create<PageFilterState>()(
   persist(
     (set) => ({
@@ -22,7 +26,14 @@ export const useMyCallsFilterStore = create<PageFilterState>()(
       setPage: (page) => set({ page }),
       reset: () => set(makeDefaultState(1)),
     }),
-    { name: "my-calls-filters", storage: createJSONStorage(() => sessionStorage) },
+    {
+      name: "my-calls-filters",
+      storage: createJSONStorage(() => sessionStorage),
+      merge: (persisted, current) => ({
+        ...current,
+        filters: mergeFilters(persisted?.filters ?? {}, current.filters),
+      }),
+    },
   ),
 );
 
@@ -34,6 +45,13 @@ export const useAllCallsFilterStore = create<PageFilterState>()(
       setPage: (page) => set({ page }),
       reset: () => set(makeDefaultState(0)),
     }),
-    { name: "all-calls-filters", storage: createJSONStorage(() => sessionStorage) },
+    {
+      name: "all-calls-filters",
+      storage: createJSONStorage(() => sessionStorage),
+      merge: (persisted, current) => ({
+        ...current,
+        filters: mergeFilters(persisted?.filters ?? {}, current.filters),
+      }),
+    },
   ),
 );

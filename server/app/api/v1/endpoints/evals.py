@@ -37,6 +37,7 @@ async def my_calls(
     search: str | None = Query(default=None),
     organization_name: str | None = Query(default=None),
     nps_filter: str | None = Query(default=None),
+    post_call_sms: str | None = Query(default=None),
     sort_by: str = Query(default="date"),
     sort_dir: str = Query(default="desc"),
     limit: int = Query(default=PAGE_SIZE, le=200),
@@ -47,7 +48,7 @@ async def my_calls(
     """Return paginated call+eval pairs for the current reviewer with optional filters."""
     pairs = await eval_repo.list_calls_for_reviewer(
         db, current_user.id, eval_status, date_from, date_to,
-        search, organization_name, nps_filter, sort_by, sort_dir, limit, offset,
+        search, organization_name, nps_filter, post_call_sms, sort_by, sort_dir, limit, offset,
     )
     return [
         CallWithEvalRead(call=RawCallRead.model_validate(raw), eval=EvalRead.model_validate(ev))
@@ -63,12 +64,13 @@ async def my_calls_count(
     search: str | None = Query(default=None),
     organization_name: str | None = Query(default=None),
     nps_filter: str | None = Query(default=None),
+    post_call_sms: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, int]:
     """Return count of call+eval pairs for the current reviewer matching filters."""
     total = await eval_repo.count_calls_for_reviewer(
-        db, current_user.id, eval_status, date_from, date_to, search, organization_name, nps_filter,
+        db, current_user.id, eval_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms,
     )
     return {"count": total}
 
@@ -81,12 +83,13 @@ async def my_calls_stats(
     search: str | None = Query(default=None),
     organization_name: str | None = Query(default=None),
     nps_filter: str | None = Query(default=None),
+    post_call_sms: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Return avg_duration_sec for call+eval pairs assigned to the current reviewer matching filters."""
     return await eval_repo.stats_calls_for_reviewer(
-        db, current_user.id, eval_status, date_from, date_to, search, organization_name, nps_filter,
+        db, current_user.id, eval_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms,
     )
 
 
