@@ -97,7 +97,7 @@ export function BugDetailDrawer({
       <div
         className="fixed top-0 right-0 h-full z-50 flex flex-col overflow-hidden"
         style={{
-          width: "420px",
+          width: "520px",
           background: "#191a1b",
           borderLeft: "1px solid rgba(255,255,255,0.08)",
           boxShadow: "-8px 0 32px rgba(0,0,0,0.5)",
