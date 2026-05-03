@@ -112,6 +112,7 @@ def _build_calls_for_reviewer_query(
     search: str | None,
     organization_name: str | None,
     nps_filter: str | None,
+    post_call_sms: str | None,
     sort_by: str,
     sort_dir: str,
 ) -> object:
@@ -148,6 +149,10 @@ def _build_calls_for_reviewer_query(
         query = query.where(RawCall.nps_score >= 7, RawCall.nps_score <= 8)
     elif nps_filter == "detractor":
         query = query.where(RawCall.nps_score <= 6)
+    if post_call_sms == "yes":
+        query = query.where(RawCall.is_post_call_sms_survey.is_(True))
+    elif post_call_sms == "no":
+        query = query.where(RawCall.is_post_call_sms_survey.is_(False))
 
     desc = sort_dir == "desc"
     if sort_by == "nps":
@@ -170,6 +175,7 @@ async def list_calls_for_reviewer(
     search: str | None = None,
     organization_name: str | None = None,
     nps_filter: str | None = None,
+    post_call_sms: str | None = None,
     sort_by: str = "date",
     sort_dir: str = "desc",
     limit: int = 30,
@@ -177,7 +183,7 @@ async def list_calls_for_reviewer(
 ) -> list[tuple[Eval, RawCall]]:
     """Return paginated eval+call pairs for a reviewer with optional filters."""
     query = _build_calls_for_reviewer_query(
-        user_id, eval_status, date_from, date_to, search, organization_name, nps_filter, sort_by, sort_dir,
+        user_id, eval_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, sort_by, sort_dir,
     )
     result = await db.execute(query.limit(limit).offset(offset))
     return list(result.all())
@@ -192,6 +198,7 @@ async def count_calls_for_reviewer(
     search: str | None = None,
     organization_name: str | None = None,
     nps_filter: str | None = None,
+    post_call_sms: str | None = None,
 ) -> int:
     """Return count of eval+call pairs matching reviewer filters."""
     from sqlalchemy import cast
@@ -227,6 +234,10 @@ async def count_calls_for_reviewer(
         count_q = count_q.where(RawCall.nps_score >= 7, RawCall.nps_score <= 8)
     elif nps_filter == "detractor":
         count_q = count_q.where(RawCall.nps_score <= 6)
+    if post_call_sms == "yes":
+        count_q = count_q.where(RawCall.is_post_call_sms_survey.is_(True))
+    elif post_call_sms == "no":
+        count_q = count_q.where(RawCall.is_post_call_sms_survey.is_(False))
     result = await db.execute(count_q)
     return result.scalar_one()
 
@@ -240,6 +251,7 @@ async def stats_calls_for_reviewer(
     search: str | None = None,
     organization_name: str | None = None,
     nps_filter: str | None = None,
+    post_call_sms: str | None = None,
 ) -> dict:
     """Return avg_duration_sec for all reviewer-assigned call+eval pairs matching filters."""
     from sqlalchemy import cast
@@ -275,6 +287,10 @@ async def stats_calls_for_reviewer(
         query = query.where(RawCall.nps_score >= 7, RawCall.nps_score <= 8)
     elif nps_filter == "detractor":
         query = query.where(RawCall.nps_score <= 6)
+    if post_call_sms == "yes":
+        query = query.where(RawCall.is_post_call_sms_survey.is_(True))
+    elif post_call_sms == "no":
+        query = query.where(RawCall.is_post_call_sms_survey.is_(False))
     result = await db.execute(query)
     row = result.one()
     return {

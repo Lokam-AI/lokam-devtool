@@ -38,6 +38,13 @@ class RawCallCreate(BaseModel):
     customer_name_masked: str | None = None
     customer_phone_masked: str | None = None
     source_env: str = "prod"
+    is_post_call_sms_survey: bool = False
+    post_call_sms_body: str | None = None
+    post_call_sms_comments: str | None = None
+    post_call_sms_status: str | None = None
+    post_call_sms_sent_at: datetime | None = None
+    post_call_sms_received_at: datetime | None = None
+    post_call_sms_nps: int | None = None
 
 
 class RawCallRead(RawCallCreate):
