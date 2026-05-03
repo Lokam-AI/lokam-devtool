@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.bug_report import BugReport
+from app.models.thread import Notification
 
 MANUAL_SOURCE_ENV = "manual"
 
@@ -99,6 +100,7 @@ def _apply_bug_date_filters(
     is_resolved: bool | None,
     bug_type: str | None,
     is_internal: bool | None = None,
+    mentioned_user_id: int | None = None,
 ) -> object:
     """Apply shared filter clauses to a BugReport select query."""
     query = query.where(BugReport.bug_date >= date_from, BugReport.bug_date <= date_to)
@@ -114,6 +116,17 @@ def _apply_bug_date_filters(
         query = query.where(BugReport.external_id < 0)
     elif is_internal is False:
         query = query.where(BugReport.external_id >= 0)
+    if mentioned_user_id is not None:
+        mentioned_ids = (
+            select(Notification.entity_id)
+            .where(
+                Notification.recipient_id == mentioned_user_id,
+                Notification.entity_type == "bug_report",
+                Notification.entity_id.isnot(None),
+            )
+            .scalar_subquery()
+        )
+        query = query.where(BugReport.id.in_(mentioned_ids))
     return query
 
 
@@ -126,12 +139,13 @@ async def list_by_date_range(
     is_resolved: bool | None = None,
     bug_type: str | None = None,
     is_internal: bool | None = None,
+    mentioned_user_id: int | None = None,
     limit: int = 30,
     offset: int = 0,
 ) -> list[BugReport]:
     """Return BugReport rows within an inclusive date range with optional filters and pagination."""
     query = select(BugReport)
-    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type, is_internal)
+    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type, is_internal, mentioned_user_id)
     result = await db.execute(
         query.order_by(BugReport.bug_date.desc(), BugReport.id.desc()).limit(limit).offset(offset)
     )
@@ -147,10 +161,11 @@ async def count_by_date_range(
     is_resolved: bool | None = None,
     bug_type: str | None = None,
     is_internal: bool | None = None,
+    mentioned_user_id: int | None = None,
 ) -> int:
     """Return count of BugReport rows matching filters."""
     query = select(func.count(BugReport.id))
-    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type, is_internal)
+    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type, is_internal, mentioned_user_id)
     result = await db.execute(query)
     return result.scalar_one()
 
@@ -279,3 +294,9 @@ async def list_all(
     query = query.order_by(BugReport.bug_date.desc(), BugReport.id.desc()).limit(limit).offset(offset)
     result = await db.execute(query)
     return list(result.scalars().all())
+
+
+async def get_by_id(db: AsyncSession, bug_id: int) -> BugReport | None:
+    """Return a single BugReport by its internal PK, or None if not found."""
+    result = await db.execute(select(BugReport).where(BugReport.id == bug_id))
+    return result.scalar_one_or_none()

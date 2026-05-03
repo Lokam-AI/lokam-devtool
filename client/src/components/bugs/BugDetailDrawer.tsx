@@ -5,6 +5,7 @@ import type { BugReport, User } from "@/types";
 import { BugTypeChip } from "@/pages/BugsPage";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { parseUtc } from "@/lib/utils";
+import { CommentThread } from "@/components/CommentThread";
 
 const FF = '"cv01", "ss03"' as const;
 
@@ -331,6 +332,10 @@ export function BugDetailDrawer({
               </span>
             </Field>
           </div>
+
+          {/* ── Discussion / Comments ─────────────────────── */}
+          <div style={{ height: "1px", background: "rgba(255,255,255,0.05)" }} />
+          <CommentThread entityType="bug_report" entityId={bug.id} />
 
           {/* ── Create Linear Story ───────────────────────── */}
           <a

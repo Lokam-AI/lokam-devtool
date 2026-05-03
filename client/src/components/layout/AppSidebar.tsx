@@ -1,5 +1,6 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRef, useState, useEffect } from "react";
 import lokamLogo from "../../../assets/LOKAM_PRIMARY_WHITE_FULL_LOGO.svg";
 import lokamIcon from "../../../assets/LOKAM_SECONDARY_LOGO_WHITE.svg";
 import {
@@ -17,9 +18,12 @@ import {
   Bug,
   PanelLeftClose,
   PanelLeftOpen,
+  Bell,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuthStore } from "@/store/auth-store";
+import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from "@/hooks/use-threads";
+import type { Notification } from "@/types";
 import {
   Sidebar,
   SidebarContent,
@@ -77,7 +81,32 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { user, logout, isAtLeast } = useAuthStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const qc = useQueryClient();
+
+  const { data: notifications = [] } = useNotifications();
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const inboxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (inboxRef.current && !inboxRef.current.contains(e.target as Node)) {
+        setInboxOpen(false);
+      }
+    };
+    if (inboxOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [inboxOpen]);
+
+  const handleNotificationClick = (n: Notification) => {
+    if (!n.is_read) markRead.mutate(n.id);
+    setInboxOpen(false);
+    if (n.entity_type === "bug_report" && n.entity_id != null) navigate(`/bugs?open=${n.entity_id}`);
+    else if (n.entity_type === "raw_call" && n.entity_id != null) navigate(`/call/${n.entity_id}`);
+  };
 
   const roleInfo = ROLE_CONFIG[user?.role ?? "reviewer"] ?? ROLE_CONFIG.reviewer;
   const RoleIcon = roleInfo.icon;
@@ -177,6 +206,215 @@ export function AppSidebar() {
 
         {/* ── Footer ───────────────────────────────────────────────── */}
         <SidebarFooter className="p-2 pb-3">
+
+          {/* ── Inbox row ───────────────────────────────────────────── */}
+          <div ref={inboxRef} style={{ position: "relative", marginBottom: 4 }}>
+            <button
+              onClick={() => setInboxOpen((v) => !v)}
+              className="flex items-center gap-2.5 w-full rounded-md px-2.5 py-1.5 transition-colors"
+              style={{
+                background: inboxOpen ? "rgba(113,112,255,0.08)" : "transparent",
+                color: inboxOpen ? "#a8a4ff" : "#8a8f98",
+              }}
+              onMouseEnter={(e) => {
+                if (!inboxOpen) {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#d0d6e0";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!inboxOpen) {
+                  (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#8a8f98";
+                }
+              }}
+            >
+              <div style={{ position: "relative", flexShrink: 0, display: "flex" }}>
+                <Bell
+                  className="h-[15px] w-[15px]"
+                  style={{ color: inboxOpen ? "#a8a4ff" : unreadCount > 0 ? "#7170ff" : "#62666d" }}
+                />
+                {unreadCount > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -4,
+                      minWidth: 13,
+                      height: 13,
+                      borderRadius: 7,
+                      background: "#7170ff",
+                      color: "#fff",
+                      fontSize: "8px",
+                      fontWeight: 700,
+                      fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0 2px",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </div>
+              {!collapsed && (
+                <>
+                  <span
+                    className="flex-1 text-[13px] leading-[1.3] text-left"
+                    style={{ fontFeatureSettings: FF, fontWeight: 400 }}
+                  >
+                    Inbox
+                  </span>
+                  {unreadCount > 0 && (
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        fontWeight: 600,
+                        fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+                        color: "#7170ff",
+                        background: "rgba(113,112,255,0.12)",
+                        border: "1px solid rgba(113,112,255,0.2)",
+                        borderRadius: 5,
+                        padding: "1px 5px",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {unreadCount}
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+
+            {/* Inbox popover */}
+            {inboxOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 6px)",
+                  left: collapsed ? "calc(100% + 8px)" : 0,
+                  right: collapsed ? "auto" : 0,
+                  width: collapsed ? 300 : "auto",
+                  background: "#141516",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 10,
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                  zIndex: 200,
+                  overflow: "hidden",
+                }}
+              >
+                {/* Popover header */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 12px 8px",
+                    borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      color: "#62666d",
+                      fontWeight: 510,
+                      fontFeatureSettings: FF,
+                    }}
+                  >
+                    Inbox
+                  </span>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={() => markAllRead.mutate()}
+                      style={{
+                        fontSize: "11px",
+                        color: "#7170ff",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        fontFeatureSettings: FF,
+                      }}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                {/* Notification list */}
+                <div style={{ maxHeight: 340, overflowY: "auto" }}>
+                  {notifications.length === 0 && (
+                    <p
+                      style={{
+                        padding: "18px 12px",
+                        fontSize: "12px",
+                        color: "#42464d",
+                        fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
+                        textAlign: "center",
+                      }}
+                    >
+                      No notifications
+                    </p>
+                  )}
+                  {notifications.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "9px 12px",
+                        background: n.is_read ? "transparent" : "rgba(113,112,255,0.05)",
+                        border: "none",
+                        borderBottom: "1px solid rgba(255,255,255,0.04)",
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 3,
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = n.is_read ? "transparent" : "rgba(113,112,255,0.05)"; }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ fontSize: "12px", color: "#8a8f98", fontFeatureSettings: FF }}>
+                          Mentioned in{" "}
+                          <span style={{ color: "#7170ff" }}>
+                            {n.entity_type === "bug_report" && n.entity_id != null
+                              ? `Bug #${n.entity_id}`
+                              : n.entity_type === "raw_call" && n.entity_id != null
+                              ? `Call #${n.entity_id}`
+                              : "a thread"}
+                          </span>
+                        </span>
+                        {!n.is_read && (
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#7170ff", flexShrink: 0 }} />
+                        )}
+                      </div>
+                      {n.excerpt && (
+                        <p
+                          style={{
+                            fontSize: "12px",
+                            color: "#62666d",
+                            fontFeatureSettings: FF,
+                            lineHeight: 1.4,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {n.excerpt}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

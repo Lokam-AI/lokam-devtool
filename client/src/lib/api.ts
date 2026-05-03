@@ -10,6 +10,10 @@ import type {
   SystemHealth,
   EnvConfig,
   AssignmentConfig,
+  Thread,
+  Message,
+  Attachment,
+  Notification,
 } from "@/types";
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api/v1`;
@@ -470,6 +474,7 @@ export interface BugsParams {
   is_resolved?: boolean;
   bug_type?: string;
   is_internal?: boolean;
+  mentioned_me?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -489,6 +494,12 @@ export interface MyBugsParams {
   limit?: number;
   offset?: number;
 }
+
+/** GET /bugs/:id — fetch a single bug by internal ID (any authenticated user) */
+export const apiGetBug = async (bugId: number): Promise<BugReport> => {
+  const { data } = await api.get<BugReport>(`/bugs/${bugId}`);
+  return data;
+};
 
 /** GET /bugs — paginated bug reports for a date range (admin+) */
 export const apiGetBugs = async (params: BugsParams): Promise<BugReport[]> => {
@@ -562,6 +573,72 @@ export interface DashboardStats {
 export const apiGetDashboardStats = async (): Promise<DashboardStats> => {
   const { data } = await api.get<DashboardStats>("/stats/dashboard");
   return data;
+};
+
+/** GET /users/mentionable — active users for @mention autocomplete (any authenticated user) */
+export const apiGetMentionableUsers = async (): Promise<{ id: number; name: string; is_active: boolean }[]> => {
+  const { data } = await api.get<{ id: number; name: string; is_active: boolean }[]>("/users/mentionable");
+  return data;
+};
+
+/** GET /threads?entity_type=X&entity_id=Y — get or create thread for an entity */
+export const apiGetThread = async (entityType: string, entityId: number): Promise<Thread> => {
+  const { data } = await api.get<Thread>("/threads", { params: { entity_type: entityType, entity_id: entityId } });
+  return data;
+};
+
+/** POST /threads/messages?entity_type=X&entity_id=Y — post a message to an entity's thread */
+export const apiPostMessage = async (
+  entityType: string,
+  entityId: number,
+  body: string,
+  attachments: Attachment[] = [],
+): Promise<Message> => {
+  const { data } = await api.post<Message>(
+    "/threads/messages",
+    { body, attachments },
+    { params: { entity_type: entityType, entity_id: entityId } },
+  );
+  return data;
+};
+
+/** PATCH /threads/messages/:id — edit own message */
+export const apiEditMessage = async (messageId: number, body: string): Promise<Message> => {
+  const { data } = await api.patch<Message>(`/threads/messages/${messageId}`, { body });
+  return data;
+};
+
+/** DELETE /threads/messages/:id — soft-delete own message */
+export const apiDeleteMessage = async (messageId: number): Promise<void> => {
+  await api.delete(`/threads/messages/${messageId}`);
+};
+
+/** POST /uploads/presign — get a pre-signed S3 PUT URL */
+export const apiPresignUpload = async (
+  filename: string,
+  mimeType: string,
+): Promise<{ upload_url: string; key: string; public_url: string }> => {
+  const { data } = await api.post<{ upload_url: string; key: string; public_url: string }>(
+    "/uploads/presign",
+    { filename, mime_type: mimeType },
+  );
+  return data;
+};
+
+/** GET /notifications — list notifications for current user */
+export const apiGetNotifications = async (): Promise<Notification[]> => {
+  const { data } = await api.get<Notification[]>("/notifications");
+  return data;
+};
+
+/** PATCH /notifications/:id/read — mark one notification as read */
+export const apiMarkNotificationRead = async (id: number): Promise<void> => {
+  await api.patch(`/notifications/${id}/read`);
+};
+
+/** POST /notifications/read-all — mark all notifications as read */
+export const apiMarkAllNotificationsRead = async (): Promise<void> => {
+  await api.post("/notifications/read-all");
 };
 
 export default api;

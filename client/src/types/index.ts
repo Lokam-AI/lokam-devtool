@@ -105,6 +105,43 @@ export interface BugReport {
   is_resolved: boolean;
 }
 
+export interface Attachment {
+  url: string;
+  key: string;
+  name: string;
+  mime_type: string;
+  size_bytes: number;
+}
+
+export interface Message {
+  id: number;
+  thread_id: number;
+  user_id: number;
+  user_name: string;
+  body: string | null;
+  created_at: string;
+  edited_at: string | null;
+  deleted_at: string | null;
+  attachments: Attachment[];
+}
+
+export interface Thread {
+  id: number;
+  messages: Message[];
+}
+
+export interface Notification {
+  id: number;
+  type: string;
+  message_id: number;
+  thread_id: number;
+  entity_type: string | null;
+  entity_id: number | null;
+  excerpt: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
 export interface SystemHealth {
   status: string;
   active_calls?: number;
