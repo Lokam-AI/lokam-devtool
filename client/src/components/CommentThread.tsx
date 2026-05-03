@@ -403,9 +403,7 @@ function ComposeBox({ entityType, entityId, users }: ComposeProps) {
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFile = async (file: File) => {
     setUploadingFile(true);
     try {
       const { upload_url, key, public_url } = await apiPresignUpload(file.name, file.type);
@@ -418,7 +416,25 @@ function ComposeBox({ entityType, entityId, users }: ComposeProps) {
       // silently ignore
     } finally {
       setUploadingFile(false);
-      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const imageItems = Array.from(e.clipboardData.items).filter((item) =>
+      item.type.startsWith("image/"),
+    );
+    if (imageItems.length === 0) return;
+    e.preventDefault();
+    for (const item of imageItems) {
+      const file = item.getAsFile();
+      if (file) await uploadFile(new File([file], `paste-${Date.now()}.png`, { type: file.type }));
     }
   };
 
@@ -558,6 +574,7 @@ function ComposeBox({ entityType, entityId, users }: ComposeProps) {
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onKeyUp={(e) => onKeyUp(e, value, textareaRef.current?.selectionStart ?? value.length)}
+            onPaste={handlePaste}
             placeholder="Comment… (@ to mention)"
             rows={1}
             style={{
