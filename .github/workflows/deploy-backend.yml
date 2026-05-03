@@ -72,8 +72,10 @@ jobs:
               {"name":"ARENA_API_KEY",      "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:ARENA_API_KEY::"},
               {"name":"PLAYGROUND_BASE_URL","valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:PLAYGROUND_BASE_URL::"},
               {"name":"PLAYGROUND_API_KEY", "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:PLAYGROUND_API_KEY::"},
-              {"name":"AWS_S3_BUCKET",     "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_S3_BUCKET::"},
-              {"name":"AWS_REGION",        "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_REGION::"}
+              {"name":"AWS_S3_BUCKET",        "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_S3_BUCKET::"},
+              {"name":"AWS_REGION",           "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_REGION::"},
+              {"name":"AWS_ACCESS_KEY_ID",    "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_ACCESS_KEY_ID::"},
+              {"name":"AWS_SECRET_ACCESS_KEY","valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_SECRET_ACCESS_KEY::"}
             ]
 
       - name: Slack — success
