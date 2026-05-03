@@ -94,17 +94,20 @@ async def list_bugs(
     is_resolved: bool | None = Query(default=None),
     bug_type: str | None = Query(default=None),
     is_internal: bool | None = Query(default=None),
+    mentioned_me: bool = Query(default=False),
     limit: int = Query(default=PAGE_SIZE, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_reviewer),
+    current_user: User = Depends(require_reviewer),
 ) -> list[BugReportRead]:
     """Return bug reports within an inclusive date range with optional filters and pagination; reviewer+ only."""
     if (date_to - date_from).days > MAX_DATE_RANGE_DAYS:
         raise HTTPException(status_code=400, detail=f"Date range exceeds {MAX_DATE_RANGE_DAYS} days.")
     rows = await bug_report_repo.list_by_date_range(
         db, date_from, date_to, source_env=source_env, organization_name=organization_name,
-        is_resolved=is_resolved, bug_type=bug_type, is_internal=is_internal, limit=limit, offset=offset,
+        is_resolved=is_resolved, bug_type=bug_type, is_internal=is_internal,
+        mentioned_user_id=current_user.id if mentioned_me else None,
+        limit=limit, offset=offset,
     )
     return [BugReportRead.model_validate(r) for r in rows]
 
@@ -118,13 +121,15 @@ async def count_bugs(
     is_resolved: bool | None = Query(default=None),
     bug_type: str | None = Query(default=None),
     is_internal: bool | None = Query(default=None),
+    mentioned_me: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_reviewer),
+    current_user: User = Depends(require_reviewer),
 ) -> dict[str, int]:
     """Return count of bug reports matching filters; reviewer+ only."""
     total = await bug_report_repo.count_by_date_range(
         db, date_from, date_to, source_env=source_env, organization_name=organization_name,
         is_resolved=is_resolved, bug_type=bug_type, is_internal=is_internal,
+        mentioned_user_id=current_user.id if mentioned_me else None,
     )
     return {"count": total}
 
@@ -148,6 +153,20 @@ async def bug_stats(
         organization_name=organization_name,
         bug_type=bug_type,
     )
+
+
+@router.get("/{bug_id}", response_model=BugReportRead)
+async def get_bug(
+    bug_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> BugReportRead:
+    """Return a single bug report by internal ID; any authenticated user."""
+    bug = await bug_report_repo.get_by_id(db, bug_id)
+    if bug is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Bug not found")
+    return BugReportRead.model_validate(bug)
 
 
 @router.patch("/{bug_id}/resolve", response_model=BugReportRead)

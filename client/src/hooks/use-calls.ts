@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useAuthStore } from "@/store/auth-store";
 import {
   apiGetCalls,
   apiGetCallsCount,
@@ -103,7 +104,8 @@ export function useHealth() {
 }
 
 export function useUsers() {
-  return useQuery({ queryKey: ["users"], queryFn: apiGetUsers });
+  const isAdmin = useAuthStore((s) => s.isAtLeast("admin"));
+  return useQuery({ queryKey: ["users"], queryFn: apiGetUsers, enabled: isAdmin });
 }
 
 export function useCreateUser() {

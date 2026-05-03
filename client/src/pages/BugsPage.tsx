@@ -3,8 +3,9 @@ import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { Bug, Building2, MapPin, Tag, AlertTriangle, RefreshCw, Filter, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { useBugs, useBugsCount, useBugsStats, useAssignBug, useResolveBug, useUsers } from "@/hooks/use-calls";
-import { apiGetBugs } from "@/lib/api";
+import { apiGetBugs, apiGetBug } from "@/lib/api";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { BugDetailDrawer } from "@/components/bugs/BugDetailDrawer";
@@ -93,15 +94,18 @@ const STALE_MS = 5 * 60 * 1000;
 
 /* ── Main Page ───────────────────────────────────────────────────── */
 export default function BugsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [range, setRange] = useState<DateRange | undefined>(thisMonthRange);
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "resolved">("all");
   const [sourceFilter, setSourceFilter] = useState<"all" | "internal" | "clients">("all");
   const [orgFilter, setOrgFilter] = useState<string>("");
   const [bugTypeFilter, setBugTypeFilter] = useState<string>("");
+  const [mentionedMe, setMentionedMe] = useState(false);
   const [selected, setSelected] = useState<BugReport | null>(null);
+  const openIdParam = searchParams.get("open");
   const [page, setPage] = useState(0);
 
-  useEffect(() => { setPage(0); }, [range, statusFilter, sourceFilter, orgFilter, bugTypeFilter]);
+  useEffect(() => { setPage(0); }, [range, statusFilter, sourceFilter, orgFilter, bugTypeFilter, mentionedMe]);
 
   const dateFrom = range?.from ? toIso(range.from) : "";
   const dateTo   = range?.to   ? toIso(range.to)   : dateFrom;
@@ -113,7 +117,8 @@ export default function BugsPage() {
     is_resolved:       statusFilter === "open" ? false : statusFilter === "resolved" ? true : undefined,
     bug_type:          bugTypeFilter || undefined,
     is_internal:       sourceFilter === "internal" ? true : sourceFilter === "clients" ? false : undefined,
-  }), [dateFrom, dateTo, orgFilter, statusFilter, bugTypeFilter, sourceFilter]);
+    mentioned_me:      mentionedMe || undefined,
+  }), [dateFrom, dateTo, orgFilter, statusFilter, bugTypeFilter, sourceFilter, mentionedMe]);
 
   const bugsParams = useMemo(() => ({
     ...filterBase,
@@ -146,6 +151,20 @@ export default function BugsPage() {
     qc.prefetchQuery({ queryKey: ["bugs", nextParams], queryFn: () => apiGetBugs(nextParams), staleTime: STALE_MS });
   }, [bugsParams]);
 
+  // Auto-open drawer from notification deep-link (?open=<bug_id>) — fetches directly so date filter doesn't matter
+  useEffect(() => {
+    if (!openIdParam) return;
+    const bugId = Number(openIdParam);
+    if (!bugId) return;
+    // Clear the param immediately so re-renders don't re-trigger
+    setSearchParams((prev) => { prev.delete("open"); return prev; }, { replace: true });
+    // Try the already-loaded list first to avoid an extra request
+    const inList = bugs.find((b) => b.id === bugId);
+    if (inList) { setSelected(inList); return; }
+    // Fall back to a direct fetch — works regardless of current date filter
+    apiGetBug(bugId).then(setSelected).catch(() => {});
+  }, [openIdParam]);
+
   const { data: users = [] } = useUsers();
   const assignBug = useAssignBug();
   const resolveBug = useResolveBug();
@@ -156,7 +175,7 @@ export default function BugsPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const activeFilterCount = [statusFilter !== "all", sourceFilter !== "all", !!orgFilter, !!bugTypeFilter].filter(Boolean).length;
+  const activeFilterCount = [statusFilter !== "all", sourceFilter !== "all", !!orgFilter, !!bugTypeFilter, mentionedMe].filter(Boolean).length;
 
 
   // Keep drawer in sync when list refreshes
@@ -246,6 +265,22 @@ export default function BugsPage() {
         {/* Divider */}
         <div className="h-4 w-px mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
 
+        {/* Mentioned me */}
+        <button
+          onClick={() => setMentionedMe((v) => !v)}
+          className="h-7 px-2.5 rounded-md text-[12px] flex items-center gap-1.5 transition-colors"
+          style={mentionedMe
+            ? { background: "rgba(113,112,255,0.12)", border: "1px solid rgba(113,112,255,0.25)", color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }
+            : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "#8a8f98", fontFeatureSettings: FF }
+          }
+        >
+          <span style={{ fontSize: 11 }}>@</span>
+          Mentioned me
+        </button>
+
+        {/* Divider */}
+        <div className="h-4 w-px mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
+
         {/* Org filter */}
         {orgOptions.length > 0 && (
           <DropdownSelect
@@ -275,7 +310,7 @@ export default function BugsPage() {
         {/* Clear all */}
         {activeFilterCount > 0 && (
           <button
-            onClick={() => { setStatusFilter("all"); setSourceFilter("all"); setOrgFilter(""); setBugTypeFilter(""); }}
+            onClick={() => { setStatusFilter("all"); setSourceFilter("all"); setOrgFilter(""); setBugTypeFilter(""); setMentionedMe(false); }}
             className="h-7 px-2 text-[12px] flex items-center gap-1 rounded-md transition-colors"
             style={{ color: "#62666d", fontFeatureSettings: FF }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#ff716c"; }}

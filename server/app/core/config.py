@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed CORS origins
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
+    # AWS S3 for image uploads in comment threads
+    AWS_S3_BUCKET: str = ""
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
+    AWS_REGION: str = "us-east-1"
+
     # Lokamspace environment base URLs (defaults wired in; only API keys need to be set)
     APP_BASE_URL: str = "https://api.app.lokam.ai"
     APP_API_KEY: str = ""
