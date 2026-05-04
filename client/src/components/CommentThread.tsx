@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Pencil, Trash2, Send, Paperclip, X, ImageIcon } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { useThread, usePostMessage, useEditMessage, useDeleteMessage, useMentionableUsers } from "@/hooks/use-threads";
+import { parseUtc } from "@/lib/utils";
 import { apiPresignUpload } from "@/lib/api";
 import type { Message, Attachment } from "@/types";
 
@@ -124,7 +125,7 @@ function HighlightedBody({ body }: { body: string }) {
 
 /* ── Relative timestamp ───────────────────────────────────────── */
 function RelativeTime({ iso }: { iso: string }) {
-  const d = new Date(iso);
+  const d = parseUtc(iso);
   const diff = Math.floor((Date.now() - d.getTime()) / 1000);
   let label: string;
   if (diff < 60) label = "just now";
