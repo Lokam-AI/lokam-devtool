@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCalls, useCallsCount, useMyCallsStats } from "@/hooks/use-calls";
+import { useEvalSessionStore } from "@/store/eval-session-store";
 import { apiGetCalls } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CallFilterBar, DEFAULT_FILTERS } from "@/components/ui/call-filters";
@@ -30,12 +31,15 @@ function thisMonthRange(): DateRange {
 export default function MyCallsPage() {
   const navigate = useNavigate();
   const { filters, page, setFilters, setPage } = useMyCallsFilterStore();
+  const clearSession = useEvalSessionStore((s) => s.clearSession);
 
   // Seed dateRange on first visit (store persists undefined from DEFAULT_FILTERS)
   useEffect(() => {
     if (!filters.dateRange) setFilters({ ...filters, dateRange: thisMonthRange() });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => { clearSession(); }, []);
 
   const filterBase = useMemo(() => ({
     eval_status:       filters.evalStatus !== "all" ? filters.evalStatus : undefined,
