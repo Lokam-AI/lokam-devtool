@@ -13,6 +13,7 @@ import { PostCallSmsPanel } from "@/components/PostCallSmsPanel";
 import { toast } from "sonner";
 import type { RawCall, Eval } from "@/types";
 import { parseUtc } from "@/lib/utils";
+import { useEvalSessionStore } from "@/store/eval-session-store";
 
 type FieldState = { correct: boolean; value: unknown };
 const SPEED_OPTIONS = [1, 1.5, 2, 2.5, 3, 0.5] as const;
@@ -89,6 +90,7 @@ function EvalFormInner({
   const location = useLocation();
   const saved = evalData.status === "completed";
   const [bugModalOpen, setBugModalOpen] = useState(false);
+  const { skippedIds, skipCall, clearSession } = useEvalSessionStore();
 
   const [fields, setFields] = useState<Record<string, FieldState>>(() => {
     const gtMatchesAi = (gt: unknown, ai: unknown) =>
@@ -246,7 +248,9 @@ function EvalFormInner({
     try {
       await submitEval.mutateAsync({ evalId: evalData.id, data: evalUpdate });
       toast.success("Evaluation submitted");
-      const next = allCalls?.find((c) => c.eval.status === "pending" && c.call.id !== callData.id);
+      const next = allCalls?.find(
+        (c) => c.eval.status === "pending" && c.call.id !== callData.id && !skippedIds.includes(c.call.id)
+      );
       if (next) navigate(`/eval/${next.call.id}`, { replace: true, state: { editable: true } });
       else navigate("/calls", { replace: true });
     } catch {
@@ -891,7 +895,7 @@ function EvalFormInner({
                 style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}
                 onMouseEnter={(e) => { (e.currentTarget).style.color = "#8a8f98"; }}
                 onMouseLeave={(e) => { (e.currentTarget).style.color = "#62666d"; }}
-                onClick={() => navigate("/calls")}
+                onClick={() => { clearSession(); navigate("/calls"); }}
               >
                 Cancel
               </button>
@@ -901,11 +905,11 @@ function EvalFormInner({
                 onMouseEnter={(e) => { (e.currentTarget).style.color = "#7170ff"; }}
                 onMouseLeave={(e) => { (e.currentTarget).style.color = "#62666d"; }}
                 onClick={() => {
-                  const list = allCalls ?? [];
-                  const currentIdx = list.findIndex((c) => c.call.id === callData.id);
-                  const next = list
-                    .slice(currentIdx + 1)
-                    .find((c) => c.eval.status === "pending");
+                  skipCall(callData.id);
+                  const skippedSet = new Set([...skippedIds, callData.id]);
+                  const next = (allCalls ?? []).find(
+                    (c) => c.eval.status === "pending" && !skippedSet.has(c.call.id)
+                  );
                   if (next) navigate(`/eval/${next.call.id}`, { replace: true, state: { editable: true } });
                   else {
                     toast.info("No more pending calls");
