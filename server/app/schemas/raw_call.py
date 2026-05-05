@@ -32,6 +32,7 @@ class RawCallCreate(BaseModel):
     raw_transcript: str | None = None
     formatted_transcript: str | None = None
     recording_url: str | None = None
+    vapi_call_id: str | None = None
     service_record_json: Any | None = None
     organization_json: Any | None = None
     call_metadata: Any | None = None

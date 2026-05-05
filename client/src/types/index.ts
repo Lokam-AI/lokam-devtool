@@ -44,6 +44,7 @@ export interface RawCall {
   post_call_sms_sent_at?: string;
   post_call_sms_received_at?: string;
   post_call_sms_nps?: number;
+  vapi_call_id?: string | null;
 }
 
 export interface Eval {

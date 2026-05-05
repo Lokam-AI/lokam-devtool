@@ -73,6 +73,7 @@ function mapCall(r: BackendRawCall): RawCall {
     post_call_sms_sent_at: r.post_call_sms_sent_at ?? undefined,
     post_call_sms_received_at: r.post_call_sms_received_at ?? undefined,
     post_call_sms_nps: r.post_call_sms_nps ?? undefined,
+    vapi_call_id: r.vapi_call_id ?? null,
   };
 }
 
@@ -139,6 +140,7 @@ interface BackendRawCall {
   post_call_sms_sent_at: string | null;
   post_call_sms_received_at: string | null;
   post_call_sms_nps: number | null;
+  vapi_call_id: string | null;
 }
 
 interface BackendEval {
