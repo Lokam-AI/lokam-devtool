@@ -17,8 +17,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    """Add vapi_call_id column to raw_calls."""
     op.add_column('raw_calls', sa.Column('vapi_call_id', sa.String(100), nullable=True))
 
 
 def downgrade() -> None:
+    """Remove vapi_call_id column from raw_calls."""
     op.drop_column('raw_calls', 'vapi_call_id')
