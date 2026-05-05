@@ -1,16 +1,14 @@
 """One-shot script: backfill vapi_call_id from lokamspace DB into devtool raw_calls."""
 import asyncio
 import os
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import asyncpg
 
 DEVTOOL_DSN_TEMPLATE = (
     "postgresql://{user}:{password}@{host}:{port}/{name}?sslmode=require"
 )
+
+_REQUIRED_DEVTOOL_VARS = ("DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT", "DB_NAME")
 
 
 def _get_lokamspace_dsn() -> str:
@@ -25,14 +23,16 @@ def _get_lokamspace_dsn() -> str:
 
 
 def _build_devtool_dsn() -> str:
-    """Build devtool DSN from pydantic settings."""
-    from app.core.config import settings
+    """Build devtool DSN directly from env vars — avoids importing full app config."""
+    missing = [v for v in _REQUIRED_DEVTOOL_VARS if not os.environ.get(v)]
+    if missing:
+        raise RuntimeError(f"Missing env vars for devtool DB: {', '.join(missing)}")
     return DEVTOOL_DSN_TEMPLATE.format(
-        user=settings.DB_USER,
-        password=settings.DB_PASSWORD,
-        host=settings.DB_HOST,
-        port=settings.DB_PORT,
-        name=settings.DB_NAME,
+        user=os.environ["DB_USER"],
+        password=os.environ["DB_PASSWORD"],
+        host=os.environ["DB_HOST"],
+        port=os.environ["DB_PORT"],
+        name=os.environ["DB_NAME"],
     )
 
 
@@ -69,12 +69,11 @@ async def backfill() -> None:
         return
 
     # Bulk update devtool
-    updated = await devtool_conn.executemany(
+    await devtool_conn.executemany(
         "UPDATE raw_calls SET vapi_call_id = $1 WHERE lokam_call_id = $2",
         [(row["vapi_call_id"], row["id"]) for row in rows],
     )
     await devtool_conn.close()
-    print(f"Updated rows: {updated}")
 
     # Verify
     verify_conn = await asyncpg.connect(devtool_dsn)
