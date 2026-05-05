@@ -41,45 +41,46 @@ async def backfill() -> None:
     devtool_dsn = _build_devtool_dsn()
     lokamspace_dsn = _get_lokamspace_dsn()
 
-    # Get all lokam_call_ids present in devtool
     devtool_conn = await asyncpg.connect(devtool_dsn)
-    devtool_ids = [row["lokam_call_id"] for row in await devtool_conn.fetch(
-        "SELECT lokam_call_id FROM raw_calls WHERE vapi_call_id IS NULL"
-    )]
-    print(f"Devtool rows missing vapi_call_id: {len(devtool_ids)}")
+    try:
+        devtool_ids = [row["lokam_call_id"] for row in await devtool_conn.fetch(
+            "SELECT lokam_call_id FROM raw_calls WHERE vapi_call_id IS NULL"
+        )]
+        print(f"Devtool rows missing vapi_call_id: {len(devtool_ids)}")
 
-    if not devtool_ids:
-        print("Nothing to backfill.")
+        if not devtool_ids:
+            print("Nothing to backfill.")
+            return
+
+        lokamspace_conn = await asyncpg.connect(lokamspace_dsn)
+        try:
+            rows = await lokamspace_conn.fetch(
+                "SELECT id, vapi_call_id FROM calls WHERE id = ANY($1) AND vapi_call_id IS NOT NULL",
+                devtool_ids,
+            )
+        finally:
+            await lokamspace_conn.close()
+
+        print(f"Lokamspace rows with vapi_call_id: {len(rows)}")
+
+        if not rows:
+            print("No vapi_call_id values found in lokamspace for these call IDs.")
+            return
+
+        async with devtool_conn.transaction():
+            await devtool_conn.executemany(
+                "UPDATE raw_calls SET vapi_call_id = $1 WHERE lokam_call_id = $2",
+                [(row["vapi_call_id"], row["id"]) for row in rows],
+            )
+    finally:
         await devtool_conn.close()
-        return
 
-    # Fetch vapi_call_id from lokamspace for those IDs
-    lokamspace_conn = await asyncpg.connect(lokamspace_dsn)
-    rows = await lokamspace_conn.fetch(
-        "SELECT id, vapi_call_id FROM calls WHERE id = ANY($1) AND vapi_call_id IS NOT NULL",
-        devtool_ids,
-    )
-    await lokamspace_conn.close()
-
-    print(f"Lokamspace rows with vapi_call_id: {len(rows)}")
-
-    if not rows:
-        print("No vapi_call_id values found in lokamspace for these call IDs.")
-        await devtool_conn.close()
-        return
-
-    # Bulk update devtool
-    await devtool_conn.executemany(
-        "UPDATE raw_calls SET vapi_call_id = $1 WHERE lokam_call_id = $2",
-        [(row["vapi_call_id"], row["id"]) for row in rows],
-    )
-    await devtool_conn.close()
-
-    # Verify
     verify_conn = await asyncpg.connect(devtool_dsn)
-    count = await verify_conn.fetchval("SELECT COUNT(*) FROM raw_calls WHERE vapi_call_id IS NOT NULL")
-    total = await verify_conn.fetchval("SELECT COUNT(*) FROM raw_calls")
-    await verify_conn.close()
+    try:
+        count = await verify_conn.fetchval("SELECT COUNT(*) FROM raw_calls WHERE vapi_call_id IS NOT NULL")
+        total = await verify_conn.fetchval("SELECT COUNT(*) FROM raw_calls")
+    finally:
+        await verify_conn.close()
     print(f"\nDone. {count}/{total} raw_calls now have vapi_call_id.")
 
 
