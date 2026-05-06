@@ -155,13 +155,13 @@ async def list_feature_flags(
         raise HTTPException(status_code=502, detail=f"PostHog API error: {e}")
 
     result = []
+    posthog_to_env = {v: k for k, v in posthog_service.ENV_NAME_TO_POSTHOG_ID.items()}
     for flag in flags:
         states = posthog_service.extract_flag_states(flag)
-        # Map posthog distinct_id back to devtool env_name for the response
-        posthog_to_env = {v: k for k, v in posthog_service.ENV_NAME_TO_POSTHOG_ID.items()}
         environments = [
             FeatureFlagEnvState(env=posthog_to_env.get(posthog_id, posthog_id), enabled=enabled)
             for posthog_id, enabled in states.items()
+            if posthog_id not in posthog_service.PROTECTED_ENVS  # never expose prod
         ]
         result.append(FeatureFlagItem(
             key=flag["key"],
@@ -190,6 +190,7 @@ async def toggle_feature_flag(
     environments = [
         FeatureFlagEnvState(env=posthog_to_env.get(posthog_id, posthog_id), enabled=enabled)
         for posthog_id, enabled in states.items()
+        if posthog_id not in posthog_service.PROTECTED_ENVS  # never expose prod
     ]
     return FeatureFlagItem(
         key=updated["key"],
