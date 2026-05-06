@@ -37,3 +37,27 @@ class ProxyHealthResponse(BaseModel):
     env_name: str
     status: str
     detail: str | None = None
+
+
+# --- Feature Flags ---
+
+class FeatureFlagEnvState(BaseModel):
+    """State of a single feature flag for a single environment."""
+
+    env: str    # devtool env_name e.g. "playground", "arena", "app"
+    enabled: bool
+
+
+class FeatureFlagItem(BaseModel):
+    """A PostHog feature flag with its enabled state across all environments."""
+
+    key: str
+    name: str
+    environments: list[FeatureFlagEnvState]
+
+
+class FeatureFlagToggleRequest(BaseModel):
+    """Request body for toggling a feature flag on a specific environment."""
+
+    env: str    # devtool env_name — "playground" or "arena" (prod blocked server-side)
+    enabled: bool
