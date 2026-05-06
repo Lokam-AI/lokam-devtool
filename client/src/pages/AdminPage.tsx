@@ -315,28 +315,23 @@ export default function AdminPage() {
                       {flag.name}
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                      {flag.environments.map(({ env, enabled }) => {
-                        const isProd = env === "app";
-                        return (
-                          <button
-                            key={env}
-                            disabled={isProd}
-                            onClick={() => !isProd && setFlagConfirm({ key: flag.key, env, enabled: !enabled })}
-                            className="px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest border transition-all"
-                            style={{
-                              background: enabled ? "rgba(16,185,129,0.1)" : "rgba(255,113,108,0.08)",
-                              color: enabled ? "#10b981" : "#ff716c",
-                              borderColor: enabled ? "rgba(16,185,129,0.25)" : "rgba(255,113,108,0.2)",
-                              fontWeight: 510,
-                              fontFeatureSettings: FF,
-                              cursor: isProd ? "default" : "pointer",
-                              opacity: isProd ? 0.5 : 1,
-                            }}
-                          >
-                            {env} · {enabled ? "on" : "off"}{isProd ? " 🔒" : ""}
-                          </button>
-                        );
-                      })}
+                      {flag.environments.map(({ env, enabled }) => (
+                        <button
+                          key={env}
+                          onClick={() => setFlagConfirm({ key: flag.key, env, enabled: !enabled })}
+                          className="px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest border transition-all active:scale-[0.97]"
+                          style={{
+                            background: enabled ? "rgba(16,185,129,0.1)" : "rgba(255,113,108,0.08)",
+                            color: enabled ? "#10b981" : "#ff716c",
+                            borderColor: enabled ? "rgba(16,185,129,0.25)" : "rgba(255,113,108,0.2)",
+                            fontWeight: 510,
+                            fontFeatureSettings: FF,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {env} · {enabled ? "on" : "off"}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 ))}
