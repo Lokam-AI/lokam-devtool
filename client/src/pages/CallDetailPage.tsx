@@ -245,7 +245,7 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
                 Email Sent
               </div>
             )}
-            {call.vapi_call_id && (
+            {call.vapi_call_id ? (
               <a
                 href={`https://dashboard.vapi.ai/calls/${call.vapi_call_id}`}
                 target="_blank"
@@ -255,6 +255,13 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
               >
                 VAPI Logs
               </a>
+            ) : (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[10px] uppercase tracking-widest"
+                style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)", color: "#4a4f58", fontWeight: 510, fontFeatureSettings: FF }}
+              >
+                No VAPI Log
+              </div>
             )}
           </div>
         </div>
