@@ -643,4 +643,38 @@ export const apiMarkAllNotificationsRead = async (): Promise<void> => {
   await api.post("/notifications/read-all");
 };
 
+/* ------------------------------------------------------------------ */
+/*  Feature Flags                                                       */
+/* ------------------------------------------------------------------ */
+
+export interface FeatureFlagEnvState {
+  env: string;      // devtool env_name: "playground", "arena", "app"
+  enabled: boolean;
+}
+
+export interface FeatureFlagItem {
+  key: string;
+  name: string;
+  environments: FeatureFlagEnvState[];
+}
+
+/** GET /admin/feature-flags — list all PostHog flags with per-env state (admin+) */
+export const apiListFeatureFlags = async (): Promise<FeatureFlagItem[]> => {
+  const { data } = await api.get<FeatureFlagItem[]>("/admin/feature-flags");
+  return data;
+};
+
+/** POST /admin/feature-flags/:key/toggle — toggle a flag for a specific env (admin+) */
+export const apiToggleFeatureFlag = async (
+  flagKey: string,
+  env: string,
+  enabled: boolean,
+): Promise<FeatureFlagItem> => {
+  const { data } = await api.post<FeatureFlagItem>(
+    `/admin/feature-flags/${flagKey}/toggle`,
+    { env, enabled },
+  );
+  return data;
+};
+
 export default api;

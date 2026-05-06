@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     PLAYGROUND_BASE_URL: str = "https://api.playground.lokam.ai"
     PLAYGROUND_API_KEY: str = ""
 
+    # PostHog Feature Flag Management
+    POSTHOG_PERSONAL_API_KEY: str = ""  # phx_... from PostHog → Settings → Personal API Keys
+    POSTHOG_PROJECT_ID: str = ""        # numeric ID from PostHog project URL
+    POSTHOG_HOST: str = "https://us.i.posthog.com"
+
     @property
     def db_url(self) -> str:
         """Return async SQLAlchemy database URL."""
