@@ -81,11 +81,6 @@ def main() -> None:
     # Change to the directory containing this script so that relative imports work
     os.chdir(Path(__file__).resolve().parent)
 
-    # Pre-flight checks
-    check_venv()
-    check_env()
-    check_db()
-
     # Load .env file if python-dotenv is available
     try:
         from dotenv import load_dotenv  # type: ignore
@@ -99,6 +94,11 @@ def main() -> None:
                 if line and not line.startswith("#") and "=" in line:
                     key, _, value = line.partition("=")
                     os.environ.setdefault(key.strip(), value.strip())
+
+    # Pre-flight checks (run after .env is loaded so values are available)
+    check_venv()
+    check_env()
+    check_db()
 
     print_banner(args.host, args.port)
 

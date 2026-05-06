@@ -46,6 +46,7 @@ class RawCall(Base, TimestampMixin):
     raw_transcript: Mapped[str | None] = mapped_column(Text)
     formatted_transcript: Mapped[str | None] = mapped_column(Text)
     recording_url: Mapped[str | None] = mapped_column(Text)
+    vapi_call_id: Mapped[str | None] = mapped_column(String(100))
     # Structured context
     service_record_json: Mapped[dict | None] = mapped_column(JSONB)
     organization_json: Mapped[dict | None] = mapped_column(JSONB)
