@@ -3,8 +3,9 @@ import { useHealth } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { toast } from "sonner";
-import type { EnvConfig } from "@/types";
-import api, { apiGetEnvs } from "@/lib/api";
+import type { EnvConfig, } from "@/types";
+import api, { apiGetEnvs, apiListFeatureFlags, apiToggleFeatureFlag } from "@/lib/api";
+import type { FeatureFlagItem } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
 
 const FF = '"cv01", "ss03"' as const;
@@ -29,6 +30,10 @@ export default function AdminPage() {
   const [acsEnvs, setAcsEnvs]                 = useState<string[]>([]);
   const [seedEnv, setSeedEnv]                 = useState("");
   const [showAcsConfirm, setShowAcsConfirm]   = useState(false);
+  const [flags, setFlags]                     = useState<FeatureFlagItem[]>([]);
+  const [flagsLoading, setFlagsLoading]       = useState(true);
+  const [flagConfirm, setFlagConfirm]         = useState<{ key: string; env: string; enabled: boolean } | null>(null);
+  const [flagToggling, setFlagToggling]       = useState(false);
   const [seedMode, setSeedMode]               = useState("--force-recreate");
   const [seedOrg, setSeedOrg]                 = useState("");
   const [seedRooftops, setSeedRooftops]       = useState("");
@@ -45,6 +50,11 @@ export default function AdminPage() {
       const arena = data.find((e) => e.name === "arena");
       setSeedEnv(arena ? "arena" : (data[0]?.name ?? ""));
     }).catch(() => {});
+
+    apiListFeatureFlags()
+      .then(setFlags)
+      .catch(() => {})
+      .finally(() => setFlagsLoading(false));
   }, []);
 
   const envOptions    = envs.map((e) => ({ value: e.name, label: e.name }));
@@ -57,6 +67,21 @@ export default function AdminPage() {
       toast.success(`ACS disabled on ${acsEnvs.join(", ")}`);
     } catch {
       toast.error("Failed to disable ACS on one or more envs");
+    }
+  };
+
+  const handleFlagToggle = async () => {
+    if (!flagConfirm) return;
+    setFlagToggling(true);
+    try {
+      const updated = await apiToggleFeatureFlag(flagConfirm.key, flagConfirm.env, flagConfirm.enabled);
+      setFlags((prev) => prev.map((f) => f.key === updated.key ? updated : f));
+      toast.success(`${flagConfirm.key} ${flagConfirm.enabled ? "enabled" : "disabled"} on ${flagConfirm.env}`);
+    } catch {
+      toast.error(`Failed to toggle ${flagConfirm.key} on ${flagConfirm.env}`);
+    } finally {
+      setFlagToggling(false);
+      setFlagConfirm(null);
     }
   };
 
@@ -241,6 +266,77 @@ export default function AdminPage() {
             >
               Disable ACS
             </button>
+          </div>
+
+          {/* Feature Flags */}
+          <div
+            className="rounded-lg p-4 flex flex-col gap-3 shrink-0 border"
+            style={{
+              background: "#191a1b",
+              borderLeftColor: "#10b981",
+              borderColor: "rgba(255,255,255,0.08)",
+              borderLeftWidth: "2px",
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                style={{ background: "rgba(16,185,129,0.1)" }}
+              >
+                <span
+                  className="material-symbols-outlined text-sm"
+                  style={{ color: "#10b981", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                >
+                  toggle_on
+                </span>
+              </div>
+              <h2
+                className="text-xs uppercase tracking-widest"
+                style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}
+              >
+                Feature Flags
+              </h2>
+            </div>
+
+            {flagsLoading ? (
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-6 w-full" style={{ background: "rgba(255,255,255,0.05)" }} />
+                <Skeleton className="h-6 w-full" style={{ background: "rgba(255,255,255,0.05)" }} />
+              </div>
+            ) : flags.length === 0 ? (
+              <p className="text-xs" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+                No feature flags found in PostHog.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {flags.map((flag) => (
+                  <div key={flag.key} className="flex flex-col gap-1.5">
+                    <span className="text-xs" style={{ color: "#d0d6e0", fontFeatureSettings: FF }}>
+                      {flag.name}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {flag.environments.map(({ env, enabled }) => (
+                        <button
+                          key={env}
+                          onClick={() => setFlagConfirm({ key: flag.key, env, enabled: !enabled })}
+                          className="px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest border transition-all active:scale-[0.97]"
+                          style={{
+                            background: enabled ? "rgba(16,185,129,0.1)" : "rgba(255,113,108,0.08)",
+                            color: enabled ? "#10b981" : "#ff716c",
+                            borderColor: enabled ? "rgba(16,185,129,0.25)" : "rgba(255,113,108,0.2)",
+                            fontWeight: 510,
+                            fontFeatureSettings: FF,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {env} · {enabled ? "on" : "off"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Seed Runner */}
@@ -561,6 +657,69 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Feature flag confirm modal ── */}
+      {flagConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)" }}
+          onClick={() => setFlagConfirm(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl p-6 border flex flex-col gap-4"
+            style={{
+              background: "#191a1b",
+              borderColor: "rgba(16,185,129,0.2)",
+              boxShadow: "rgba(0,0,0,0.08) 0px 0px 1px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="w-8 h-8 rounded-md flex items-center justify-center"
+              style={{ background: "rgba(16,185,129,0.1)" }}
+            >
+              <span
+                className="material-symbols-outlined text-sm"
+                style={{ color: "#10b981", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+              >
+                toggle_on
+              </span>
+            </div>
+            <div>
+              <h3 className="text-sm mb-1" style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}>
+                {flagConfirm.enabled ? "Enable" : "Disable"} feature flag?
+              </h3>
+              <p className="text-xs leading-relaxed" style={{ color: "#8a8f98", fontFeatureSettings: FF }}>
+                <span style={{ color: "#7170ff" }}>{flagConfirm.key}</span> will be{" "}
+                {flagConfirm.enabled ? "enabled" : "disabled"} on{" "}
+                <span style={{ color: "#7170ff" }}>{flagConfirm.env}</span>.
+                Takes effect on the next Lambda run (~2 min).
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="flex-1 py-2 rounded-md text-xs border transition-all"
+                style={{ background: "transparent", color: "#8a8f98", borderColor: "rgba(255,255,255,0.08)", fontWeight: 510, fontFeatureSettings: FF }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                onClick={() => setFlagConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={flagToggling}
+                className="flex-1 py-2 rounded-md text-xs border active:scale-[0.98] transition-all disabled:opacity-50"
+                style={{ background: "rgba(16,185,129,0.1)", color: "#10b981", borderColor: "rgba(16,185,129,0.25)", fontWeight: 510, fontFeatureSettings: FF }}
+                onMouseEnter={(e) => { if (!flagToggling) e.currentTarget.style.background = "rgba(16,185,129,0.18)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.1)"; }}
+                onClick={handleFlagToggle}
+              >
+                {flagToggling ? "Updating…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── ACS confirm modal ── */}
       {showAcsConfirm && (

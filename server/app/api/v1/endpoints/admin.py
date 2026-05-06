@@ -1,15 +1,16 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
 from app.dependencies import get_db, require_admin, require_reviewer, require_superadmin
 from app.models.user import User
 from app.repositories import env_config_repo
-from app.schemas.admin import ACSToggleRequest, ProxyHealthResponse, SeedRunRequest, SyncRequest, SyncResponse
+from app.schemas.admin import ACSToggleRequest, FeatureFlagItem, FeatureFlagEnvState, FeatureFlagToggleRequest, ProxyHealthResponse, SeedRunRequest, SyncRequest, SyncResponse
 from app.schemas.assignment_config import AssignmentConfigRead, AssignmentConfigUpdate
 from app.schemas.env_config import EnvConfigCreate, EnvConfigRead, EnvConfigUpdate
 from app.services import admin_proxy_service
 from app.services import assignment_config_service
+from app.services import posthog_service
 from app.services.bug_sync_service import sync_bugs_for_date
 from app.services.call_sync_service import sync_calls_for_date
 
@@ -139,3 +140,60 @@ async def env_health(
 ) -> ProxyHealthResponse:
     """Check the health of the target lokamspace environment; admin+ only."""
     return await admin_proxy_service.check_health(db, env_name)
+
+
+@router.get("/feature-flags", response_model=list[FeatureFlagItem])
+async def list_feature_flags(
+    _: User = Depends(require_admin),
+) -> list[FeatureFlagItem]:
+    """List all PostHog feature flags with per-environment state; admin+ only."""
+    try:
+        flags = await posthog_service.list_flags()
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"PostHog API error: {e}")
+
+    result = []
+    posthog_to_env = {v: k for k, v in posthog_service.ENV_NAME_TO_POSTHOG_ID.items()}
+    for flag in flags:
+        states = posthog_service.extract_flag_states(flag)
+        environments = [
+            FeatureFlagEnvState(env=posthog_to_env.get(posthog_id, posthog_id), enabled=enabled)
+            for posthog_id, enabled in states.items()
+            if posthog_id not in posthog_service.PROTECTED_ENVS  # never expose prod
+        ]
+        result.append(FeatureFlagItem(
+            key=flag["key"],
+            name=flag.get("name") or flag["key"],
+            environments=environments,
+        ))
+    return result
+
+
+@router.post("/feature-flags/{flag_key}/toggle", response_model=FeatureFlagItem)
+async def toggle_feature_flag(
+    flag_key: str,
+    body: FeatureFlagToggleRequest,
+    _: User = Depends(require_admin),
+) -> FeatureFlagItem:
+    """Toggle a PostHog feature flag for a specific environment; admin+ only. Prod is blocked."""
+    try:
+        updated = await posthog_service.toggle_flag(flag_key, body.env, body.enabled)
+    except ValueError as e:
+        raise HTTPException(status_code=403 if "not permitted" in str(e) else 503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"PostHog API error: {e}")
+
+    states = posthog_service.extract_flag_states(updated)
+    posthog_to_env = {v: k for k, v in posthog_service.ENV_NAME_TO_POSTHOG_ID.items()}
+    environments = [
+        FeatureFlagEnvState(env=posthog_to_env.get(posthog_id, posthog_id), enabled=enabled)
+        for posthog_id, enabled in states.items()
+        if posthog_id not in posthog_service.PROTECTED_ENVS  # never expose prod
+    ]
+    return FeatureFlagItem(
+        key=updated["key"],
+        name=updated.get("name") or updated["key"],
+        environments=environments,
+    )
