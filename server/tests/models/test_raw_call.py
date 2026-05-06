@@ -15,7 +15,7 @@ def test_raw_call_columns_exist() -> None:
         "overall_feedback", "positive_mentions", "detractors",
         "is_incomplete_call", "incomplete_reason", "is_dnc_request",
         "escalation_needed", "raw_transcript", "formatted_transcript",
-        "recording_url", "service_record_json", "organization_json",
+        "recording_url", "vapi_call_id", "service_record_json", "organization_json",
         "call_metadata", "customer_name_masked", "customer_phone_masked",
         "source_env", "synced_at", "created_at", "updated_at",
     }

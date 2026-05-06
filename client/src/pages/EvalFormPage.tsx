@@ -433,6 +433,25 @@ function EvalFormInner({
                 </span>
               </div>
             )}
+            {callData.vapi_call_id && (
+              <a
+                href={`https://dashboard.vapi.ai/calls/${callData.vapi_call_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-md flex items-center gap-2 border"
+                style={{
+                  background: "rgba(99,102,241,0.08)",
+                  borderColor: "rgba(99,102,241,0.25)",
+                }}
+              >
+                <span
+                  className="text-[10px] uppercase tracking-widest"
+                  style={{ color: "#6366f1", fontWeight: 510, fontFeatureSettings: FF }}
+                >
+                  VAPI Logs
+                </span>
+              </a>
+            )}
           </div>
         </div>
 
