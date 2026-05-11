@@ -11,6 +11,7 @@ import {
 import type { RawCall } from "@/types";
 import { parseUtc } from "@/lib/utils";
 import { PostCallSmsPanel } from "@/components/PostCallSmsPanel";
+import { CallTypePill } from "@/components/ui/call-type-pill";
 
 const FF = '"cv01", "ss03"' as const;
 const MONO = "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace" as const;
@@ -91,6 +92,7 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
   };
 
   const durationStr   = `${Math.floor(call.duration / 60)}m ${call.duration % 60}s`;
+  const isSales       = call.call_type === "sales";
   const positiveTags  = (call.ai_positive_mentions ?? []).filter(Boolean);
   const detractorTags = (call.ai_detractors ?? []).filter(Boolean);
   const callDate      = parseUtc(call.date);
@@ -140,6 +142,8 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
             >
               #{call.call_id}
             </span>
+
+            <CallTypePill callType={call.call_type} />
 
             <span className="text-[11px]" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>
               {callDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
@@ -504,28 +508,30 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
               </Section>
             )}
 
-            {/* Positive Mentions */}
-            <Section label={`Positive Mentions${positiveTags.length > 0 ? ` · ${positiveTags.length}` : ""}`}>
-              {positiveTags.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {positiveTags.map((t) => (
-                    <span
-                      key={t}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider border"
-                      style={{ background: "rgba(16,185,129,0.07)", color: "#10b981", borderColor: "rgba(16,185,129,0.18)", fontWeight: 510, fontFeatureSettings: FF }}
-                    >
-                      <span className="w-1 h-1 rounded-full bg-current shrink-0" />
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[11px]" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>None detected</p>
-              )}
-            </Section>
+            {/* Positive Mentions — sales calls don't emit these */}
+            {!isSales && (
+              <Section label={`Positive Mentions${positiveTags.length > 0 ? ` · ${positiveTags.length}` : ""}`}>
+                {positiveTags.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {positiveTags.map((t) => (
+                      <span
+                        key={t}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider border"
+                        style={{ background: "rgba(16,185,129,0.07)", color: "#10b981", borderColor: "rgba(16,185,129,0.18)", fontWeight: 510, fontFeatureSettings: FF }}
+                      >
+                        <span className="w-1 h-1 rounded-full bg-current shrink-0" />
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px]" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>None detected</p>
+                )}
+              </Section>
+            )}
 
-            {/* Detractors */}
-            <Section label={`Detractors${detractorTags.length > 0 ? ` · ${detractorTags.length}` : ""}`}>
+            {/* Detractors — sales calls show as "Objections Raised" */}
+            <Section label={`${isSales ? "Objections Raised" : "Detractors"}${detractorTags.length > 0 ? ` · ${detractorTags.length}` : ""}`}>
               {detractorTags.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {detractorTags.map((t) => (

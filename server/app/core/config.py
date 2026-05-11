@@ -70,5 +70,7 @@ MAX_CALLS_PER_USER: int = 5
 CALL_TARGETS: dict[str, int] = {"na": 2, "passive": 0, "detractor": 1, "promoter": 1, "missed": 1}
 FILL_PRIORITY: list[str] = ["na", "detractor", "missed", "promoter", "passive"]
 
-# Sales-call assignment: flat quota per reviewer per day (no NPS bucketing for sales).
+# Sales-call assignment: 3-status bucketing (na/promoter/detractor — lokamspace emits nps 5/10/null).
 SALES_MAX_CALLS_PER_USER: int = 5
+SALES_CALL_TARGETS: dict[str, int] = {"na": 1, "detractor": 2, "promoter": 2}
+SALES_FILL_PRIORITY: list[str] = ["na", "detractor", "promoter"]

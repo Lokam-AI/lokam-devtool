@@ -53,6 +53,8 @@ class RawCall(Base, TimestampMixin):
     incomplete_reason: Mapped[str | None] = mapped_column(Text)
     is_dnc_request: Mapped[bool | None] = mapped_column(Boolean)
     escalation_needed: Mapped[bool | None] = mapped_column(Boolean)
+    # Sales-only AI flag: lokamspace voice agent marks hot leads worth follow-up
+    lead_escalated: Mapped[bool | None] = mapped_column(Boolean)
     # Transcripts & recording
     raw_transcript: Mapped[str | None] = mapped_column(Text)
     formatted_transcript: Mapped[str | None] = mapped_column(Text)
