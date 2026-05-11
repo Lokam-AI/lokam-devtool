@@ -99,8 +99,9 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
   const npsLabel      = nps !== null ? (nps <= 6 ? "Detractor" : nps <= 8 ? "Passive" : "Promoter") : null;
   const npsIcon       = nps !== null ? (nps <= 6 ? TrendingDown : nps <= 8 ? Minus : TrendingUp) : null;
 
+  const SURFACED_META_KEYS = new Set(["email_escalated", "queued_at", "is_dnc_request", "is_incomplete_call", "escalation_needed"]);
   const extraMeta = call.call_metadata
-    ? Object.entries(call.call_metadata).filter(([k]) => k !== "email_escalated")
+    ? Object.entries(call.call_metadata).filter(([k]) => !SURFACED_META_KEYS.has(k))
     : [];
 
   return (
@@ -462,15 +463,37 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
             <Section label="Call Flags">
               <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
                 <FlagRow label="Call Completed" value={call.ai_is_resolved} positiveIsTrue icon={call.ai_is_resolved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />} />
-                <FlagRow label="DNC Request" value={call.ai_callback_requested} icon={<AlertCircle className="h-3.5 w-3.5" />} />
+                <FlagRow label="DNC Request" value={call.ai_is_dnc_request} icon={<AlertCircle className="h-3.5 w-3.5" />} />
+                <FlagRow label="Escalation Needed" value={call.ai_escalation_needed} icon={<AlertCircle className="h-3.5 w-3.5" />} />
                 {call.review_link_sent != null && (
                   <FlagRow label="Review Link Sent" value={!!call.review_link_sent} positiveIsTrue icon={<Star className="h-3.5 w-3.5" />} />
                 )}
                 {call.call_metadata?.email_escalated != null && (
                   <FlagRow label="Email Escalated" value={!!call.call_metadata.email_escalated} icon={<Mail className="h-3.5 w-3.5" />} />
                 )}
+                {call.call_metadata?.queued_at && (
+                  <InfoRow label="Queued At" value={String(call.call_metadata.queued_at)} icon={<Clock className="h-3.5 w-3.5" />} />
+                )}
               </div>
             </Section>
+
+            {/* Extra Metadata */}
+            {extraMeta.filter(([, v]) => v !== null && v !== undefined).length > 0 && (
+              <Section label="Metadata">
+                <div className="space-y-2">
+                  {extraMeta
+                    .filter(([, v]) => v !== null && v !== undefined)
+                    .map(([k, v]) => (
+                      <div key={k} className="flex items-center justify-between py-0.5">
+                        <span className="text-[11px] capitalize" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+                          {k.replace(/_/g, " ")}
+                        </span>
+                        <MetaValue value={v} />
+                      </div>
+                    ))}
+                </div>
+              </Section>
+            )}
 
             {/* AI Overall Feedback */}
             {call.ai_overall_feedback && (
@@ -521,23 +544,6 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
               )}
             </Section>
 
-            {/* Extra Metadata */}
-            {extraMeta.filter(([, v]) => v !== null && v !== undefined).length > 0 && (
-              <Section label="Metadata">
-                <div className="space-y-2">
-                  {extraMeta
-                    .filter(([, v]) => v !== null && v !== undefined)
-                    .map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between py-0.5">
-                        <span className="text-[11px] capitalize" style={{ color: "#62666d", fontFeatureSettings: FF }}>
-                          {k.replace(/_/g, " ")}
-                        </span>
-                        <MetaValue value={v} />
-                      </div>
-                    ))}
-                </div>
-              </Section>
-            )}
 
           </div>
         </ScrollArea>
@@ -683,6 +689,25 @@ function FlagRow({
         }}
       >
         {value ? "Yes" : "No"}
+      </span>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────── */
+/*  InfoRow — label + datetime value              */
+/* ────────────────────────────────────────────── */
+function InfoRow({ label, value, icon }: { label: string; value: string | null | undefined; icon?: React.ReactNode }) {
+  if (!value) return null;
+  const d = parseUtc(value);
+  return (
+    <div className="flex items-center justify-between py-2.5">
+      <div className="flex items-center gap-2">
+        <span style={{ color: "#4a4f58" }}>{icon}</span>
+        <span className="text-[12px]" style={{ color: "#8a8f98", fontFeatureSettings: FF }}>{label}</span>
+      </div>
+      <span className="text-[11px]" style={{ color: "#8a8f98", fontFamily: MONO }}>
+        {d.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
       </span>
     </div>
   );
