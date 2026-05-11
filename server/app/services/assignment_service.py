@@ -6,16 +6,20 @@ from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import FILL_PRIORITY, SALES_MAX_CALLS_PER_USER
+from app.core.config import FILL_PRIORITY, SALES_FILL_PRIORITY
 from app.models.eval import Eval
 from app.models.raw_call import RawCall
 from app.repositories import eval_repo, raw_call_repo, user_repo
 from app.schemas.eval import EvalCreate
-from app.schemas.assignment_config import AssignmentConfigRead
+from app.schemas.assignment_config import AssignmentConfigRead, SalesCallTargets
 from app.services.assignment_config_service import get_config
 
 PROMOTER_NPS_MIN = 9
 DETRACTOR_NPS_MAX = 6
+
+# Sales NPS from lokamspace voice agent is tri-valued: 10=promoter, 5=detractor, null=na.
+SALES_NPS_PROMOTER = 10
+SALES_NPS_DETRACTOR = 5
 
 CALL_TYPE_SERVICE = "service"
 CALL_TYPE_SALES = "sales"
@@ -81,29 +85,82 @@ async def _assign_sales(
     call_date: date,
     unassigned: list[RawCall],
 ) -> int:
-    """Sales-call assignment: flat per-reviewer quota, calls interleaved by rooftop, no NPS bucketing."""
+    """Sales-call assignment: 3-status NPS buckets (na/promoter/detractor) + per-user fill priority."""
+    config = await get_config(db)
     user_load = await _build_reviewer_load(db, [u.id for u in users], call_date, call_type=CALL_TYPE_SALES)
-    queue = _interleave_by_rooftop(unassigned)
+    buckets = _categorize_sales_calls(unassigned)
 
     shuffled_users = users.copy()
     random.shuffle(shuffled_users)
 
     records: list[EvalCreate] = []
-    queue_idx = 0
     for user in shuffled_users:
-        remaining = SALES_MAX_CALLS_PER_USER - user_load.get(user.id, 0)
-        if remaining <= 0:
-            continue
-        picks = queue[queue_idx:queue_idx + remaining]
-        queue_idx += len(picks)
-        for call in picks:
+        picked = _pick_sales_calls_for_user(
+            buckets,
+            user_load.get(user.id, 0),
+            config.sales_max_calls_per_user,
+            config.sales_call_targets,
+        )
+        for call in picked:
             records.append(_build_eval_create(call, user.id))
-        if queue_idx >= len(queue):
-            break
 
     if records:
         await eval_repo.create_bulk(db, records)
     return len(records)
+
+
+def _categorize_sales_calls(calls: list[RawCall]) -> dict[str, list[RawCall]]:
+    """Bucket sales calls by NPS status — promoter (10), detractor (5), na (everything else)."""
+    raw: dict[str, list[RawCall]] = {"na": [], "detractor": [], "promoter": []}
+    for call in calls:
+        if call.nps_score == SALES_NPS_PROMOTER:
+            raw["promoter"].append(call)
+        elif call.nps_score == SALES_NPS_DETRACTOR:
+            raw["detractor"].append(call)
+        else:
+            raw["na"].append(call)
+    return {category: _interleave_by_rooftop(bucket) for category, bucket in raw.items()}
+
+
+def _pick_sales_calls_for_user(
+    buckets: dict[str, list[RawCall]],
+    current_load: int,
+    max_calls: int,
+    targets: SalesCallTargets,
+) -> list[RawCall]:
+    """Draw up to max_calls sales calls from shared buckets using targets then fallback priority."""
+    remaining = max_calls - current_load
+    if remaining <= 0:
+        return []
+
+    picks: list[RawCall] = []
+    target_map = targets.model_dump()
+
+    for category in SALES_FILL_PRIORITY:
+        if remaining == 0:
+            break
+        available = buckets[category]
+        selected = available[:min(target_map[category], remaining)]
+        picks.extend(selected)
+        for call in selected:
+            available.remove(call)
+        remaining -= len(selected)
+
+    while remaining > 0:
+        picked_any = False
+        for category in SALES_FILL_PRIORITY:
+            if remaining == 0:
+                break
+            available = buckets[category]
+            if not available:
+                continue
+            picks.append(available.pop(0))
+            remaining -= 1
+            picked_any = True
+        if not picked_any:
+            break
+
+    return picks
 
 
 def _interleave_by_rooftop(calls: list[RawCall]) -> list[RawCall]:

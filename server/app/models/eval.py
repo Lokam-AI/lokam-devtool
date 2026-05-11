@@ -52,11 +52,8 @@ class Eval(Base, TimestampMixin):
     gt_incomplete_reason: Mapped[str | None] = mapped_column(Text)
     gt_is_dnc_request: Mapped[bool | None] = mapped_column(Boolean)
     gt_escalation_needed: Mapped[bool | None] = mapped_column(Boolean)
-    # Sales-specific ground-truth fields (nullable; populated only when call_type='sales')
-    gt_objection_category: Mapped[str | None] = mapped_column(String(64))
-    gt_disposition: Mapped[str | None] = mapped_column(String(32))
-    gt_lead_status_outcome: Mapped[str | None] = mapped_column(String(32))
-    gt_sentiment: Mapped[str | None] = mapped_column(String(16))
+    # Sales-only ground-truth: hot-lead flag (mirrors lokamspace lead_escalated bool)
+    gt_lead_escalated: Mapped[bool | None] = mapped_column(Boolean)
     # Scenario tagging
     scenario_tags: Mapped[dict | None] = mapped_column(JSONB)
     scenario_tags_str: Mapped[str | None] = mapped_column(Text)

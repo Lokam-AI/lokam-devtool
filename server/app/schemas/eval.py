@@ -36,10 +36,7 @@ class EvalUpdate(BaseModel):
     gt_incomplete_reason: str | None = None
     gt_is_dnc_request: bool | None = None
     gt_escalation_needed: bool | None = None
-    gt_objection_category: str | None = None
-    gt_disposition: str | None = None
-    gt_lead_status_outcome: str | None = None
-    gt_sentiment: str | None = None
+    gt_lead_escalated: bool | None = None
     scenario_tags: Any | None = None
     scenario_tags_str: str | None = None
 
@@ -72,10 +69,7 @@ class EvalRead(BaseModel):
     gt_incomplete_reason: str | None = None
     gt_is_dnc_request: bool | None = None
     gt_escalation_needed: bool | None = None
-    gt_objection_category: str | None = None
-    gt_disposition: str | None = None
-    gt_lead_status_outcome: str | None = None
-    gt_sentiment: str | None = None
+    gt_lead_escalated: bool | None = None
     scenario_tags: Any | None = None
     scenario_tags_str: str | None = None
     formatted_tags: Any | None = None

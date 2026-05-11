@@ -9,6 +9,8 @@ export interface User {
   must_change_password: boolean;
 }
 
+export type CallType = "service" | "sales";
+
 export interface RawCall {
   id: string;
   call_id: string;
@@ -16,6 +18,7 @@ export interface RawCall {
   duration: number;
   campaign: string;
   lead_type: string | null;
+  call_type: CallType;
   organization_name: string;
   rooftop_name: string;
   call_status: string;
@@ -36,6 +39,7 @@ export interface RawCall {
   ai_is_dnc_request: boolean;
   ai_escalation_needed: boolean;
   ai_callback_requested: boolean;
+  ai_lead_escalated: boolean | null;
   call_metadata?: Record<string, unknown> | null;
   is_post_call_sms_survey: boolean;
   post_call_sms_body?: string;
@@ -52,6 +56,7 @@ export interface Eval {
   call_id: string;
   reviewer_id: string;
   status: "pending" | "completed";
+  call_type: CallType;
   gt_nps_score: number | null;
   gt_call_summary: string | null;
   gt_overall_feedback: string | null;
@@ -63,6 +68,8 @@ export interface Eval {
   gt_incomplete_reason: string | null;
   gt_is_dnc_request: boolean | null;
   gt_escalation_needed: boolean | null;
+  // Sales-only: lokamspace hot-lead flag verification
+  gt_lead_escalated: boolean | null;
   corrections: Record<string, { ai_value: unknown; gt_value: unknown }>;
   completed_at: string | null;
 }
@@ -167,7 +174,15 @@ export interface CallTargets {
   missed: number;
 }
 
+export interface SalesCallTargets {
+  na: number;
+  detractor: number;
+  promoter: number;
+}
+
 export interface AssignmentConfig {
   max_calls_per_user: number;
   call_targets: CallTargets;
+  sales_max_calls_per_user: number;
+  sales_call_targets: SalesCallTargets;
 }

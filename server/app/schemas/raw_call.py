@@ -30,6 +30,7 @@ class RawCallCreate(BaseModel):
     incomplete_reason: str | None = None
     is_dnc_request: bool | None = None
     escalation_needed: bool | None = None
+    lead_escalated: bool | None = None
     raw_transcript: str | None = None
     formatted_transcript: str | None = None
     recording_url: str | None = None
