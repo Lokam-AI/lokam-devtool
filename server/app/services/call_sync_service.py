@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import date
 
 import httpx
@@ -15,6 +16,13 @@ HTTP_TIMEOUT_SECONDS = 30
 
 
 APP_ENV_NAME = "app"
+
+LEAD_TYPE_TO_CALL_TYPE: dict[str, str] = {
+    "SERVICE_POST_RO": "service",
+    "SALES_PRE_LEAD": "sales",
+}
+
+logger = logging.getLogger(__name__)
 
 
 async def sync_calls_for_date(db: AsyncSession, call_date: date) -> dict[str, int]:
@@ -41,13 +49,15 @@ async def _sync_single_env(db: AsyncSession, client: httpx.AsyncClient, env: obj
     response.raise_for_status()
     payload = response.json()
 
-    SUPPORTED_LEAD_TYPE = "SERVICE_POST_RO"
-
     calls_data: list[dict] = payload if isinstance(payload, list) else payload.get("calls", [])
     upserted = 0
     for item in calls_data:
-        if item.get("lead_type") != SUPPORTED_LEAD_TYPE:
+        lead_type = item.get("lead_type")
+        call_type = LEAD_TYPE_TO_CALL_TYPE.get(lead_type) if lead_type is not None else None
+        if call_type is None:
+            logger.info("Skipping call with unsupported lead_type=%s", lead_type)
             continue
+        item["call_type"] = call_type
         item["source_env"] = env.name
         if "id" in item and "lokam_call_id" not in item:
             item["lokam_call_id"] = item.pop("id")

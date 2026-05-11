@@ -18,6 +18,15 @@ GT_FIELDS = (
     "gt_escalation_needed",
 )
 
+# Sales-specific gt_ fields. No AI-output counterpart on RawCall, so any non-null
+# submission counts as a reviewer-added correction.
+SALES_GT_FIELDS = (
+    "gt_objection_category",
+    "gt_disposition",
+    "gt_lead_status_outcome",
+    "gt_sentiment",
+)
+
 
 async def get_eval_form(db: AsyncSession, eval_id: int, *, requesting_user_id: int, requesting_role: str) -> EvalRead:
     """Return an eval with its raw call context; reviewers may only access their own."""
@@ -76,7 +85,7 @@ def _normalize_correction_value(value: object | None) -> object | None:
 
 
 def _compute_has_corrections(raw_call: object, submitted: dict) -> bool:
-    """Return True if any submitted gt_ field differs from the original AI output."""
+    """Return True if any submitted gt_ field differs from the original AI output (or, for sales-only fields, is non-null)."""
     field_map = {
         "gt_call_summary": "call_summary",
         "gt_nps_score": "nps_score",
@@ -100,5 +109,11 @@ def _compute_has_corrections(raw_call: object, submitted: dict) -> bool:
             submitted_val = _normalize_correction_value(submitted_val)
             original_val = _normalize_correction_value(original_val)
         if submitted_val != original_val:
+            return True
+    # Sales gt fields have no AI-output counterpart; any non-null submission is reviewer-added ground truth.
+    for gt_field in SALES_GT_FIELDS:
+        if gt_field not in submitted:
+            continue
+        if _normalize_correction_value(submitted[gt_field]) is not None:
             return True
     return False

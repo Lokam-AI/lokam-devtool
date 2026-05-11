@@ -69,3 +69,6 @@ settings = Settings()
 MAX_CALLS_PER_USER: int = 5
 CALL_TARGETS: dict[str, int] = {"na": 2, "passive": 0, "detractor": 1, "promoter": 1, "missed": 1}
 FILL_PRIORITY: list[str] = ["na", "detractor", "missed", "promoter", "passive"]
+
+# Sales-call assignment: flat quota per reviewer per day (no NPS bucketing for sales).
+SALES_MAX_CALLS_PER_USER: int = 5

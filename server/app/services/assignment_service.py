@@ -6,7 +6,7 @@ from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import FILL_PRIORITY
+from app.core.config import FILL_PRIORITY, SALES_MAX_CALLS_PER_USER
 from app.models.eval import Eval
 from app.models.raw_call import RawCall
 from app.repositories import eval_repo, raw_call_repo, user_repo
@@ -17,19 +17,48 @@ from app.services.assignment_config_service import get_config
 PROMOTER_NPS_MIN = 9
 DETRACTOR_NPS_MAX = 6
 
+CALL_TYPE_SERVICE = "service"
+CALL_TYPE_SALES = "sales"
+SUPPORTED_CALL_TYPES: tuple[str, ...] = (CALL_TYPE_SERVICE, CALL_TYPE_SALES)
+
 
 async def assign_calls_for_date(db: AsyncSession, call_date: date, source_env: str | None = None) -> int:
-    """Assign unassigned calls to all active users using quota buckets; return count of new Evals created."""
+    """Assign unassigned calls of every supported call_type to active users; return total Evals created."""
     users = await user_repo.list_all_active(db)
     if not users:
         return 0
 
-    unassigned = await raw_call_repo.get_unassigned_for_date(db, call_date, source_env)
+    total = 0
+    for call_type in SUPPORTED_CALL_TYPES:
+        total += await _assign_for_call_type(db, users, call_date, call_type, source_env)
+    return total
+
+
+async def _assign_for_call_type(
+    db: AsyncSession,
+    users: list,
+    call_date: date,
+    call_type: str,
+    source_env: str | None,
+) -> int:
+    """Assign unassigned calls of one call_type using the strategy appropriate for that type."""
+    unassigned = await raw_call_repo.get_unassigned_for_date(db, call_date, source_env, call_type=call_type)
     if not unassigned:
         return 0
+    if call_type == CALL_TYPE_SALES:
+        return await _assign_sales(db, users, call_date, unassigned)
+    return await _assign_service(db, users, call_date, unassigned)
 
+
+async def _assign_service(
+    db: AsyncSession,
+    users: list,
+    call_date: date,
+    unassigned: list[RawCall],
+) -> int:
+    """Service-call assignment: NPS quota buckets + per-user fill priority."""
     config = await get_config(db)
-    user_load = await _build_reviewer_load(db, [u.id for u in users], call_date)
+    user_load = await _build_reviewer_load(db, [u.id for u in users], call_date, call_type=CALL_TYPE_SERVICE)
     buckets = _categorize_calls(unassigned)
 
     shuffled_users = users.copy()
@@ -40,6 +69,37 @@ async def assign_calls_for_date(db: AsyncSession, call_date: date, source_env: s
         picked = _pick_calls_for_user(buckets, user_load.get(user.id, 0), config)
         for call in picked:
             records.append(_build_eval_create(call, user.id))
+
+    if records:
+        await eval_repo.create_bulk(db, records)
+    return len(records)
+
+
+async def _assign_sales(
+    db: AsyncSession,
+    users: list,
+    call_date: date,
+    unassigned: list[RawCall],
+) -> int:
+    """Sales-call assignment: flat per-reviewer quota, calls interleaved by rooftop, no NPS bucketing."""
+    user_load = await _build_reviewer_load(db, [u.id for u in users], call_date, call_type=CALL_TYPE_SALES)
+    queue = _interleave_by_rooftop(unassigned)
+
+    shuffled_users = users.copy()
+    random.shuffle(shuffled_users)
+
+    records: list[EvalCreate] = []
+    queue_idx = 0
+    for user in shuffled_users:
+        remaining = SALES_MAX_CALLS_PER_USER - user_load.get(user.id, 0)
+        if remaining <= 0:
+            continue
+        picks = queue[queue_idx:queue_idx + remaining]
+        queue_idx += len(picks)
+        for call in picks:
+            records.append(_build_eval_create(call, user.id))
+        if queue_idx >= len(queue):
+            break
 
     if records:
         await eval_repo.create_bulk(db, records)
@@ -165,16 +225,23 @@ def _pick_calls_for_user(
     return picks
 
 
-async def _build_reviewer_load(db: AsyncSession, user_ids: list[int], call_date: date) -> dict[int, int]:
-    """Return a mapping of user_id → count of evals already assigned for the date."""
+async def _build_reviewer_load(
+    db: AsyncSession,
+    user_ids: list[int],
+    call_date: date,
+    call_type: str | None = None,
+) -> dict[int, int]:
+    """Return a mapping of user_id → count of evals already assigned for the date, optionally per call_type."""
     from sqlalchemy import func, select
 
-    result = await db.execute(
+    query = (
         select(Eval.assigned_to, func.count(Eval.id))
         .join(RawCall, Eval.call_id == RawCall.lokam_call_id)
         .where(RawCall.call_date == call_date, Eval.assigned_to.in_(user_ids))
-        .group_by(Eval.assigned_to)
     )
+    if call_type is not None:
+        query = query.where(Eval.call_type == call_type)
+    result = await db.execute(query.group_by(Eval.assigned_to))
     return {row[0]: row[1] for row in result.all()}
 
 
@@ -185,6 +252,7 @@ def _build_eval_create(call: RawCall, user_id: int) -> EvalCreate:
         assigned_to=user_id,
         call_status=call.call_status,
         lead_type=call.lead_type,
+        call_type=call.call_type,
         raw_transcript=call.raw_transcript,
         formatted_transcript=call.formatted_transcript,
         recording_url=call.recording_url,

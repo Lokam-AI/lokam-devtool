@@ -1,9 +1,12 @@
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 PAGE_SIZE = 30
+
+CallType = Literal["service", "sales"]
 
 from app.dependencies import get_current_user, get_db, require_admin, require_reviewer
 from app.exceptions import NotFoundError
@@ -19,11 +22,14 @@ router = APIRouter(prefix="/calls", tags=["calls"])
 async def list_calls(
     call_date: date = Query(...),
     source_env: str | None = Query(default=None),
+    call_type: CallType | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> list[RawCallRead]:
-    """Return raw calls filtered by date and optional environment; admin+ only."""
+    """Return raw calls filtered by date and optional environment / call_type; admin+ only."""
     rows = await raw_call_repo.list_by_date(db, call_date, source_env)
+    if call_type is not None:
+        rows = [r for r in rows if r.call_type == call_type]
     return [RawCallRead.model_validate(r) for r in rows]
 
 
@@ -37,6 +43,7 @@ async def list_all_calls(
     organization_name: str | None = Query(default=None),
     nps_filter: str | None = Query(default=None),
     post_call_sms: str | None = Query(default=None),
+    call_type: CallType | None = Query(default=None),
     sort_by: str = Query(default="date"),
     sort_dir: str = Query(default="desc"),
     limit: int = Query(default=PAGE_SIZE, le=200),
@@ -48,6 +55,7 @@ async def list_all_calls(
     rows = await raw_call_repo.list_all(
         db, source_env, call_status, date_from, date_to,
         search, organization_name, nps_filter, post_call_sms, sort_by, sort_dir, limit, offset,
+        call_type=call_type,
     )
     return [RawCallRead.model_validate(r) for r in rows]
 
@@ -62,12 +70,14 @@ async def count_all_calls(
     organization_name: str | None = Query(default=None),
     nps_filter: str | None = Query(default=None),
     post_call_sms: str | None = Query(default=None),
+    call_type: CallType | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_reviewer),
 ) -> dict[str, int]:
     """Return count of all raw calls matching filters; reviewer+ only."""
     total = await raw_call_repo.count_all(
         db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms,
+        call_type=call_type,
     )
     return {"count": total}
 
@@ -82,12 +92,14 @@ async def stats_all_calls(
     organization_name: str | None = Query(default=None),
     nps_filter: str | None = Query(default=None),
     post_call_sms: str | None = Query(default=None),
+    call_type: CallType | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_reviewer),
 ) -> dict:
     """Return avg_duration_sec and avg_nps across all raw calls matching filters; reviewer+ only."""
     return await raw_call_repo.stats_all(
         db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms,
+        call_type=call_type,
     )
 
 

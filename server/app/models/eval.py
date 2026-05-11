@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
+from app.models.raw_call import CALL_TYPE_ENUM_NAME, CALL_TYPE_SERVICE, CALL_TYPE_VALUES
 
 VALID_EVAL_STATUSES = ("pending", "in_progress", "completed")
 DEFAULT_EVAL_STATUS = "pending"
@@ -22,6 +23,7 @@ class Eval(Base, TimestampMixin):
         Index("idx_evals_eval_status", "eval_status"),
         Index("idx_evals_call_id", "call_id"),
         Index("idx_evals_completed_at", "completed_at"),
+        Index("idx_evals_assigned_call_type", "assigned_to", "call_type"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -29,6 +31,11 @@ class Eval(Base, TimestampMixin):
     # Denormalized context
     call_status: Mapped[str | None] = mapped_column(String(20))
     lead_type: Mapped[str | None] = mapped_column(String(50))
+    call_type: Mapped[str] = mapped_column(
+        SAEnum(*CALL_TYPE_VALUES, name=CALL_TYPE_ENUM_NAME, create_type=False),
+        nullable=False,
+        server_default=CALL_TYPE_SERVICE,
+    )
     raw_transcript: Mapped[str | None] = mapped_column(Text)
     formatted_transcript: Mapped[str | None] = mapped_column(Text)
     recording_url: Mapped[str | None] = mapped_column(Text)
@@ -45,6 +52,11 @@ class Eval(Base, TimestampMixin):
     gt_incomplete_reason: Mapped[str | None] = mapped_column(Text)
     gt_is_dnc_request: Mapped[bool | None] = mapped_column(Boolean)
     gt_escalation_needed: Mapped[bool | None] = mapped_column(Boolean)
+    # Sales-specific ground-truth fields (nullable; populated only when call_type='sales')
+    gt_objection_category: Mapped[str | None] = mapped_column(String(64))
+    gt_disposition: Mapped[str | None] = mapped_column(String(32))
+    gt_lead_status_outcome: Mapped[str | None] = mapped_column(String(32))
+    gt_sentiment: Mapped[str | None] = mapped_column(String(16))
     # Scenario tagging
     scenario_tags: Mapped[dict | None] = mapped_column(JSONB)
     scenario_tags_str: Mapped[str | None] = mapped_column(Text)

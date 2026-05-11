@@ -115,6 +115,7 @@ def _build_calls_for_reviewer_query(
     post_call_sms: str | None,
     sort_by: str,
     sort_dir: str,
+    call_type: str | None = None,
 ) -> object:
     """Build a joined Eval+RawCall query for a reviewer with optional filters."""
     from sqlalchemy import cast
@@ -127,6 +128,8 @@ def _build_calls_for_reviewer_query(
     )
     if eval_status is not None:
         query = query.where(Eval.eval_status == eval_status)
+    if call_type is not None:
+        query = query.where(Eval.call_type == call_type)
     if date_from is not None:
         query = query.where(RawCall.call_date >= date_from)
     if date_to is not None:
@@ -180,10 +183,11 @@ async def list_calls_for_reviewer(
     sort_dir: str = "desc",
     limit: int = 30,
     offset: int = 0,
+    call_type: str | None = None,
 ) -> list[tuple[Eval, RawCall]]:
     """Return paginated eval+call pairs for a reviewer with optional filters."""
     query = _build_calls_for_reviewer_query(
-        user_id, eval_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, sort_by, sort_dir,
+        user_id, eval_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, sort_by, sort_dir, call_type,
     )
     result = await db.execute(query.limit(limit).offset(offset))
     return list(result.all())
@@ -199,6 +203,7 @@ async def count_calls_for_reviewer(
     organization_name: str | None = None,
     nps_filter: str | None = None,
     post_call_sms: str | None = None,
+    call_type: str | None = None,
 ) -> int:
     """Return count of eval+call pairs matching reviewer filters."""
     from sqlalchemy import cast
@@ -212,6 +217,8 @@ async def count_calls_for_reviewer(
     )
     if eval_status is not None:
         count_q = count_q.where(Eval.eval_status == eval_status)
+    if call_type is not None:
+        count_q = count_q.where(Eval.call_type == call_type)
     if date_from is not None:
         count_q = count_q.where(RawCall.call_date >= date_from)
     if date_to is not None:
@@ -252,6 +259,7 @@ async def stats_calls_for_reviewer(
     organization_name: str | None = None,
     nps_filter: str | None = None,
     post_call_sms: str | None = None,
+    call_type: str | None = None,
 ) -> dict:
     """Return avg_duration_sec for all reviewer-assigned call+eval pairs matching filters."""
     from sqlalchemy import cast
@@ -265,6 +273,8 @@ async def stats_calls_for_reviewer(
     )
     if eval_status is not None:
         query = query.where(Eval.eval_status == eval_status)
+    if call_type is not None:
+        query = query.where(Eval.call_type == call_type)
     if date_from is not None:
         query = query.where(RawCall.call_date >= date_from)
     if date_to is not None:
