@@ -15,7 +15,7 @@ import logging
 
 from sqlalchemy import text
 
-from app.core.database import engine
+from app.core.database import async_engine
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ BACKFILL_STATEMENTS = [
 
 async def run(dry_run: bool) -> None:
     """Execute backfill updates and report row counts."""
-    async with engine.begin() as conn:
+    async with async_engine.begin() as conn:
         for field, sql in BACKFILL_STATEMENTS:
             if dry_run:
                 count_sql = text(f"""
