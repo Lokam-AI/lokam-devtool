@@ -15,6 +15,7 @@ class RawCallCreate(BaseModel):
     rooftop_name: str | None = None
     campaign_name: str | None = None
     lead_type: str | None = None
+    call_type: str = "service"
     call_status: str | None = None
     ended_reason: str | None = None
     review_link_sent: bool | None = None

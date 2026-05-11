@@ -35,8 +35,13 @@ async def list_by_date(db: AsyncSession, call_date: date, source_env: str | None
     return list(result.scalars().all())
 
 
-async def get_unassigned_for_date(db: AsyncSession, call_date: date, source_env: str | None = None) -> list[RawCall]:
-    """Return RawCall rows with no Eval assigned for the given date."""
+async def get_unassigned_for_date(
+    db: AsyncSession,
+    call_date: date,
+    source_env: str | None = None,
+    call_type: str | None = None,
+) -> list[RawCall]:
+    """Return RawCall rows with no Eval assigned for the given date, optionally filtered by call_type."""
     from app.models.eval import Eval
 
     # Scope the exclusion to evals whose linked call falls on call_date only,
@@ -49,10 +54,11 @@ async def get_unassigned_for_date(db: AsyncSession, call_date: date, source_env:
     query = (
         select(RawCall)
         .where(RawCall.call_date == call_date)
-        .where(RawCall.lead_type == "SERVICE_POST_RO")
         .where(RawCall.direction == "outbound")
         .where(RawCall.lokam_call_id.not_in(assigned_ids_subq))
     )
+    if call_type is not None:
+        query = query.where(RawCall.call_type == call_type)
     if source_env is not None:
         query = query.where(RawCall.source_env == source_env)
     result = await db.execute(query.order_by(RawCall.id))
@@ -69,12 +75,15 @@ def _apply_call_filters(
     organization_name: str | None,
     nps_filter: str | None,
     post_call_sms: str | None = None,
+    call_type: str | None = None,
 ) -> object:
     """Apply shared filter clauses to a RawCall select query."""
     if source_env is not None:
         query = query.where(RawCall.source_env == source_env)
     if call_status is not None:
         query = query.where(RawCall.call_status == call_status)
+    if call_type is not None:
+        query = query.where(RawCall.call_type == call_type)
     if date_from is not None:
         query = query.where(RawCall.call_date >= date_from)
     if date_to is not None:
@@ -132,10 +141,11 @@ async def list_all(
     sort_dir: str = "desc",
     limit: int = 30,
     offset: int = 0,
+    call_type: str | None = None,
 ) -> list[RawCall]:
     """Return all RawCall rows with optional filters, ordered as requested."""
     query = select(RawCall)
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms)
+    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, call_type)
     query = _apply_call_sort(query, sort_by, sort_dir)
     result = await db.execute(query.limit(limit).offset(offset))
     return list(result.scalars().all())
@@ -151,10 +161,11 @@ async def count_all(
     organization_name: str | None = None,
     nps_filter: str | None = None,
     post_call_sms: str | None = None,
+    call_type: str | None = None,
 ) -> int:
     """Return count of RawCall rows matching filters."""
     query = select(func.count(RawCall.id))
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms)
+    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, call_type)
     result = await db.execute(query)
     return result.scalar_one()
 
@@ -169,13 +180,14 @@ async def stats_all(
     organization_name: str | None = None,
     nps_filter: str | None = None,
     post_call_sms: str | None = None,
+    call_type: str | None = None,
 ) -> dict:
     """Return avg_duration_sec and avg_nps for all RawCall rows matching filters."""
     query = select(
         func.avg(RawCall.duration_sec).label("avg_duration"),
         func.avg(RawCall.nps_score).label("avg_nps"),
     )
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms)
+    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, call_type)
     result = await db.execute(query)
     row = result.one()
     return {
