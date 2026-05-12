@@ -1,11 +1,16 @@
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Enum as SAEnum, Index, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
+
+CALL_TYPE_ENUM_NAME = "call_type_enum"
+CALL_TYPE_SERVICE = "service"
+CALL_TYPE_SALES = "sales"
+CALL_TYPE_VALUES = (CALL_TYPE_SERVICE, CALL_TYPE_SALES)
 
 
 class RawCall(Base, TimestampMixin):
@@ -16,6 +21,7 @@ class RawCall(Base, TimestampMixin):
         Index("idx_raw_calls_call_date", "call_date"),
         Index("idx_raw_calls_lokam_call_id", "lokam_call_id"),
         Index("idx_raw_calls_source_env", "source_env"),
+        Index("idx_raw_calls_call_type_date", "call_type", "call_date"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -25,6 +31,11 @@ class RawCall(Base, TimestampMixin):
     rooftop_name: Mapped[str | None] = mapped_column(String(150))
     campaign_name: Mapped[str | None] = mapped_column(String(150))
     lead_type: Mapped[str | None] = mapped_column(String(50))
+    call_type: Mapped[str] = mapped_column(
+        SAEnum(*CALL_TYPE_VALUES, name=CALL_TYPE_ENUM_NAME, create_type=False),
+        nullable=False,
+        server_default=CALL_TYPE_SERVICE,
+    )
     # Call metadata
     call_status: Mapped[str | None] = mapped_column(String(20))
     ended_reason: Mapped[str | None] = mapped_column(String(100))
@@ -42,6 +53,8 @@ class RawCall(Base, TimestampMixin):
     incomplete_reason: Mapped[str | None] = mapped_column(Text)
     is_dnc_request: Mapped[bool | None] = mapped_column(Boolean)
     escalation_needed: Mapped[bool | None] = mapped_column(Boolean)
+    # Sales-only AI flag: lokamspace voice agent marks hot leads worth follow-up
+    lead_escalated: Mapped[bool | None] = mapped_column(Boolean)
     # Transcripts & recording
     raw_transcript: Mapped[str | None] = mapped_column(Text)
     formatted_transcript: Mapped[str | None] = mapped_column(Text)
@@ -68,6 +81,6 @@ class RawCall(Base, TimestampMixin):
     post_call_sms_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     post_call_sms_nps: Mapped[int | None] = mapped_column(Integer)
 
-    def __init__(self, *, source_env: str = "prod", **kwargs: Any) -> None:
-        """Initialize RawCall with prod as the default source environment."""
-        super().__init__(source_env=source_env, **kwargs)
+    def __init__(self, *, source_env: str = "prod", call_type: str = CALL_TYPE_SERVICE, **kwargs: Any) -> None:
+        """Initialize RawCall with prod env and service call_type as defaults."""
+        super().__init__(source_env=source_env, call_type=call_type, **kwargs)

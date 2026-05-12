@@ -4,6 +4,7 @@ import type {
   User,
   RawCall,
   Eval,
+  CallType,
   CallWithEval,
   TeamMember,
   BugReport,
@@ -45,6 +46,7 @@ function mapCall(r: BackendRawCall): RawCall {
     duration: r.duration_sec ?? 0,
     campaign: r.campaign_name ?? "",
     lead_type: r.lead_type ?? null,
+    call_type: (r.call_type ?? "service") as CallType,
     organization_name: r.organization_name ?? "",
     rooftop_name: r.rooftop_name ?? "",
     call_status: r.call_status ?? "",
@@ -65,6 +67,7 @@ function mapCall(r: BackendRawCall): RawCall {
     ai_is_dnc_request: r.is_dnc_request ?? false,
     ai_escalation_needed: r.escalation_needed ?? false,
     ai_callback_requested: false,
+    ai_lead_escalated: r.lead_escalated ?? null,
     call_metadata: r.call_metadata ?? null,
     is_post_call_sms_survey: r.is_post_call_sms_survey ?? false,
     post_call_sms_body: r.post_call_sms_body ?? undefined,
@@ -86,6 +89,7 @@ function mapEval(r: BackendEval, assignedToId?: string): Eval {
     call_id: String(r.call_id),
     reviewer_id: String(r.assigned_to),
     status: r.eval_status === "completed" ? "completed" : "pending",
+    call_type: (r.call_type ?? "service") as CallType,
     gt_nps_score: r.gt_nps_score ?? null,
     gt_call_summary: r.gt_call_summary ?? null,
     gt_overall_feedback: r.gt_overall_feedback ?? null,
@@ -97,6 +101,7 @@ function mapEval(r: BackendEval, assignedToId?: string): Eval {
     gt_incomplete_reason: r.gt_incomplete_reason ?? null,
     gt_is_dnc_request: r.gt_is_dnc_request ?? null,
     gt_escalation_needed: r.gt_escalation_needed ?? null,
+    gt_lead_escalated: r.gt_lead_escalated ?? null,
     corrections: {},
     completed_at: r.completed_at ?? null,
   };
@@ -112,6 +117,7 @@ interface BackendRawCall {
   duration_sec: number | null;
   campaign_name: string | null;
   lead_type: string | null;
+  call_type: CallType | null;
   organization_name: string | null;
   rooftop_name: string | null;
   call_status: string | null;
@@ -129,6 +135,7 @@ interface BackendRawCall {
   is_incomplete_call: boolean | null;
   is_dnc_request: boolean | null;
   escalation_needed: boolean | null;
+  lead_escalated: boolean | null;
   formatted_transcript: string | null;
   raw_transcript: string | null;
   recording_url: string | null;
@@ -148,6 +155,7 @@ interface BackendEval {
   call_id: number;
   assigned_to: number;
   eval_status: "pending" | "in_progress" | "completed";
+  call_type: CallType | null;
   gt_nps_score: number | null;
   gt_call_summary: string | null;
   gt_overall_feedback: string | null;
@@ -157,6 +165,7 @@ interface BackendEval {
   gt_incomplete_reason: string | null;
   gt_is_dnc_request: boolean | null;
   gt_escalation_needed: boolean | null;
+  gt_lead_escalated: boolean | null;
   completed_at: string | null;
   has_corrections: boolean;
 }
@@ -214,6 +223,7 @@ export interface MyCallsParams {
   organization_name?: string;
   nps_filter?: string;
   post_call_sms?: string;
+  call_type?: CallType;
   sort_by?: string;
   sort_dir?: string;
   limit?: number;
@@ -269,6 +279,7 @@ export const apiGetCall = async (id: string): Promise<CallWithEval | undefined> 
       call_id: call.id,
       reviewer_id: useAuthStore.getState().user?.id ?? "0",
       status: "pending",
+      call_type: call.call_type,
       gt_nps_score: null,
       gt_call_summary: null,
       gt_overall_feedback: null,
@@ -276,6 +287,11 @@ export const apiGetCall = async (id: string): Promise<CallWithEval | undefined> 
       gt_detractors: null,
       gt_is_resolved: null,
       gt_callback_requested: null,
+      gt_is_incomplete_call: null,
+      gt_incomplete_reason: null,
+      gt_is_dnc_request: null,
+      gt_escalation_needed: null,
+      gt_lead_escalated: null,
       corrections: {},
       completed_at: null,
     };
@@ -305,6 +321,7 @@ export const apiSubmitEval = async (evalId: string, data: Partial<Eval>): Promis
   if (data.gt_incomplete_reason  !== undefined) body.gt_incomplete_reason  = data.gt_incomplete_reason;
   if (data.gt_is_dnc_request     !== undefined) body.gt_is_dnc_request     = data.gt_is_dnc_request;
   if (data.gt_escalation_needed  !== undefined) body.gt_escalation_needed  = data.gt_escalation_needed;
+  if (data.gt_lead_escalated     !== undefined) body.gt_lead_escalated     = data.gt_lead_escalated;
   if (data.status) body.eval_status = data.status;
 
   // Default to completed when submitting
@@ -433,6 +450,7 @@ export interface AllCallsParams {
   organization_name?: string;
   nps_filter?: string;
   post_call_sms?: string;
+  call_type?: CallType;
   sort_by?: string;
   sort_dir?: string;
   limit?: number;

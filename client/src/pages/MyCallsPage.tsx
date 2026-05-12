@@ -49,6 +49,7 @@ export default function MyCallsPage() {
     organization_name: filters.org !== "all" ? filters.org : undefined,
     nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter : undefined,
     post_call_sms:     filters.postCallSms !== "all" ? filters.postCallSms : undefined,
+    call_type:         filters.callType !== "all" ? filters.callType : undefined,
     sort_by:           filters.sortBy,
     sort_dir:          filters.sortDir,
   }), [filters]);
@@ -67,6 +68,7 @@ export default function MyCallsPage() {
     organization_name: filters.org !== "all" ? filters.org : undefined,
     nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter : undefined,
     post_call_sms:     filters.postCallSms !== "all" ? filters.postCallSms : undefined,
+    call_type:         filters.callType !== "all" ? filters.callType : undefined,
   }), [filters]);
 
   const { data, isLoading, isError } = useCalls(callParams);
@@ -98,7 +100,8 @@ export default function MyCallsPage() {
 
   const hasFilters =
     filters.search || filters.evalStatus !== "all" || filters.npsFilter !== "all" ||
-    filters.postCallSms !== "all" || filters.org !== "all" || !!filters.dateRange?.from || filters.sortBy !== "date" || filters.sortDir !== "desc";
+    filters.postCallSms !== "all" || filters.org !== "all" || filters.callType !== "all" ||
+    !!filters.dateRange?.from || filters.sortBy !== "date" || filters.sortDir !== "desc";
 
   const visiblePages = useMemo(() => {
     if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -290,6 +293,7 @@ export default function MyCallsPage() {
         value={filters}
         onChange={setFilters}
         showEvalStatus
+        showCallType
         showNps
         showPostCallSms
         showOrg

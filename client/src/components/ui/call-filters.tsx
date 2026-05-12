@@ -19,6 +19,7 @@ export interface CallFilterState {
   sortBy: "date" | "nps" | "duration" | "status";
   sortDir: "asc" | "desc";
   postCallSms: "all" | "yes" | "no";
+  callType: "all" | "service" | "sales";
 }
 
 export const DEFAULT_FILTERS: CallFilterState = {
@@ -32,6 +33,7 @@ export const DEFAULT_FILTERS: CallFilterState = {
   sortBy: "date",
   sortDir: "desc",
   postCallSms: "all",
+  callType: "all",
 };
 
 /* ── Props ─────────────────────────────────────────────────────────── */
@@ -47,6 +49,7 @@ export interface CallFilterBarProps {
   showDateRange?: boolean;
   showSort?: boolean;
   showPostCallSms?: boolean;
+  showCallType?: boolean;
   envOptions?: string[];
   orgOptions?: string[];
   placeholder?: string;
@@ -80,7 +83,8 @@ export function CallFilterBar(props: CallFilterBarProps) {
     (props.showOrg         && value.org         !== "all") ||
     (props.showDateRange   && value.dateRange?.from)       ||
     (props.showSort        && (value.sortBy !== "date" || value.sortDir !== "desc")) ||
-    (props.showPostCallSms && value.postCallSms !== "all")
+    (props.showPostCallSms && value.postCallSms !== "all") ||
+    (props.showCallType    && value.callType    !== "all")
   );
 
   const SORT_LABELS: Record<string, string> = {
@@ -157,6 +161,19 @@ export function CallFilterBar(props: CallFilterBarProps) {
             { value: "",          label: "All calls"  },
             { value: "Completed", label: "Completed"  },
             { value: "Missed",    label: "Missed"     },
+          ]}
+        />
+      )}
+
+      {/* Call Type */}
+      {props.showCallType && (
+        <DropdownSelect
+          value={value.callType === "all" ? "" : value.callType}
+          onChange={(v) => set({ callType: (v || "all") as CallFilterState["callType"] })}
+          options={[
+            { value: "",        label: "All types" },
+            { value: "service", label: "Service"   },
+            { value: "sales",   label: "Sales"     },
           ]}
         />
       )}

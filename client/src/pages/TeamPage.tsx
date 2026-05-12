@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth-store";
 import { UserPlus, Users, ShieldCheck, Star, SlidersHorizontal } from "lucide-react";
-import type { UserRole } from "@/types";
+import type { UserRole, AssignmentConfig } from "@/types";
 
 const FF = '"cv01", "ss03"' as const;
 
@@ -31,40 +31,68 @@ const CATEGORY_CONFIG = [
   { key: "missed",     label: "Missed",     color: "#8a8f98", bg: "rgba(138,143,152,0.08)",  border: "rgba(138,143,152,0.15)" },
 ] as const;
 
-type CatKey = (typeof CATEGORY_CONFIG)[number]["key"];
+// Sales status enum mirrors lokamspace tri-valued NPS — promoter (10) / detractor (5) / na (null).
+const SALES_CATEGORY_CONFIG = [
+  { key: "na",        label: "N/A",       color: "#7170ff", bg: "rgba(113,112,255,0.08)", border: "rgba(113,112,255,0.2)" },
+  { key: "detractor", label: "Detractor", color: "#f87171", bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.2)" },
+  { key: "promoter",  label: "Promoter",  color: "#10b981", bg: "rgba(16,185,129,0.08)",  border: "rgba(16,185,129,0.2)"  },
+] as const;
 
-function AssignmentConfigPanel() {
+type CatKey = (typeof CATEGORY_CONFIG)[number]["key"];
+type SalesCatKey = (typeof SALES_CATEGORY_CONFIG)[number]["key"];
+
+type AnyCatKey = CatKey | SalesCatKey;
+
+function AssignmentConfigPanel<K extends AnyCatKey>({
+  mode,
+  title,
+  categories,
+  initialMax,
+  initialTargets,
+}: {
+  mode: "service" | "sales";
+  title: string;
+  categories: readonly { key: K; label: string; color: string; bg: string; border: string }[];
+  initialMax: number;
+  initialTargets: Record<K, number>;
+}) {
   const { data, isLoading } = useAssignmentConfig();
   const update = useUpdateAssignmentConfig();
 
-  const [maxCalls, setMaxCalls] = useState<number>(5);
-  const [targets, setTargets] = useState<Record<CatKey, number>>({ na: 2, passive: 0, detractor: 1, promoter: 1, missed: 1 });
+  const [maxCalls, setMaxCalls] = useState<number>(initialMax);
+  const [targets, setTargets] = useState<Record<K, number>>(initialTargets);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    if (data) {
+    if (!data) return;
+    if (mode === "service") {
       setMaxCalls(data.max_calls_per_user);
-      setTargets(data.call_targets as Record<CatKey, number>);
-      setDirty(false);
+      setTargets(data.call_targets as unknown as Record<K, number>);
+    } else {
+      setMaxCalls(data.sales_max_calls_per_user);
+      setTargets(data.sales_call_targets as unknown as Record<K, number>);
     }
-  }, [data]);
+    setDirty(false);
+  }, [data, mode]);
 
   const allocated = useMemo(
-    () => CATEGORY_CONFIG.reduce((s, c) => s + (targets[c.key] ?? 0), 0),
-    [targets]
+    () => categories.reduce((s, c) => s + (targets[c.key] ?? 0), 0),
+    [targets, categories]
   );
   const remaining = maxCalls - allocated;
   const isOver = remaining < 0;
-  const fillPct = Math.min(100, maxCalls > 0 ? (allocated / maxCalls) * 100 : 0);
 
   const handleSave = async () => {
     if (isOver) return;
     try {
-      await update.mutateAsync({ max_calls_per_user: maxCalls, call_targets: targets });
-      toast.success("Assignment config saved");
+      const patch = mode === "service"
+        ? { max_calls_per_user: maxCalls, call_targets: targets as unknown as AssignmentConfig["call_targets"] }
+        : { sales_max_calls_per_user: maxCalls, sales_call_targets: targets as unknown as AssignmentConfig["sales_call_targets"] };
+      await update.mutateAsync(patch);
+      toast.success(`${title} saved`);
       setDirty(false);
     } catch {
-      toast.error("Failed to save config");
+      toast.error(`Failed to save ${title.toLowerCase()}`);
     }
   };
 
@@ -90,7 +118,7 @@ function AssignmentConfigPanel() {
               Superadmin
             </span>
             <h2 className="text-sm leading-none mt-0.5" style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}>
-              Assignment Config
+              {title}
             </h2>
           </div>
         </div>
@@ -124,7 +152,7 @@ function AssignmentConfigPanel() {
       <div className="px-7 py-6">
         {isLoading ? (
           <div className="flex gap-4">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: categories.length }).map((_, i) => (
               <Skeleton key={i} className="h-20 flex-1 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }} />
             ))}
           </div>
@@ -158,7 +186,7 @@ function AssignmentConfigPanel() {
               </div>
 
               {/* Category inputs */}
-              {CATEGORY_CONFIG.map((cat, i) => (
+              {categories.map((cat, i) => (
                 <div key={cat.key} className="flex items-end gap-3">
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] uppercase tracking-[0.1em] pl-1" style={{ color: cat.color, fontWeight: 510, fontFeatureSettings: FF, opacity: 0.8 }}>
@@ -176,7 +204,7 @@ function AssignmentConfigPanel() {
                       onBlur={(e)  => { (e.target as HTMLInputElement).style.borderColor = cat.border; }}
                     />
                   </div>
-                  {i < CATEGORY_CONFIG.length - 1 && (
+                  {i < categories.length - 1 && (
                     <span className="pb-[14px] text-sm" style={{ color: "rgba(255,255,255,0.15)" }}>+</span>
                   )}
                 </div>
@@ -206,7 +234,7 @@ function AssignmentConfigPanel() {
 
               {/* Segmented budget bar */}
               <div className="h-1.5 rounded-full overflow-hidden flex gap-px" style={{ background: "rgba(255,255,255,0.05)" }}>
-                {maxCalls > 0 && CATEGORY_CONFIG.map((cat) => {
+                {maxCalls > 0 && categories.map((cat) => {
                   const pct = Math.min(100, (targets[cat.key] / maxCalls) * 100);
                   return pct > 0 ? (
                     <div
@@ -1061,7 +1089,20 @@ function UsersTab() {
         )}
       </div>
 
-      <AssignmentConfigPanel />
+      <AssignmentConfigPanel
+        mode="service"
+        title="Service Assignment Config"
+        categories={CATEGORY_CONFIG}
+        initialMax={5}
+        initialTargets={{ na: 2, passive: 0, detractor: 1, promoter: 1, missed: 1 }}
+      />
+      <AssignmentConfigPanel
+        mode="sales"
+        title="Sales Assignment Config"
+        categories={SALES_CATEGORY_CONFIG}
+        initialMax={2}
+        initialTargets={{ na: 0, detractor: 1, promoter: 1 }}
+      />
     </div>
   );
 }
