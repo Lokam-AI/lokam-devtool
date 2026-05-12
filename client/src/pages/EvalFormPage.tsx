@@ -8,8 +8,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Loader2, Phone, MapPin,
   Bot, Play, Pause, Check, X, ChevronRight, Bug, MessageSquare,
+  Star, Mail,
 } from "lucide-react";
 import { PostCallSmsPanel } from "@/components/PostCallSmsPanel";
+import { CallTypePill } from "@/components/ui/call-type-pill";
 import { toast } from "sonner";
 import type { RawCall, Eval } from "@/types";
 import { parseUtc } from "@/lib/utils";
@@ -31,6 +33,32 @@ const EVAL_TAGS = [
   "Warranty & Coverage",
   "Others",
 ] as const;
+
+// Mirrors lokamspace DEFAULT_UDL_FOCUS_AREAS (server/seed_config.py) — sales detractor enum.
+const SALES_DETRACTOR_TAGS = [
+  "Pricing",
+  "Cosigner",
+  "Payment",
+  "Financing",
+  "Trade-In",
+  "Vehicle Availability",
+  "Sales Interaction",
+  "Timing",
+  "Pressure",
+  "Other Concerns",
+] as const;
+
+// Sales nps_score from lokamspace voice agent is tri-valued: 10=Promoter, 5=Detractor, null=N/A.
+type SalesNpsBucket = "promoter" | "detractor" | "na";
+const npsToBucket = (s: number | null | undefined): SalesNpsBucket =>
+  s === 10 ? "promoter" : s === 5 ? "detractor" : "na";
+const bucketToNps = (b: SalesNpsBucket): number | null =>
+  b === "promoter" ? 10 : b === "detractor" ? 5 : null;
+const SALES_NPS_BUCKETS: { key: SalesNpsBucket; label: string; color: string; bg: string; border: string }[] = [
+  { key: "promoter",  label: "Promoter",  color: "#10b981", bg: "rgba(16,185,129,0.12)",   border: "rgba(16,185,129,0.25)" },
+  { key: "detractor", label: "Detractor", color: "#ff716c", bg: "rgba(255,113,108,0.12)",  border: "rgba(255,113,108,0.25)" },
+  { key: "na",        label: "N/A",       color: "#8a8f98", bg: "rgba(255,255,255,0.04)",  border: "rgba(255,255,255,0.1)"  },
+];
 
 /* ══════════════════════════════════════════════════════════════════════
    Page shell
@@ -89,6 +117,7 @@ function EvalFormInner({
 }) {
   const location = useLocation();
   const saved = evalData.status === "completed";
+  const isSales = callData.call_type === "sales";
   const [bugModalOpen, setBugModalOpen] = useState(false);
   const { skippedIds, skipCall, clearSession } = useEvalSessionStore();
 
@@ -127,6 +156,9 @@ function EvalFormInner({
   const [escalationNeeded, setEscalationNeeded] = useState<boolean>(
     saved ? (evalData.gt_escalation_needed ?? false) : (callData.ai_escalation_needed ?? false)
   );
+  const [leadEscalated, setLeadEscalated] = useState<boolean>(
+    saved ? (evalData.gt_lead_escalated ?? false) : (callData.ai_lead_escalated ?? false)
+  );
 
   // Sync state when React Query delivers fresh data after a stale-cache mount.
   useEffect(() => {
@@ -155,6 +187,7 @@ function EvalFormInner({
     setIncompleteReason(evalData.gt_incomplete_reason ?? "");
     setIsDncRequest(evalData.gt_is_dnc_request ?? false);
     setEscalationNeeded(evalData.gt_escalation_needed ?? false);
+    setLeadEscalated(evalData.gt_lead_escalated ?? false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evalData.id, evalData.status]);
 
@@ -224,11 +257,16 @@ function EvalFormInner({
       positive_mentions: "ai_positive_mentions",
       detractors:        "ai_detractors",
     };
+    // Sales drops positive_mentions (lokamspace doesn't emit it for sales calls).
+    const activeKeys = isSales
+      ? ["nps_score", "call_summary", "detractors"]
+      : ["nps_score", "call_summary", "positive_mentions", "detractors"];
 
-    Object.entries(fields).forEach(([key, state]) => {
+    activeKeys.forEach((key) => {
+      const state = fields[key];
       const gtKey = GT_KEY_MAP[key];
       const aiKey = AI_KEY_MAP[key];
-      if (!gtKey || !aiKey) return;
+      if (!state || !gtKey || !aiKey) return;
       const aiVal = callData[aiKey];
       if (state.correct) {
         (evalUpdate[gtKey] as unknown) = aiVal;
@@ -238,11 +276,14 @@ function EvalFormInner({
       }
     });
 
-    evalUpdate.gt_overall_feedback   = callData.ai_overall_feedback;
+    // Shared bool flags
     evalUpdate.gt_is_incomplete_call = !isNotIncomplete;
     evalUpdate.gt_incomplete_reason  = !isNotIncomplete ? incompleteReason || null : null;
     evalUpdate.gt_is_dnc_request     = isDncRequest;
     evalUpdate.gt_escalation_needed  = escalationNeeded;
+    if (isSales) evalUpdate.gt_lead_escalated = leadEscalated;
+    // Both paths passthrough overall_feedback (no reviewer-facing widget — AI value is final).
+    evalUpdate.gt_overall_feedback = callData.ai_overall_feedback;
     evalUpdate.corrections = corrections;
 
     try {
@@ -301,6 +342,7 @@ function EvalFormInner({
             >
               Call_ID #{callData.call_id}
             </span>
+            <CallTypePill callType={callData.call_type} />
             <span
               className="text-xs"
               style={{ color: "#62666d", fontFeatureSettings: FF }}
@@ -363,7 +405,7 @@ function EvalFormInner({
           {/* Stat pills */}
           <div className="flex items-center gap-2">
             <StatPill label="Duration"  value={durationStr} />
-            {callData.ai_nps_score !== null && (
+            {!isSales && callData.ai_nps_score !== null && (
               <StatPill label="NPS Score" value={`${callData.ai_nps_score}/10`} highlight npsScore={callData.ai_nps_score} />
             )}
             {callData.ended_reason && (
@@ -389,7 +431,7 @@ function EvalFormInner({
                 </span>
               </div>
             )}
-            {callData.review_link_sent && (
+            {!isSales && callData.review_link_sent && (
               <div
                 className="px-3 py-1.5 rounded-md flex items-center gap-2 border"
                 style={{
@@ -397,12 +439,7 @@ function EvalFormInner({
                   borderColor: "rgba(16,185,129,0.25)",
                 }}
               >
-                <span
-                  className="material-symbols-outlined text-sm"
-                  style={{ color: "#10b981", fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20", fontSize: "14px" }}
-                >
-                  star
-                </span>
+                <Star className="h-3.5 w-3.5" style={{ color: "#10b981", fill: "#10b981" }} />
                 <span
                   className="text-[10px] uppercase tracking-widest"
                   style={{ color: "#10b981", fontWeight: 510, fontFeatureSettings: FF }}
@@ -419,12 +456,7 @@ function EvalFormInner({
                   borderColor: "rgba(251,146,60,0.25)",
                 }}
               >
-                <span
-                  className="material-symbols-outlined text-sm"
-                  style={{ color: "#fb923c", fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20", fontSize: "14px" }}
-                >
-                  mail
-                </span>
+                <Mail className="h-3.5 w-3.5" style={{ color: "#fb923c" }} />
                 <span
                   className="text-[10px] uppercase tracking-widest"
                   style={{ color: "#fb923c", fontWeight: 510, fontFeatureSettings: FF }}
@@ -679,35 +711,47 @@ function EvalFormInner({
         <ScrollArea className="flex-1">
           <div className="px-5 py-3 space-y-2.5">
 
-            {/* NPS Score */}
+            {/* NPS Score — sales uses 3-bucket pill (Promoter/Detractor/N/A); service uses 1-10 input */}
             <EvalField
-              label="NPS Score"
-              aiValue={callData.ai_nps_score !== null ? `${callData.ai_nps_score}/10` : "N/A"}
+              label={isSales ? "Status" : "NPS Score"}
+              aiValue={
+                isSales
+                  ? (SALES_NPS_BUCKETS.find((b) => b.key === npsToBucket(callData.ai_nps_score))?.label ?? "N/A")
+                  : (callData.ai_nps_score !== null ? `${callData.ai_nps_score}/10` : "N/A")
+              }
               correct={fields.nps_score.correct}
               onToggle={(v) => setField("nps_score", { correct: v })}
               readOnly={isReadOnly}
               highlight
             >
               {!fields.nps_score.correct && (
-                <input
-                  type="number"
-                  min={1} max={10}
-                  value={fields.nps_score.value == null ? "" : String(fields.nps_score.value)}
-                  onChange={(e) => setField("nps_score", { value: e.target.value === "" ? null : Number(e.target.value) })}
-                  placeholder="Corrected NPS (1–10), blank = N/A"
-                  className="w-full rounded-md px-3 py-2 text-xs border transition-all focus:outline-none mt-2 placeholder:text-[#62666d]"
-                  style={{
-                    background: "rgba(255,255,255,0.02)",
-                    color: "#d0d6e0",
-                    borderColor: "rgba(255,113,108,0.25)",
-                    fontFeatureSettings: FF,
-                  }}
-                  onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "rgba(113,112,255,0.4)"; }}
-                  onBlur={(e)  => { (e.target as HTMLInputElement).style.borderColor = "rgba(255,113,108,0.25)"; }}
-                />
+                isSales ? (
+                  <SalesNpsPillSelector
+                    bucket={npsToBucket(fields.nps_score.value as number | null)}
+                    onChange={(b) => setField("nps_score", { value: bucketToNps(b) })}
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    min={1} max={10}
+                    value={fields.nps_score.value == null ? "" : String(fields.nps_score.value)}
+                    onChange={(e) => setField("nps_score", { value: e.target.value === "" ? null : Number(e.target.value) })}
+                    placeholder="Corrected NPS (1–10), blank = N/A"
+                    className="w-full rounded-md px-3 py-2 text-xs border transition-all focus:outline-none mt-2 placeholder:text-[#62666d]"
+                    style={{
+                      background: "rgba(255,255,255,0.02)",
+                      color: "#d0d6e0",
+                      borderColor: "rgba(255,113,108,0.25)",
+                      fontFeatureSettings: FF,
+                    }}
+                    onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "rgba(113,112,255,0.4)"; }}
+                    onBlur={(e)  => { (e.target as HTMLInputElement).style.borderColor = "rgba(255,113,108,0.25)"; }}
+                  />
+                )
               )}
             </EvalField>
 
+            {/* Call Summary — both call types */}
             {textFields.map((f) => (
               <EvalField
                 key={f.key}
@@ -718,43 +762,27 @@ function EvalFormInner({
                 readOnly={isReadOnly}
               >
                 {!fields[f.key].correct && (
-                  f.type === "textarea" ? (
-                    <textarea
-                      value={String(fields[f.key].value ?? "")}
-                      onChange={(e) => setField(f.key, { value: e.target.value })}
-                      placeholder={`Corrected ${f.label}…`}
-                      rows={2}
-                      className="w-full rounded-md px-3 py-2 text-xs border transition-all focus:outline-none resize-none mt-1 placeholder:text-[#62666d]"
-                      style={{
-                        background: "rgba(255,255,255,0.02)",
-                        color: "#d0d6e0",
-                        borderColor: "rgba(255,113,108,0.25)",
-                        fontFeatureSettings: FF,
-                      }}
-                      onFocus={(e) => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(113,112,255,0.4)"; }}
-                      onBlur={(e)  => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(255,113,108,0.25)"; }}
-                    />
-                  ) : (
-                    <input
-                      value={String(fields[f.key].value ?? "")}
-                      onChange={(e) => setField(f.key, { value: e.target.value })}
-                      placeholder={`Corrected ${f.label}…`}
-                      className="w-full rounded-md px-3 py-2 text-xs border transition-all focus:outline-none mt-1 placeholder:text-[#62666d]"
-                      style={{
-                        background: "rgba(255,255,255,0.02)",
-                        color: "#d0d6e0",
-                        borderColor: "rgba(255,113,108,0.25)",
-                        fontFeatureSettings: FF,
-                      }}
-                      onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = "rgba(113,112,255,0.4)"; }}
-                      onBlur={(e)  => { (e.target as HTMLInputElement).style.borderColor = "rgba(255,113,108,0.25)"; }}
-                    />
-                  )
+                  <textarea
+                    value={String(fields[f.key].value ?? "")}
+                    onChange={(e) => setField(f.key, { value: e.target.value })}
+                    placeholder={`Corrected ${f.label}…`}
+                    rows={2}
+                    className="w-full rounded-md px-3 py-2 text-xs border transition-all focus:outline-none resize-none mt-1 placeholder:text-[#62666d]"
+                    style={{
+                      background: "rgba(255,255,255,0.02)",
+                      color: "#d0d6e0",
+                      borderColor: "rgba(255,113,108,0.25)",
+                      fontFeatureSettings: FF,
+                    }}
+                    onFocus={(e) => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(113,112,255,0.4)"; }}
+                    onBlur={(e)  => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(255,113,108,0.25)"; }}
+                  />
                 )}
               </EvalField>
             ))}
 
-            {/* Positive Mentions */}
+            {/* Positive Mentions — service only (lokamspace doesn't emit for sales) */}
+            {!isSales && (
             <EvalField
               label="Positive Mentions"
               aiValue={positiveTags.length > 0 ? positiveTags.join(", ") : "None detected"}
@@ -770,10 +798,11 @@ function EvalFormInner({
                 />
               )}
             </EvalField>
+            )}
 
-            {/* Detractors */}
+            {/* Detractors — both call types, tag enum branches on call_type. Sales shows as "Objections Raised". */}
             <EvalField
-              label="Detractors"
+              label={isSales ? "Objections Raised" : "Detractors"}
               aiValue={detractorTags.length > 0 ? detractorTags.join(", ") : "None detected"}
               correct={fields.detractors.correct}
               onToggle={(v) => setField("detractors", { correct: v })}
@@ -784,9 +813,20 @@ function EvalFormInner({
                   selected={fields.detractors.value as string[]}
                   onChange={(tags) => setField("detractors", { value: tags })}
                   variant="detractor"
+                  tags={isSales ? SALES_DETRACTOR_TAGS : EVAL_TAGS}
                 />
               )}
             </EvalField>
+
+            {/* Lead Escalated — sales only (lokamspace hot-lead flag → sends "Sales Opportunity" email + /unsold-leads/escalations) */}
+            {isSales && (
+              <SimpleBoolRow
+                label="Lead Escalated"
+                value={leadEscalated}
+                onChange={setLeadEscalated}
+                readOnly={isReadOnly}
+              />
+            )}
 
             {/* Not Incomplete toggle */}
             <div
@@ -1367,12 +1407,45 @@ function SimpleBoolRow({
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
+/*  SalesNpsPillSelector — Promoter / Detractor / N/A for sales NPS     */
+/* ──────────────────────────────────────────────────────────────────── */
+function SalesNpsPillSelector({
+  bucket, onChange,
+}: {
+  bucket: SalesNpsBucket;
+  onChange: (b: SalesNpsBucket) => void;
+}) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {SALES_NPS_BUCKETS.map((b) => {
+        const active = b.key === bucket;
+        return (
+          <button
+            key={b.key}
+            type="button"
+            onClick={() => onChange(b.key)}
+            className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider transition-all active:scale-95 border"
+            style={active
+              ? { background: b.bg, color: b.color, borderColor: b.border, fontWeight: 510, fontFeatureSettings: FF }
+              : { background: "rgba(255,255,255,0.02)", color: "#62666d", borderColor: "rgba(255,255,255,0.08)", fontWeight: 510, fontFeatureSettings: FF }
+            }
+          >
+            {b.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
 /*  TagSelector                                                         */
 /* ──────────────────────────────────────────────────────────────────── */
 function TagSelector({
-  selected, onChange, variant,
+  selected, onChange, variant, tags = EVAL_TAGS,
 }: {
   selected: string[]; onChange: (tags: string[]) => void; variant: "positive" | "detractor";
+  tags?: readonly string[];
 }) {
   const toggle = (tag: string) => {
     if (selected.includes(tag)) onChange(selected.filter((t) => t !== tag));
@@ -1381,7 +1454,7 @@ function TagSelector({
 
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
-      {EVAL_TAGS.map((tag) => {
+      {tags.map((tag) => {
         const isActive = selected.includes(tag);
         const activeStyle = variant === "positive"
           ? {

@@ -13,6 +13,7 @@ class EvalCreate(BaseModel):
     assigned_to: int
     call_status: str | None = None
     lead_type: str | None = None
+    call_type: str = "service"
     raw_transcript: str | None = None
     formatted_transcript: str | None = None
     recording_url: str | None = None
@@ -35,6 +36,7 @@ class EvalUpdate(BaseModel):
     gt_incomplete_reason: str | None = None
     gt_is_dnc_request: bool | None = None
     gt_escalation_needed: bool | None = None
+    gt_lead_escalated: bool | None = None
     scenario_tags: Any | None = None
     scenario_tags_str: str | None = None
 
@@ -49,6 +51,7 @@ class EvalRead(BaseModel):
     assigned_to: int
     call_status: str | None = None
     lead_type: str | None = None
+    call_type: str = "service"
     raw_transcript: str | None = None
     formatted_transcript: str | None = None
     recording_url: str | None = None
@@ -66,6 +69,7 @@ class EvalRead(BaseModel):
     gt_incomplete_reason: str | None = None
     gt_is_dnc_request: bool | None = None
     gt_escalation_needed: bool | None = None
+    gt_lead_escalated: bool | None = None
     scenario_tags: Any | None = None
     scenario_tags_str: str | None = None
     formatted_tags: Any | None = None

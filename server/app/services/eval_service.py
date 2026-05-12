@@ -16,6 +16,7 @@ GT_FIELDS = (
     "gt_incomplete_reason",
     "gt_is_dnc_request",
     "gt_escalation_needed",
+    "gt_lead_escalated",
 )
 
 
@@ -76,7 +77,7 @@ def _normalize_correction_value(value: object | None) -> object | None:
 
 
 def _compute_has_corrections(raw_call: object, submitted: dict) -> bool:
-    """Return True if any submitted gt_ field differs from the original AI output."""
+    """Return True if any submitted gt_ field differs from the AI value on the linked RawCall."""
     field_map = {
         "gt_call_summary": "call_summary",
         "gt_nps_score": "nps_score",
@@ -87,6 +88,7 @@ def _compute_has_corrections(raw_call: object, submitted: dict) -> bool:
         "gt_incomplete_reason": "incomplete_reason",
         "gt_is_dnc_request": "is_dnc_request",
         "gt_escalation_needed": "escalation_needed",
+        "gt_lead_escalated": "lead_escalated",
     }
     for gt_field, original_field in field_map.items():
         if gt_field not in submitted:

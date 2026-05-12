@@ -1,7 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
 
 const FF = '"cv01", "ss03"' as const;
+const MENU_MARGIN = 6;
+const MENU_VIEWPORT_PAD = 8;
 
 export interface SelectOption {
   value: string;
@@ -17,6 +20,13 @@ interface DropdownSelectProps {
   className?: string;
 }
 
+interface MenuRect {
+  top: number;
+  left: number;
+  width: number;
+  placement: "below" | "above";
+}
+
 export function DropdownSelect({
   value,
   onChange,
@@ -26,16 +36,62 @@ export function DropdownSelect({
   className = "",
 }: DropdownSelectProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [rect, setRect] = useState<MenuRect | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const computeRect = useCallback((): MenuRect | null => {
+    const btn = wrapRef.current?.querySelector("button");
+    if (!btn) return null;
+    const r = btn.getBoundingClientRect();
+    const menuH = menuRef.current?.offsetHeight ?? 0;
+    const spaceBelow = window.innerHeight - r.bottom - MENU_VIEWPORT_PAD;
+    const placement: "below" | "above" =
+      menuH > 0 && spaceBelow < menuH && r.top > spaceBelow ? "above" : "below";
+    const top = placement === "below" ? r.bottom + MENU_MARGIN : r.top - MENU_MARGIN - menuH;
+    return { top, left: r.left, width: r.width, placement };
+  }, []);
+
+  // Two-pass measurement: first pass renders the menu (rect=null → invisible),
+  // second pass runs after the menu mounts so menuRef.current.offsetHeight is real,
+  // letting us pick the correct above/below placement before paint.
+  useLayoutEffect(() => {
+    if (!open) {
+      setRect(null);
+      return;
+    }
+    const next = computeRect();
+    setRect((prev) => {
+      if (!prev) return next;
+      if (!next) return prev;
+      if (
+        prev.top === next.top &&
+        prev.left === next.left &&
+        prev.width === next.width &&
+        prev.placement === next.placement
+      ) return prev;
+      return next;
+    });
+  });
 
   useEffect(() => {
     if (!open) return;
+    const reposition = () => setRect(computeRect());
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [open, computeRect]);
 
   const selected = options.find((o) => o.value === value);
   const isActive = !!value;
@@ -43,7 +99,7 @@ export function DropdownSelect({
   const text = size === "sm" ? "text-[12px]" : "text-[13px]";
 
   return (
-    <div className={`relative ${fullWidth ? "w-full" : "inline-block"} ${className}`} ref={ref}>
+    <div className={`relative ${fullWidth ? "w-full" : "inline-block"} ${className}`} ref={wrapRef}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -62,15 +118,22 @@ export function DropdownSelect({
         />
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
-          className="absolute top-full mt-1.5 left-0 z-50 rounded-lg overflow-hidden py-1"
+          ref={menuRef}
+          className="rounded-lg overflow-hidden py-1"
           style={{
+            position: "fixed",
+            top: rect?.top ?? 0,
+            left: rect?.left ?? 0,
+            minWidth: rect ? Math.max(rect.width, 160) : 160,
+            width: fullWidth && rect ? rect.width : undefined,
+            zIndex: 9999,
+            visibility: rect ? "visible" : "hidden",
+            pointerEvents: rect ? "auto" : "none",
             background: "#191a1b",
             border: "1px solid rgba(255,255,255,0.08)",
             boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.2)",
-            minWidth: "160px",
-            width: fullWidth ? "100%" : undefined,
           }}
         >
           {options.map((opt) => {
@@ -105,7 +168,8 @@ export function DropdownSelect({
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
