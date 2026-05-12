@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useRawCall } from "@/hooks/use-calls";
+import { useRawCall, useToggleBookmark } from "@/hooks/use-calls";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChevronLeft, Bot, Play, Pause, Phone, MapPin,
   Clock, Star, Mail, Mic, ArrowRight, ArrowLeft,
-  TrendingUp, TrendingDown, Minus, CheckCircle2, XCircle, AlertCircle, MessageSquare,
+  TrendingUp, TrendingDown, Minus, CheckCircle2, XCircle, AlertCircle, MessageSquare, Bookmark,
 } from "lucide-react";
 import type { RawCall } from "@/types";
 import { parseUtc } from "@/lib/utils";
@@ -45,6 +45,7 @@ export default function CallDetailPage() {
 }
 
 function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnType<typeof useNavigate> }) {
+  const toggleBookmark = useToggleBookmark();
   const [speedIndex, setSpeedIndex]       = useState(0);
   const [isPlaying, setIsPlaying]         = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
@@ -153,7 +154,7 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
               {callDate.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
             </span>
 
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
               <StatusBadge status={call.call_status} />
             </div>
           </div>
@@ -399,15 +400,34 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
       <div className="flex flex-col" style={{ width: "40%", background: "#0c0d0e" }}>
         {/* Panel header */}
         <div
-          className="shrink-0 px-5 py-4 border-b"
+          className="shrink-0 px-5 py-4 border-b flex items-start justify-between gap-3"
           style={{ background: "#0f1011", borderColor: "rgba(255,255,255,0.05)" }}
         >
-          <p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "#4a4f58", fontWeight: 510, fontFeatureSettings: FF }}>
-            Call Intelligence
-          </p>
-          <h2 className="text-[14px]" style={{ color: "#f7f8f8", fontWeight: 560, fontFeatureSettings: FF }}>
-            AI Analysis
-          </h2>
+          <div>
+            <p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "#4a4f58", fontWeight: 510, fontFeatureSettings: FF }}>
+              Call Intelligence
+            </p>
+            <h2 className="text-[14px]" style={{ color: "#f7f8f8", fontWeight: 560, fontFeatureSettings: FF }}>
+              AI Analysis
+            </h2>
+          </div>
+          <button
+            onClick={() => toggleBookmark.mutate({ callId: Number(call.id), isBookmarked: !call.is_bookmarked })}
+            title={call.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
+            className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95 shrink-0"
+            style={{
+              background: call.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)",
+              borderColor: call.is_bookmarked ? "rgba(247,248,248,0.2)" : "rgba(255,255,255,0.06)",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(247,248,248,0.1)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = call.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)"; }}
+          >
+            <Bookmark
+              className="h-3.5 w-3.5"
+              fill={call.is_bookmarked ? "#f7f8f8" : "none"}
+              style={{ color: call.is_bookmarked ? "#f7f8f8" : "#62666d" }}
+            />
+          </button>
         </div>
 
         <ScrollArea className="flex-1">

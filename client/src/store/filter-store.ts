@@ -55,3 +55,22 @@ export const useAllCallsFilterStore = create<PageFilterState>()(
     },
   ),
 );
+
+export const useBookmarkedCallsFilterStore = create<PageFilterState>()(
+  persist(
+    (set) => ({
+      ...makeDefaultState(0),
+      setFilters: (filters) => set({ filters, page: 0 }),
+      setPage: (page) => set({ page }),
+      reset: () => set(makeDefaultState(0)),
+    }),
+    {
+      name: "bookmarked-calls-filters",
+      storage: createJSONStorage(() => sessionStorage),
+      merge: (persisted, current) => ({
+        ...current,
+        filters: mergeFilters(persisted?.filters ?? {}, current.filters),
+      }),
+    },
+  ),
+);

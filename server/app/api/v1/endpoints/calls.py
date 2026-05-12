@@ -11,7 +11,7 @@ CallType = Literal["service", "sales"]
 from app.dependencies import get_current_user, get_db, require_admin, require_reviewer
 from app.exceptions import NotFoundError
 from app.models.user import User
-from app.schemas.raw_call import RawCallRead
+from app.schemas.raw_call import BookmarkUpdate, RawCallRead
 from app.repositories import raw_call_repo
 from app.services import call_sync_service
 
@@ -42,6 +42,7 @@ async def list_all_calls(
     nps_filter: str | None = Query(default=None),
     post_call_sms: str | None = Query(default=None),
     call_type: CallType | None = Query(default=None),
+    is_bookmarked: bool | None = Query(default=None),
     sort_by: str = Query(default="date"),
     sort_dir: str = Query(default="desc"),
     limit: int = Query(default=PAGE_SIZE, le=200),
@@ -52,7 +53,9 @@ async def list_all_calls(
     """Return all raw calls with optional filters and pagination; reviewer+ only."""
     rows = await raw_call_repo.list_all(
         db, source_env, call_status, date_from, date_to,
-        search, organization_name, nps_filter, post_call_sms, sort_by, sort_dir, limit, offset,
+        search, organization_name, nps_filter, post_call_sms,
+        is_bookmarked=is_bookmarked,
+        sort_by=sort_by, sort_dir=sort_dir, limit=limit, offset=offset,
         call_type=call_type,
     )
     return [RawCallRead.model_validate(r) for r in rows]
@@ -69,6 +72,7 @@ async def count_all_calls(
     nps_filter: str | None = Query(default=None),
     post_call_sms: str | None = Query(default=None),
     call_type: CallType | None = Query(default=None),
+    is_bookmarked: bool | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_reviewer),
 ) -> dict[str, int]:
@@ -76,6 +80,7 @@ async def count_all_calls(
     total = await raw_call_repo.count_all(
         db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms,
         call_type=call_type,
+        is_bookmarked=is_bookmarked,
     )
     return {"count": total}
 
@@ -91,6 +96,7 @@ async def stats_all_calls(
     nps_filter: str | None = Query(default=None),
     post_call_sms: str | None = Query(default=None),
     call_type: CallType | None = Query(default=None),
+    is_bookmarked: bool | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_reviewer),
 ) -> dict:
@@ -98,7 +104,22 @@ async def stats_all_calls(
     return await raw_call_repo.stats_all(
         db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms,
         call_type=call_type,
+        is_bookmarked=is_bookmarked,
     )
+
+
+@router.patch("/{call_id}/bookmark", response_model=RawCallRead)
+async def toggle_bookmark(
+    call_id: int,
+    payload: BookmarkUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_reviewer),
+) -> RawCallRead:
+    """Toggle the bookmark flag on a call by lokam_call_id; reviewer+ only."""
+    row = await raw_call_repo.update_bookmark(db, call_id, payload.is_bookmarked)
+    if row is None:
+        raise NotFoundError(f"Call {call_id} not found")
+    return RawCallRead.model_validate(row)
 
 
 @router.get("/{call_id}", response_model=RawCallRead)

@@ -72,6 +72,8 @@ class RawCall(Base, TimestampMixin):
     synced_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), server_default=func.now(), nullable=False
     )
+    # Devtool bookmark (golden dataset curation)
+    is_bookmarked: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
     # Post-call SMS survey
     is_post_call_sms_survey: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
     post_call_sms_body: Mapped[str | None] = mapped_column(Text)
