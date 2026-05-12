@@ -49,6 +49,7 @@ export interface RawCall {
   post_call_sms_received_at?: string;
   post_call_sms_nps?: number;
   vapi_call_id?: string | null;
+  is_bookmarked: boolean;
 }
 
 export interface Eval {

@@ -116,6 +116,7 @@ def _build_calls_for_reviewer_query(
     sort_by: str,
     sort_dir: str,
     call_type: str | None = None,
+    is_bookmarked: bool | None = None,
 ) -> object:
     """Build a joined Eval+RawCall query for a reviewer with optional filters."""
     from sqlalchemy import cast
@@ -156,6 +157,8 @@ def _build_calls_for_reviewer_query(
         query = query.where(RawCall.is_post_call_sms_survey.is_(True))
     elif post_call_sms == "no":
         query = query.where(RawCall.is_post_call_sms_survey.is_(False))
+    if is_bookmarked is not None:
+        query = query.where(RawCall.is_bookmarked == is_bookmarked)
 
     desc = sort_dir == "desc"
     if sort_by == "nps":
@@ -184,10 +187,11 @@ async def list_calls_for_reviewer(
     limit: int = 30,
     offset: int = 0,
     call_type: str | None = None,
+    is_bookmarked: bool | None = None,
 ) -> list[tuple[Eval, RawCall]]:
     """Return paginated eval+call pairs for a reviewer with optional filters."""
     query = _build_calls_for_reviewer_query(
-        user_id, eval_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, sort_by, sort_dir, call_type,
+        user_id, eval_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, sort_by, sort_dir, call_type, is_bookmarked,
     )
     result = await db.execute(query.limit(limit).offset(offset))
     return list(result.all())
@@ -204,6 +208,7 @@ async def count_calls_for_reviewer(
     nps_filter: str | None = None,
     post_call_sms: str | None = None,
     call_type: str | None = None,
+    is_bookmarked: bool | None = None,
 ) -> int:
     """Return count of eval+call pairs matching reviewer filters."""
     from sqlalchemy import cast
@@ -245,6 +250,8 @@ async def count_calls_for_reviewer(
         count_q = count_q.where(RawCall.is_post_call_sms_survey.is_(True))
     elif post_call_sms == "no":
         count_q = count_q.where(RawCall.is_post_call_sms_survey.is_(False))
+    if is_bookmarked is not None:
+        count_q = count_q.where(RawCall.is_bookmarked == is_bookmarked)
     result = await db.execute(count_q)
     return result.scalar_one()
 
@@ -260,6 +267,7 @@ async def stats_calls_for_reviewer(
     nps_filter: str | None = None,
     post_call_sms: str | None = None,
     call_type: str | None = None,
+    is_bookmarked: bool | None = None,
 ) -> dict:
     """Return avg_duration_sec for all reviewer-assigned call+eval pairs matching filters."""
     from sqlalchemy import cast
@@ -301,6 +309,8 @@ async def stats_calls_for_reviewer(
         query = query.where(RawCall.is_post_call_sms_survey.is_(True))
     elif post_call_sms == "no":
         query = query.where(RawCall.is_post_call_sms_survey.is_(False))
+    if is_bookmarked is not None:
+        query = query.where(RawCall.is_bookmarked == is_bookmarked)
     result = await db.execute(query)
     row = result.one()
     return {

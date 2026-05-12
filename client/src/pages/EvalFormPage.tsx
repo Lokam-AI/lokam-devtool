@@ -1,13 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useCall, useCalls, useSubmitEval, useCreateBug, useTeam } from "@/hooks/use-calls";
+import { useCall, useCalls, useSubmitEval, useCreateBug, useTeam, useToggleBookmark } from "@/hooks/use-calls";
 import { useAuthStore } from "@/store/auth-store";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Loader2, Phone, MapPin,
-  Bot, Play, Pause, Check, X, ChevronRight, Bug, MessageSquare,
+  Bot, Play, Pause, Check, X, ChevronRight, Bug, MessageSquare, Bookmark,
   Star, Mail,
 } from "lucide-react";
 import { PostCallSmsPanel } from "@/components/PostCallSmsPanel";
@@ -119,6 +119,7 @@ function EvalFormInner({
   const saved = evalData.status === "completed";
   const isSales = callData.call_type === "sales";
   const [bugModalOpen, setBugModalOpen] = useState(false);
+  const toggleBookmark = useToggleBookmark();
   const { skippedIds, skipCall, clearSession } = useEvalSessionStore();
 
   const [fields, setFields] = useState<Record<string, FieldState>>(() => {
@@ -695,16 +696,35 @@ function EvalFormInner({
               Quality Assurance
             </h2>
           </div>
-          <button
-            onClick={() => setBugModalOpen(true)}
-            title="Report a bug"
-            className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95"
-            style={{ background: "rgba(248,113,113,0.06)", borderColor: "rgba(248,113,113,0.2)", color: "#f87171" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(248,113,113,0.14)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(248,113,113,0.06)"; }}
-          >
-            <Bug className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => toggleBookmark.mutate({ callId: Number(callData.id), isBookmarked: !callData.is_bookmarked })}
+              title={callData.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
+              className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95"
+              style={{
+                background: callData.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)",
+                borderColor: callData.is_bookmarked ? "rgba(247,248,248,0.2)" : "rgba(255,255,255,0.08)",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(247,248,248,0.1)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = callData.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)"; }}
+            >
+              <Bookmark
+                className="h-3.5 w-3.5"
+                fill={callData.is_bookmarked ? "#f7f8f8" : "none"}
+                style={{ color: callData.is_bookmarked ? "#f7f8f8" : "#62666d" }}
+              />
+            </button>
+            <button
+              onClick={() => setBugModalOpen(true)}
+              title="Report a bug"
+              className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95"
+              style={{ background: "rgba(248,113,113,0.06)", borderColor: "rgba(248,113,113,0.2)", color: "#f87171" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(248,113,113,0.14)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(248,113,113,0.06)"; }}
+            >
+              <Bug className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* ── Scrollable fields ── */}
@@ -828,7 +848,7 @@ function EvalFormInner({
               />
             )}
 
-            {/* Not Incomplete toggle */}
+            {/* Complete toggle */}
             <div
               className="rounded-md border overflow-hidden"
               style={{
@@ -841,7 +861,7 @@ function EvalFormInner({
                   className="text-[9px] uppercase tracking-widest"
                   style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}
                 >
-                  Not Incomplete
+                  Complete
                 </span>
                 {!isReadOnly ? (
                   <button
@@ -1339,7 +1359,7 @@ function EvalField({
         }}
       >
         <p
-          className="text-xs leading-snug line-clamp-2"
+          className="text-xs leading-snug"
           style={{
             color: highlight ? "#7170ff" : "#8a8f98",
             fontFeatureSettings: '"cv01", "ss03"',
