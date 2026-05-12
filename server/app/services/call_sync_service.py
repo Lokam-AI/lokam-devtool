@@ -70,6 +70,8 @@ async def _sync_single_env(db: AsyncSession, client: httpx.AsyncClient, env: obj
             item["is_incomplete_call"] = metadata.get("is_incomplete_call")
         if "incomplete_reason" not in item:
             item["incomplete_reason"] = metadata.get("incomplete_reason")
+        if "lead_escalated" not in item:
+            item["lead_escalated"] = metadata.get("lead_escalated")
         _flatten_post_call_sms(item)
         schema = RawCallCreate(**item)
         await raw_call_repo.upsert_by_lokam_call_id(db, schema)

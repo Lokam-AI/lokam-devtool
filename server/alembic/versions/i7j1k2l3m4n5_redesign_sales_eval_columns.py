@@ -63,6 +63,17 @@ def upgrade() -> None:
     op.add_column("evals", sa.Column("gt_lead_escalated", sa.Boolean(), nullable=True))
     op.add_column("raw_calls", sa.Column("lead_escalated", sa.Boolean(), nullable=True))
 
+    # Backfill lead_escalated from call_metadata JSONB for sales rows already in the DB.
+    op.execute(
+        """
+        UPDATE raw_calls
+        SET lead_escalated = (call_metadata->>'lead_escalated')::boolean
+        WHERE call_type = 'sales'
+          AND call_metadata IS NOT NULL
+          AND call_metadata ? 'lead_escalated'
+        """
+    )
+
 
 def downgrade() -> None:
     """Drop lead_escalated cols; recreate 4 legacy sales cols and rehydrate from scenario_tags stash."""
