@@ -27,9 +27,7 @@ async def list_calls(
     _: User = Depends(require_admin),
 ) -> list[RawCallRead]:
     """Return raw calls filtered by date and optional environment / call_type; admin+ only."""
-    rows = await raw_call_repo.list_by_date(db, call_date, source_env)
-    if call_type is not None:
-        rows = [r for r in rows if r.call_type == call_type]
+    rows = await raw_call_repo.list_by_date(db, call_date, source_env, call_type=call_type.value if call_type else None)
     return [RawCallRead.model_validate(r) for r in rows]
 
 
