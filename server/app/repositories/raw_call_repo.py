@@ -156,7 +156,19 @@ async def list_all(
 ) -> list[RawCall]:
     """Return all RawCall rows with optional filters, ordered as requested."""
     query = select(RawCall)
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, call_type, is_bookmarked)
+    query = _apply_call_filters(
+        query,
+        source_env=source_env,
+        call_status=call_status,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+        organization_name=organization_name,
+        nps_filter=nps_filter,
+        post_call_sms=post_call_sms,
+        call_type=call_type,
+        is_bookmarked=is_bookmarked,
+    )
     query = _apply_call_sort(query, sort_by, sort_dir)
     result = await db.execute(query.limit(limit).offset(offset))
     return list(result.scalars().all())
@@ -177,7 +189,19 @@ async def count_all(
 ) -> int:
     """Return count of RawCall rows matching filters."""
     query = select(func.count(RawCall.id))
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, call_type, is_bookmarked)
+    query = _apply_call_filters(
+        query,
+        source_env=source_env,
+        call_status=call_status,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+        organization_name=organization_name,
+        nps_filter=nps_filter,
+        post_call_sms=post_call_sms,
+        call_type=call_type,
+        is_bookmarked=is_bookmarked,
+    )
     result = await db.execute(query)
     return result.scalar_one()
 
@@ -200,7 +224,19 @@ async def stats_all(
         func.avg(RawCall.duration_sec).label("avg_duration"),
         func.avg(RawCall.nps_score).label("avg_nps"),
     )
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, call_type, is_bookmarked)
+    query = _apply_call_filters(
+        query,
+        source_env=source_env,
+        call_status=call_status,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+        organization_name=organization_name,
+        nps_filter=nps_filter,
+        post_call_sms=post_call_sms,
+        call_type=call_type,
+        is_bookmarked=is_bookmarked,
+    )
     result = await db.execute(query)
     row = result.one()
     return {

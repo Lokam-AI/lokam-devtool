@@ -17,15 +17,17 @@ depends_on = None
 
 
 def upgrade() -> None:
+    """Add is_bookmarked column to raw_calls and create partial index for fast bookmark queries."""
     op.add_column("raw_calls", sa.Column("is_bookmarked", sa.Boolean(), nullable=False, server_default="false"))
     op.create_index(
         "idx_raw_calls_bookmarked",
         "raw_calls",
-        ["id"],
-        postgresql_where=sa.text("is_bookmarked"),
+        ["call_date", "id"],
+        postgresql_where=sa.text("is_bookmarked = true"),
     )
 
 
 def downgrade() -> None:
+    """Remove idx_raw_calls_bookmarked index and drop is_bookmarked column from raw_calls."""
     op.drop_index("idx_raw_calls_bookmarked", table_name="raw_calls")
     op.drop_column("raw_calls", "is_bookmarked")
