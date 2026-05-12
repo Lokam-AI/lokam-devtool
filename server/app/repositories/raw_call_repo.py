@@ -26,11 +26,18 @@ async def upsert_by_lokam_call_id(db: AsyncSession, data: RawCallCreate) -> RawC
     return row
 
 
-async def list_by_date(db: AsyncSession, call_date: date, source_env: str | None = None) -> list[RawCall]:
-    """Return all RawCall rows for a given date, optionally filtered by env."""
+async def list_by_date(
+    db: AsyncSession,
+    call_date: date,
+    source_env: str | None = None,
+    call_type: str | None = None,
+) -> list[RawCall]:
+    """Return all RawCall rows for a given date, optionally filtered by env and call_type."""
     query = select(RawCall).where(RawCall.call_date == call_date)
     if source_env is not None:
         query = query.where(RawCall.source_env == source_env)
+    if call_type is not None:
+        query = query.where(RawCall.call_type == call_type)
     result = await db.execute(query.order_by(RawCall.id))
     return list(result.scalars().all())
 

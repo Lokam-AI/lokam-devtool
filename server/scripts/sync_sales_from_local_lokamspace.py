@@ -148,7 +148,7 @@ def build_payload(
     raw_t, fmt_t = transcripts.get(call_id, (None, None))
     detractors = detractors_by_call.get(call_id) or None
     # asyncpg returns JSONB as a raw string by default; parse so devtool's JSONB column
-    # stores it as a native object (otherwise call_metadata->>'email_escalated' won't work).
+    # stores it as a native object (otherwise call_metadata->>'lead_escalated' won't work).
     raw_metadata = row["call_metadata"]
     call_metadata = json.loads(raw_metadata) if isinstance(raw_metadata, str) else raw_metadata
     service_record_json = None

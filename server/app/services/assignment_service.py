@@ -140,11 +140,11 @@ def _pick_sales_calls_for_user(
         if remaining == 0:
             break
         available = buckets[category]
-        selected = available[:min(target_map[category], remaining)]
+        n = min(target_map[category], remaining)
+        selected = available[:n]
         picks.extend(selected)
-        for call in selected:
-            available.remove(call)
-        remaining -= len(selected)
+        del available[:n]
+        remaining -= n
 
     while remaining > 0:
         picked_any = False
@@ -242,11 +242,13 @@ def _pick_calls_for_user(
         if category == "na":
             selected = _pick_na_calls(available, min(target, remaining))
             short_na_picked = any((c.duration_sec or 0) < NA_MIN_DURATION_SEC for c in selected)
+            for call in selected:
+                available.remove(call)
         else:
-            selected = available[:min(target, remaining)]
+            n = min(target, remaining)
+            selected = available[:n]
+            del available[:n]
         picks.extend(selected)
-        for call in selected:
-            available.remove(call)
         remaining -= len(selected)
         if remaining == 0:
             return picks
