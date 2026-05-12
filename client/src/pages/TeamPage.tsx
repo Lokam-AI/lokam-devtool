@@ -1100,7 +1100,7 @@ function UsersTab() {
         mode="sales"
         title="Sales Assignment Config"
         categories={SALES_CATEGORY_CONFIG}
-        initialMax={5}
+        initialMax={2}
         initialTargets={{ na: 0, detractor: 1, promoter: 1 }}
       />
     </div>
