@@ -699,8 +699,11 @@ function EvalFormInner({
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => toggleBookmark.mutate({ callId: Number(callData.id), isBookmarked: !callData.is_bookmarked })}
+              disabled={toggleBookmark.isPending}
+              aria-label={callData.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
+              aria-pressed={callData.is_bookmarked}
               title={callData.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
-              className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95"
+              className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: callData.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)",
                 borderColor: callData.is_bookmarked ? "rgba(247,248,248,0.2)" : "rgba(255,255,255,0.08)",

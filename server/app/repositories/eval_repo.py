@@ -191,7 +191,18 @@ async def list_calls_for_reviewer(
 ) -> list[tuple[Eval, RawCall]]:
     """Return paginated eval+call pairs for a reviewer with optional filters."""
     query = _build_calls_for_reviewer_query(
-        user_id, eval_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, sort_by, sort_dir, call_type, is_bookmarked,
+        user_id=user_id,
+        eval_status=eval_status,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+        organization_name=organization_name,
+        nps_filter=nps_filter,
+        post_call_sms=post_call_sms,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        call_type=call_type,
+        is_bookmarked=is_bookmarked,
     )
     result = await db.execute(query.limit(limit).offset(offset))
     return list(result.all())

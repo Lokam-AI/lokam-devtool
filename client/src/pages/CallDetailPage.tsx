@@ -413,8 +413,11 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
           </div>
           <button
             onClick={() => toggleBookmark.mutate({ callId: Number(call.id), isBookmarked: !call.is_bookmarked })}
+            disabled={toggleBookmark.isPending}
+            aria-label={call.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
+            aria-pressed={call.is_bookmarked}
             title={call.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
-            className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95 shrink-0"
+            className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: call.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)",
               borderColor: call.is_bookmarked ? "rgba(247,248,248,0.2)" : "rgba(255,255,255,0.06)",

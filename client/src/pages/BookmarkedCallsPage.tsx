@@ -57,14 +57,14 @@ export default function BookmarkedCallsPage() {
     is_bookmarked:     true as const,
   }), [filters]);
 
-  const { data: batchData, isLoading } = useQuery({
+  const { data: batchData, isLoading, isError: isCallsError } = useQuery({
     queryKey: ["bookmarked-calls", queryParams],
     queryFn: () => apiGetAllCalls(queryParams),
     staleTime: STALE_MS,
     placeholderData: keepPreviousData,
   });
 
-  const { data: totalCount } = useQuery({
+  const { data: totalCount, isError: isCountError } = useQuery({
     queryKey: ["bookmarked-calls-count", countParams],
     queryFn: () => apiGetAllCallsCount(countParams),
     staleTime: STALE_MS,
@@ -170,16 +170,24 @@ export default function BookmarkedCallsPage() {
                       ))}
                     </tr>
                   ))
-                : calls.map((call) => (
-                    <BookmarkCallRow key={call.id} call={call} onView={() => navigate(`/call/${call.id}`)} />
-                  ))
+                : isCallsError
+                  ? (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-12 text-center text-xs" style={{ color: "#f87171" }}>
+                        Failed to load bookmarked calls. Please try refreshing.
+                      </td>
+                    </tr>
+                  )
+                  : calls.map((call) => (
+                      <BookmarkCallRow key={call.id} call={call} onView={() => navigate(`/call/${call.id}`)} />
+                    ))
               }
             </tbody>
           </table>
         </div>
 
         {/* Empty state */}
-        {!isLoading && calls.length === 0 && (
+        {!isLoading && !isCallsError && calls.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div
               className="h-12 w-12 rounded-full flex items-center justify-center mb-4 border"
