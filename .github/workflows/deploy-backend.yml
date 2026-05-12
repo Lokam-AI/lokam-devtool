@@ -75,7 +75,10 @@ jobs:
               {"name":"AWS_S3_BUCKET",        "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_S3_BUCKET::"},
               {"name":"AWS_REGION",           "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_REGION::"},
               {"name":"AWS_ACCESS_KEY_ID",    "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_ACCESS_KEY_ID::"},
-              {"name":"AWS_SECRET_ACCESS_KEY","valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_SECRET_ACCESS_KEY::"}
+              {"name":"AWS_SECRET_ACCESS_KEY","valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:AWS_SECRET_ACCESS_KEY::"},
+              {"name":"POSTHOG_PERSONAL_API_KEY","valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:POSTHOG_PERSONAL_API_KEY::"},
+              {"name":"POSTHOG_PROJECT_ID",      "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:POSTHOG_PROJECT_ID::"},
+              {"name":"POSTHOG_HOST",            "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:POSTHOG_HOST::"}
             ]
 
       - name: Slack — success
