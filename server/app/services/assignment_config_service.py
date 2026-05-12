@@ -8,6 +8,7 @@ from app.core.config import (
     SALES_CALL_TARGETS,
     SALES_MAX_CALLS_PER_USER,
 )
+from app.exceptions import DomainValidationError
 from app.repositories import system_setting_repo
 from app.schemas.assignment_config import (
     AssignmentConfigRead,
@@ -48,6 +49,24 @@ async def get_config(db: AsyncSession) -> AssignmentConfigRead:
 
 async def update_config(db: AsyncSession, patch: AssignmentConfigUpdate) -> AssignmentConfigRead:
     """Persist changes to assignment config and return updated config."""
+    current = await get_config(db)
+
+    effective_max = patch.max_calls_per_user if patch.max_calls_per_user is not None else current.max_calls_per_user
+    effective_targets = patch.call_targets if patch.call_targets is not None else current.call_targets
+    effective_sales_max = patch.sales_max_calls_per_user if patch.sales_max_calls_per_user is not None else current.sales_max_calls_per_user
+    effective_sales_targets = patch.sales_call_targets if patch.sales_call_targets is not None else current.sales_call_targets
+
+    if effective_targets.total > effective_max:
+        raise DomainValidationError(
+            f"Service category totals ({effective_targets.total}) would exceed "
+            f"max_calls_per_user ({effective_max})"
+        )
+    if effective_sales_targets.total > effective_sales_max:
+        raise DomainValidationError(
+            f"Sales status totals ({effective_sales_targets.total}) would exceed "
+            f"sales_max_calls_per_user ({effective_sales_max})"
+        )
+
     if patch.max_calls_per_user is not None:
         await system_setting_repo.set(db, SETTING_MAX_CALLS, str(patch.max_calls_per_user))
     if patch.call_targets is not None:
