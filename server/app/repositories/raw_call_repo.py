@@ -83,6 +83,7 @@ def _apply_call_filters(
     nps_filter: str | None,
     post_call_sms: str | None = None,
     call_type: str | None = None,
+    is_bookmarked: bool | None = None,
 ) -> object:
     """Apply shared filter clauses to a RawCall select query."""
     if source_env is not None:
@@ -117,6 +118,8 @@ def _apply_call_filters(
         query = query.where(RawCall.is_post_call_sms_survey.is_(True))
     elif post_call_sms == "no":
         query = query.where(RawCall.is_post_call_sms_survey.is_(False))
+    if is_bookmarked is not None:
+        query = query.where(RawCall.is_bookmarked == is_bookmarked)
     return query
 
 
@@ -144,6 +147,7 @@ async def list_all(
     organization_name: str | None = None,
     nps_filter: str | None = None,
     post_call_sms: str | None = None,
+    is_bookmarked: bool | None = None,
     sort_by: str = "date",
     sort_dir: str = "desc",
     limit: int = 30,
@@ -152,7 +156,19 @@ async def list_all(
 ) -> list[RawCall]:
     """Return all RawCall rows with optional filters, ordered as requested."""
     query = select(RawCall)
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, call_type)
+    query = _apply_call_filters(
+        query,
+        source_env=source_env,
+        call_status=call_status,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+        organization_name=organization_name,
+        nps_filter=nps_filter,
+        post_call_sms=post_call_sms,
+        call_type=call_type,
+        is_bookmarked=is_bookmarked,
+    )
     query = _apply_call_sort(query, sort_by, sort_dir)
     result = await db.execute(query.limit(limit).offset(offset))
     return list(result.scalars().all())
@@ -169,10 +185,23 @@ async def count_all(
     nps_filter: str | None = None,
     post_call_sms: str | None = None,
     call_type: str | None = None,
+    is_bookmarked: bool | None = None,
 ) -> int:
     """Return count of RawCall rows matching filters."""
     query = select(func.count(RawCall.id))
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, call_type)
+    query = _apply_call_filters(
+        query,
+        source_env=source_env,
+        call_status=call_status,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+        organization_name=organization_name,
+        nps_filter=nps_filter,
+        post_call_sms=post_call_sms,
+        call_type=call_type,
+        is_bookmarked=is_bookmarked,
+    )
     result = await db.execute(query)
     return result.scalar_one()
 
@@ -188,13 +217,26 @@ async def stats_all(
     nps_filter: str | None = None,
     post_call_sms: str | None = None,
     call_type: str | None = None,
+    is_bookmarked: bool | None = None,
 ) -> dict:
     """Return avg_duration_sec and avg_nps for all RawCall rows matching filters."""
     query = select(
         func.avg(RawCall.duration_sec).label("avg_duration"),
         func.avg(RawCall.nps_score).label("avg_nps"),
     )
-    query = _apply_call_filters(query, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms, call_type)
+    query = _apply_call_filters(
+        query,
+        source_env=source_env,
+        call_status=call_status,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+        organization_name=organization_name,
+        nps_filter=nps_filter,
+        post_call_sms=post_call_sms,
+        call_type=call_type,
+        is_bookmarked=is_bookmarked,
+    )
     result = await db.execute(query)
     row = result.one()
     return {
@@ -213,3 +255,14 @@ async def get_by_lokam_call_id(db: AsyncSession, lokam_call_id: int) -> RawCall 
     """Return the RawCall with the given lokam_call_id, or None if not found."""
     result = await db.execute(select(RawCall).where(RawCall.lokam_call_id == lokam_call_id))
     return result.scalar_one_or_none()
+
+
+async def update_bookmark(db: AsyncSession, lokam_call_id: int, is_bookmarked: bool) -> RawCall | None:
+    """Set is_bookmarked on the call identified by lokam_call_id and return it."""
+    row = await get_by_lokam_call_id(db, lokam_call_id)
+    if row is None:
+        return None
+    row.is_bookmarked = is_bookmarked
+    await db.flush()
+    await db.refresh(row)
+    return row

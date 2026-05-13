@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Bell,
+  Bookmark,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuthStore } from "@/store/auth-store";
@@ -57,8 +58,9 @@ const MAIN_NAV = [
 ];
 
 const REVIEWER_NAV = [
-  { title: "All Calls",   url: "/all-calls", icon: Database },
-  { title: "Bug Reports", url: "/bugs",      icon: Bug      },
+  { title: "All Calls",       url: "/all-calls",   icon: Database  },
+  { title: "Bookmarked",      url: "/bookmarked",  icon: Bookmark  },
+  { title: "Bug Reports",     url: "/bugs",        icon: Bug       },
 ];
 
 const ADMIN_NAV = [

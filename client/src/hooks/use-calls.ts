@@ -20,6 +20,7 @@ import {
   apiGetMyBugsCount,
   apiAssignBug,
   apiResolveBug,
+  apiToggleBookmark,
   apiGetDashboardStats,
   apiGetAssignmentConfig,
   apiUpdateAssignmentConfig,
@@ -174,6 +175,22 @@ export function useResolveBug() {
       qc.invalidateQueries({ queryKey: ["bugs-stats"] });
       qc.invalidateQueries({ queryKey: ["bugs-my"] });
       qc.invalidateQueries({ queryKey: ["bugs-my-count"] });
+    },
+  });
+}
+
+export function useToggleBookmark() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ callId, isBookmarked }: { callId: number; isBookmarked: boolean }) =>
+      apiToggleBookmark(callId, isBookmarked),
+    onSuccess: (_data, { callId }) => {
+      qc.invalidateQueries({ queryKey: ["all-calls"] });
+      qc.invalidateQueries({ queryKey: ["all-calls-count"] });
+      qc.invalidateQueries({ queryKey: ["bookmarked-calls"] });
+      qc.invalidateQueries({ queryKey: ["bookmarked-calls-count"] });
+      qc.invalidateQueries({ queryKey: ["call", String(callId)] });
+      qc.invalidateQueries({ queryKey: ["raw-call", String(callId)] });
     },
   });
 }

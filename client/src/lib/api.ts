@@ -77,6 +77,7 @@ function mapCall(r: BackendRawCall): RawCall {
     post_call_sms_received_at: r.post_call_sms_received_at ?? undefined,
     post_call_sms_nps: r.post_call_sms_nps ?? undefined,
     vapi_call_id: r.vapi_call_id ?? null,
+    is_bookmarked: r.is_bookmarked ?? false,
   };
 }
 
@@ -148,6 +149,7 @@ interface BackendRawCall {
   post_call_sms_received_at: string | null;
   post_call_sms_nps: number | null;
   vapi_call_id: string | null;
+  is_bookmarked: boolean | null;
 }
 
 interface BackendEval {
@@ -451,6 +453,7 @@ export interface AllCallsParams {
   nps_filter?: string;
   post_call_sms?: string;
   call_type?: CallType;
+  is_bookmarked?: boolean;
   sort_by?: string;
   sort_dir?: string;
   limit?: number;
@@ -478,6 +481,12 @@ export interface AllCallsStatsResult {
 export const apiGetAllCallsStats = async (params?: Omit<AllCallsParams, "limit" | "offset" | "sort_by" | "sort_dir">): Promise<AllCallsStatsResult> => {
   const { data } = await api.get<AllCallsStatsResult>("/calls/all/stats", { params });
   return data;
+};
+
+/** PATCH /calls/{callId}/bookmark — toggle bookmark flag on a call */
+export const apiToggleBookmark = async (callId: number, isBookmarked: boolean): Promise<RawCall> => {
+  const { data } = await api.patch<BackendRawCall>(`/calls/${callId}/bookmark`, { is_bookmarked: isBookmarked });
+  return mapCall(data);
 };
 
 /** GET /admin/envs — returns all environment configurations (admin+) */
