@@ -4,6 +4,12 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class BookmarkUpdate(BaseModel):
+    """Payload for toggling the bookmark flag on a call."""
+
+    is_bookmarked: bool
+
+
 class RawCallCreate(BaseModel):
     """Schema for ingesting a raw call from lokamspace."""
 
@@ -56,6 +62,7 @@ class RawCallRead(RawCallCreate):
     model_config = {"from_attributes": True}
 
     id: int
+    is_bookmarked: bool = False
     synced_at: datetime
     created_at: datetime
     updated_at: datetime
