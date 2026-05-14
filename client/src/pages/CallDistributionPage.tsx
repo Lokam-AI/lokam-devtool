@@ -649,7 +649,8 @@ function ReviewerCapacitySection({
     () => Object.entries(overrides).some(([uid, str]) => {
       const r = reviewers.find((r) => r.user_id === parseInt(uid, 10));
       if (!r) return false;
-      const newCap = str === "" ? null : (parseInt(str, 10) || null);
+      const parsed = parseInt(str, 10);
+      const newCap = str === "" || !Number.isFinite(parsed) ? null : parsed;
       return newCap !== r.capacity;
     }),
     [overrides, reviewers]
@@ -672,10 +673,13 @@ function ReviewerCapacitySection({
 
   const handleSave = async () => {
     try {
-      const allUpdates = Object.entries(overrides).map(([uid, str]) => ({
-        user_id: parseInt(uid, 10),
-        capacity: str === "" ? null : (parseInt(str, 10) || null),
-      }));
+      const allUpdates = Object.entries(overrides).map(([uid, str]) => {
+        const parsed = parseInt(str, 10);
+        return {
+          user_id: parseInt(uid, 10),
+          capacity: str === "" || !Number.isFinite(parsed) ? null : parsed,
+        };
+      });
       if (allUpdates.length === 0) return;
       await bulkUpdate.mutateAsync(allUpdates);
       toast.success("Reviewer capacities saved");
@@ -867,7 +871,7 @@ export default function CallDistributionPage() {
 
       <ReviewerCapacitySection
         reviewers={reviewers}
-        defaultCapacity={cfg?.default_reviewer_capacity ?? 17}
+        defaultCapacity={cfg?.default_reviewer_capacity ?? 15}
       />
     </div>
   );

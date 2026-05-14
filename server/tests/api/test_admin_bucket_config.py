@@ -8,9 +8,16 @@ from app.core.config import DEFAULT_BUCKET_PROBABILITIES, DEFAULT_REVIEWER_CAPAC
 from app.schemas.bucket_config import (
     NPS_BUCKET_KEYS,
     BucketConfigRead,
+    BucketConfigSystemDefaults,
     BucketProbabilities,
     ReviewerCapacityRead,
     SpecialTypeMinimums,
+)
+
+_SYSTEM_DEFAULTS = BucketConfigSystemDefaults(
+    probabilities=BucketProbabilities(**DEFAULT_BUCKET_PROBABILITIES),
+    special_minimums=SpecialTypeMinimums(**DEFAULT_SPECIAL_MINIMUMS),
+    reviewer_capacity=DEFAULT_REVIEWER_CAPACITY,
 )
 
 
@@ -20,6 +27,7 @@ def _cfg() -> BucketConfigRead:
         probabilities=BucketProbabilities(**DEFAULT_BUCKET_PROBABILITIES),
         special_minimums=SpecialTypeMinimums(**DEFAULT_SPECIAL_MINIMUMS),
         default_reviewer_capacity=DEFAULT_REVIEWER_CAPACITY,
+        system_defaults=_SYSTEM_DEFAULTS,
     )
 
 
