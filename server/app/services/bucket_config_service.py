@@ -8,6 +8,7 @@ from app.core.config import DEFAULT_BUCKET_PROBABILITIES, DEFAULT_REVIEWER_CAPAC
 from app.repositories import system_setting_repo
 from app.schemas.bucket_config import (
     BucketConfigRead,
+    BucketConfigSystemDefaults,
     BucketConfigUpdate,
     BucketProbabilities,
     SpecialTypeMinimums,
@@ -48,6 +49,11 @@ async def get_config(db: AsyncSession) -> BucketConfigRead:
         probabilities=probabilities,
         special_minimums=special_minimums,
         default_reviewer_capacity=default_capacity,
+        system_defaults=BucketConfigSystemDefaults(
+            probabilities=BucketProbabilities(**DEFAULT_BUCKET_PROBABILITIES),
+            special_minimums=SpecialTypeMinimums(**DEFAULT_SPECIAL_MINIMUMS),
+            reviewer_capacity=DEFAULT_REVIEWER_CAPACITY,
+        ),
     )
 
 

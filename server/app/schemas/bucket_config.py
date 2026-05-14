@@ -63,12 +63,21 @@ class SpecialTypeMinimums(BaseModel):
         return {k: getattr(self, k) for k in SPECIAL_KEYS}
 
 
+class BucketConfigSystemDefaults(BaseModel):
+    """Hardcoded system defaults from config.py — used by the frontend Reset buttons."""
+
+    probabilities: BucketProbabilities
+    special_minimums: SpecialTypeMinimums
+    reviewer_capacity: int
+
+
 class BucketConfigRead(BaseModel):
     """Org-level call distribution config returned by the API."""
 
     probabilities: BucketProbabilities
     special_minimums: SpecialTypeMinimums
     default_reviewer_capacity: int
+    system_defaults: BucketConfigSystemDefaults
 
 
 class BucketConfigUpdate(BaseModel):

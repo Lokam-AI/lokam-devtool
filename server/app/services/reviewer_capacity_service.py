@@ -13,7 +13,7 @@ from app.services import bucket_config_service
 async def list_capacities(db: AsyncSession) -> list[ReviewerCapacityRead]:
     """Return all active users with their capacity and org-default effective capacity."""
     cfg = await bucket_config_service.get_config(db)
-    users = await user_repo.list_active_reviewers(db)
+    users = await user_repo.list_all_active(db)
     return [
         ReviewerCapacityRead(
             user_id=u.id,

@@ -3,15 +3,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.exceptions import NotFoundError
+from app.core.config import DEFAULT_BUCKET_PROBABILITIES, DEFAULT_REVIEWER_CAPACITY, DEFAULT_SPECIAL_MINIMUMS
 from app.schemas.bucket_config import (
     BucketConfigRead,
+    BucketConfigSystemDefaults,
     BucketProbabilities,
     ReviewerCapacityUpdate,
     SpecialTypeMinimums,
 )
 from app.services import reviewer_capacity_service
 
-from app.core.config import DEFAULT_BUCKET_PROBABILITIES, DEFAULT_SPECIAL_MINIMUMS
+_SYSTEM_DEFAULTS = BucketConfigSystemDefaults(
+    probabilities=BucketProbabilities(**DEFAULT_BUCKET_PROBABILITIES),
+    special_minimums=SpecialTypeMinimums(**DEFAULT_SPECIAL_MINIMUMS),
+    reviewer_capacity=DEFAULT_REVIEWER_CAPACITY,
+)
 
 
 def _make_user(uid: int, capacity: int | None = None, is_active: bool = True) -> MagicMock:
@@ -31,6 +37,7 @@ def _cfg(default_capacity: int = 10) -> BucketConfigRead:
         probabilities=BucketProbabilities(**DEFAULT_BUCKET_PROBABILITIES),
         special_minimums=SpecialTypeMinimums(**DEFAULT_SPECIAL_MINIMUMS),
         default_reviewer_capacity=default_capacity,
+        system_defaults=_SYSTEM_DEFAULTS,
     )
 
 
@@ -43,7 +50,7 @@ async def test_list_capacities_effective_capacity_uses_default_when_null() -> No
 
     with (
         patch("app.services.reviewer_capacity_service.bucket_config_service.get_config", AsyncMock(return_value=cfg)),
-        patch("app.services.reviewer_capacity_service.user_repo.list_active_reviewers", AsyncMock(return_value=users)),
+        patch("app.services.reviewer_capacity_service.user_repo.list_all_active", AsyncMock(return_value=users)),
     ):
         rows = await reviewer_capacity_service.list_capacities(db)
 

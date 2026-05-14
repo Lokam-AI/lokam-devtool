@@ -66,27 +66,25 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-DEFAULT_REVIEWER_CAPACITY: int = 17
+DEFAULT_REVIEWER_CAPACITY: int = 15
 
-# NPS bucket probabilities for Phase 2 — 8 keys summing to 1.0.
-# Derived from legacy targets (service: na=7, det=2, pro=3, missed=3; sales: det=1, pro=1)
-# normalised over the 17-call pool: each value = legacy_count / 17.
+
 DEFAULT_BUCKET_PROBABILITIES: dict[str, float] = {
-    "service_na": 0.4118,
-    "service_passive": 0.0,
-    "service_detractor": 0.1176,
-    "service_promoter": 0.1765,
-    "service_missed": 0.1765,
-    "sales_na": 0.0,
-    "sales_detractor": 0.0588,
-    "sales_promoter": 0.0588,
+    "service_na": 0.10,
+    "service_passive": 0.10,
+    "service_detractor": 0.20,
+    "service_promoter": 0.10,
+    "service_missed": 0.10,
+    "sales_na": 0.10,
+    "sales_detractor": 0.20,
+    "sales_promoter": 0.10,
 }
 
 # Phase 1 special-type minimum counts — one call of each type guaranteed per day.
 DEFAULT_SPECIAL_MINIMUMS: dict[str, int] = {
-    "dnc": 1,
-    "email_send": 1,
-    "lead_escalated": 1,
-    "review_link_sent": 1,
-    "post_call_sms": 1,
+    "dnc": 10,
+    "email_send": 10,
+    "lead_escalated": 10,
+    "review_link_sent": 10,
+    "post_call_sms": 10,
 }

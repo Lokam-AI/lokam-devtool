@@ -38,8 +38,8 @@ ALL_BUCKET_KEYS = NPS_BUCKET_KEYS + SPECIAL_KEYS
 
 
 async def assign_calls_for_date(db: AsyncSession, call_date: date, source_env: str | None = None) -> int:
-    """Two-phase call assignment: pick special minimums first, then fill with NPS probabilities."""
-    users = await user_repo.list_active_reviewers(db)
+    """Assign calls: distribute full pool across NPS buckets, preferring calls with unsatisfied special-type minimums."""
+    users = await user_repo.list_all_active(db)
     if not users:
         return 0
     cfg = await bucket_config_service.get_config(db)
@@ -62,16 +62,12 @@ async def assign_calls_for_date(db: AsyncSession, call_date: date, source_env: s
     )
     buckets = _build_buckets(service_calls + sales_calls)
 
-    # Phase 1: guaranteed minimums for each special type.
-    phase1_picks, seen_ids = _phase1_special_picks(buckets, cfg.special_minimums)
+    # Distribute full pool across NPS buckets. Within each bucket, calls satisfying unsatisfied
+    # special-type minimums sort first so Phase 1 constraints are met without consuming separate capacity.
+    targets = _hamilton_round(cfg.probabilities, total_pool)
+    picks = _phase2_nps_picks(buckets, targets, cfg.special_minimums)
 
-    # Phase 2: fill remaining slots using NPS bucket probabilities.
-    # If phase1 exceeds pool (misconfigured minimums), phase2_pool floors at 0; _distribute caps total.
-    phase2_pool = max(0, total_pool - len(phase1_picks))
-    targets = _hamilton_round(cfg.probabilities, phase2_pool)
-    phase2_picks = _phase2_nps_picks(buckets, targets, seen_ids)
-
-    records = _distribute(phase1_picks + phase2_picks, users, remaining)
+    records = _distribute(picks, users, remaining)
 
     if records:
         await eval_repo.create_bulk(db, records)
@@ -153,53 +149,6 @@ def _is_short_na(call: RawCall) -> bool:
     )
 
 
-def _phase1_special_picks(
-    buckets: dict[str, list[RawCall]],
-    special_minimums: SpecialTypeMinimums,
-) -> tuple[list[RawCall], set[int]]:
-    """Pick the minimum count of each special call type, preferring calls that satisfy multiple minimums.
-
-    Candidates for each bucket are sorted by how many *other* still-unsatisfied buckets they also
-    belong to.  This ensures an overlap call (e.g. DNC + email_send) is chosen before a single-type
-    call even when it appears later in the source bucket list, minimising total unique picks.
-    """
-    seen_ids: set[int] = set()
-    picks: list[RawCall] = []
-    bucket_id_sets = {key: {c.lokam_call_id for c in buckets[key]} for key in SPECIAL_KEYS}
-
-    for key in SPECIAL_KEYS:
-        min_count = getattr(special_minimums, key)
-        if min_count == 0:
-            continue
-        already = sum(1 for c in picks if c.lokam_call_id in bucket_id_sets[key])
-        need = min_count - already
-        if need <= 0:
-            continue
-
-        # Keys whose minimums are still unsatisfied after crediting current picks.
-        other_needs = {
-            k for k in SPECIAL_KEYS
-            if k != key
-            and getattr(special_minimums, k) > sum(
-                1 for c in picks if c.lokam_call_id in bucket_id_sets[k]
-            )
-        }
-        # Sort by overlap score descending so multi-satisfying calls come first.
-        candidates = [c for c in buckets[key] if c.lokam_call_id not in seen_ids]
-        candidates.sort(
-            key=lambda c: sum(1 for k in other_needs if c.lokam_call_id in bucket_id_sets[k]),
-            reverse=True,
-        )
-
-        count = 0
-        for call in candidates:
-            if count >= need:
-                break
-            seen_ids.add(call.lokam_call_id)
-            picks.append(call)
-            count += 1
-    return picks, seen_ids
-
 
 def _hamilton_round(probs: BucketProbabilities, total_pool: int) -> dict[str, int]:
     """Distribute total_pool seats across NPS buckets by largest-remainder (Hamilton) method."""
@@ -227,21 +176,33 @@ def _pick_na_calls(available: list[RawCall], count: int) -> list[RawCall]:
 def _phase2_nps_picks(
     buckets: dict[str, list[RawCall]],
     targets: dict[str, int],
-    exclude_ids: set[int],
+    special_minimums: SpecialTypeMinimums,
 ) -> list[RawCall]:
-    """Draw target calls from NPS buckets, excluding phase-1 picks; dedup within phase 2."""
-    seen_ids: set[int] = set(exclude_ids)
+    """Pick from NPS buckets using targets; within each bucket prefer calls satisfying the most unsatisfied special-type minimums."""
+    seen_ids: set[int] = set()
     picks: list[RawCall] = []
+    special_needed = {k: getattr(special_minimums, k) for k in SPECIAL_KEYS}
+    special_id_sets = {k: {c.lokam_call_id for c in buckets[k]} for k in SPECIAL_KEYS}
+
     for key in NPS_BUCKET_KEYS:
         target = targets[key]
         if target <= 0:
             continue
         available = [c for c in buckets[key] if c.lokam_call_id not in seen_ids]
+        unsatisfied = {k for k, need in special_needed.items() if need > 0}
+        if unsatisfied:
+            available.sort(
+                key=lambda c: sum(1 for k in unsatisfied if c.lokam_call_id in special_id_sets[k]),
+                reverse=True,
+            )
         selected = _pick_na_calls(available, target) if key == "service_na" else available[:target]
         for call in selected:
             if call.lokam_call_id not in seen_ids:
                 seen_ids.add(call.lokam_call_id)
                 picks.append(call)
+                for k in SPECIAL_KEYS:
+                    if special_needed[k] > 0 and call.lokam_call_id in special_id_sets[k]:
+                        special_needed[k] -= 1
     return picks
 
 

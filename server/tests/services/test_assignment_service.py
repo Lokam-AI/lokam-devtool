@@ -3,14 +3,22 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.core.config import DEFAULT_BUCKET_PROBABILITIES, DEFAULT_REVIEWER_CAPACITY, DEFAULT_SPECIAL_MINIMUMS
 from app.schemas.bucket_config import (
     NPS_BUCKET_KEYS,
     SPECIAL_KEYS,
     BucketConfigRead,
+    BucketConfigSystemDefaults,
     BucketProbabilities,
     SpecialTypeMinimums,
 )
 from app.services import assignment_service
+
+_SYSTEM_DEFAULTS = BucketConfigSystemDefaults(
+    probabilities=BucketProbabilities(**DEFAULT_BUCKET_PROBABILITIES),
+    special_minimums=SpecialTypeMinimums(**DEFAULT_SPECIAL_MINIMUMS),
+    reviewer_capacity=DEFAULT_REVIEWER_CAPACITY,
+)
 
 
 def _make_user(user_id: int, capacity: int | None = None) -> MagicMock:
@@ -86,6 +94,7 @@ def _make_bucket_config(
         probabilities=BucketProbabilities(**probs),
         special_minimums=special_minimums,
         default_reviewer_capacity=default_capacity,
+        system_defaults=_SYSTEM_DEFAULTS,
     )
 
 
@@ -204,111 +213,89 @@ def test_na_duration_filter_preserved_in_sample() -> None:
     buckets["service_na"] = short_nas + long_nas
     targets = {k: 0 for k in NPS_BUCKET_KEYS}
     targets["service_na"] = 5
-    picks = assignment_service._phase2_nps_picks(buckets, targets, set())
+    picks = assignment_service._phase2_nps_picks(buckets, targets, _zero_special_minimums())
     short_picks = [p for p in picks if (p.duration_sec or 0) < 40]
     assert len(short_picks) <= 1
 
 
-# ── Phase 1: special minimums ─────────────────────────────────────────────────
+# ── Phase 2 priority sort: special minimums satisfied within NPS picks ─────────
 
-def test_phase1_picks_configured_minimum() -> None:
-    """Phase 1 picks exactly the configured minimum count for each special type."""
-    dnc_calls = [_make_call(i, is_dnc_request=True) for i in range(5)]
+def test_phase2_priority_prefers_dnc_call_over_plain() -> None:
+    """Within an NPS bucket, a DNC call is picked before a plain call when DNC minimum unsatisfied."""
+    call_dnc = _make_call(1, "Completed", 3, is_dnc_request=True)
+    call_plain = _make_call(2, "Completed", 3)
     buckets = {k: [] for k in assignment_service.ALL_BUCKET_KEYS}
-    buckets["dnc"] = dnc_calls
-    minimums = SpecialTypeMinimums(dnc=2, email_send=0, lead_escalated=0, review_link_sent=0, post_call_sms=0)
-    picks, seen_ids = assignment_service._phase1_special_picks(buckets, minimums)
-    assert len(picks) == 2
-    assert all(c in dnc_calls for c in picks)
-    assert len(seen_ids) == 2
-
-
-def test_phase1_short_supply_takes_available() -> None:
-    """Phase 1 picks all available when supply < minimum; no error."""
-    buckets = {k: [] for k in assignment_service.ALL_BUCKET_KEYS}
-    buckets["dnc"] = [_make_call(1, is_dnc_request=True)]  # only 1, min=3
-    minimums = SpecialTypeMinimums(dnc=3, email_send=0, lead_escalated=0, review_link_sent=0, post_call_sms=0)
-    picks, _ = assignment_service._phase1_special_picks(buckets, minimums)
-    assert len(picks) == 1
-
-
-def test_phase1_zero_minimum_skipped() -> None:
-    """A special type with minimum=0 is skipped entirely."""
-    dnc_calls = [_make_call(i, is_dnc_request=True) for i in range(5)]
-    buckets = {k: [] for k in assignment_service.ALL_BUCKET_KEYS}
-    buckets["dnc"] = dnc_calls
-    minimums = SpecialTypeMinimums(dnc=0, email_send=0, lead_escalated=0, review_link_sent=0, post_call_sms=0)
-    picks, seen_ids = assignment_service._phase1_special_picks(buckets, minimums)
-    assert len(picks) == 0
-    assert len(seen_ids) == 0
-
-
-def test_phase1_deduplicates_across_specials() -> None:
-    """A call in two special buckets (e.g. DNC + email_send) is only picked once."""
-    call = _make_call(1, is_dnc_request=True, call_metadata={"email_send": True})
-    buckets = {k: [] for k in assignment_service.ALL_BUCKET_KEYS}
-    buckets["dnc"] = [call]
-    buckets["email_send"] = [call]
-    minimums = SpecialTypeMinimums(dnc=1, email_send=1, lead_escalated=0, review_link_sent=0, post_call_sms=0)
-    picks, seen_ids = assignment_service._phase1_special_picks(buckets, minimums)
-    assert len(picks) == 1
-    assert len(seen_ids) == 1
-
-
-def test_phase1_overlap_credits_picked_call_to_later_bucket() -> None:
-    """A call already picked for bucket X credits toward bucket Y's minimum — no extra pick taken."""
-    # call_a is both DNC and email_send; call_c is email_send only.
-    # With dnc=1 and email_send=1: picking call_a for dnc should satisfy email_send via credit,
-    # so call_c must NOT be picked.
-    call_a = _make_call(1, is_dnc_request=True, call_metadata={"email_send": True})
-    call_c = _make_call(3, call_metadata={"email_send": True})
-    buckets = {k: [] for k in assignment_service.ALL_BUCKET_KEYS}
-    buckets["dnc"] = [call_a]
-    buckets["email_send"] = [call_a, call_c]
-    minimums = SpecialTypeMinimums(dnc=1, email_send=1, lead_escalated=0, review_link_sent=0, post_call_sms=0)
-    picks, _ = assignment_service._phase1_special_picks(buckets, minimums)
-    assert len(picks) == 1
-    assert picks[0].lokam_call_id == call_a.lokam_call_id
-
-
-def test_phase1_prefers_overlap_call_even_when_not_first_in_bucket() -> None:
-    """Phase1 picks the overlap call A even when non-overlap call B appears first in the dnc bucket."""
-    # dnc=[B, A], email_send=[A] — B is first but only satisfies dnc; A satisfies both.
-    call_b = _make_call(2, is_dnc_request=True)
-    call_a = _make_call(1, is_dnc_request=True, call_metadata={"email_send": True})
-    buckets = {k: [] for k in assignment_service.ALL_BUCKET_KEYS}
-    buckets["dnc"] = [call_b, call_a]  # non-overlap call comes first
-    buckets["email_send"] = [call_a]
-    minimums = SpecialTypeMinimums(dnc=1, email_send=1, lead_escalated=0, review_link_sent=0, post_call_sms=0)
-    picks, _ = assignment_service._phase1_special_picks(buckets, minimums)
-    # A satisfies both minimums with a single pick; B should be passed over.
-    assert len(picks) == 1
-    assert picks[0].lokam_call_id == call_a.lokam_call_id
-
-
-# ── Phase 2: NPS picks + exclusion ───────────────────────────────────────────
-
-def test_phase2_excludes_phase1_picks() -> None:
-    """A call already in phase1 is not re-picked in phase2."""
-    call = _make_call(1, "Completed", 3, is_dnc_request=True)
-    buckets = {k: [] for k in assignment_service.ALL_BUCKET_KEYS}
-    buckets["service_detractor"] = [call]
-    buckets["dnc"] = [call]
+    buckets["service_detractor"] = [call_plain, call_dnc]  # plain first in list
+    buckets["dnc"] = [call_dnc]
     targets = {k: 0 for k in NPS_BUCKET_KEYS}
     targets["service_detractor"] = 1
-    exclude_ids = {call.lokam_call_id}
-    picks = assignment_service._phase2_nps_picks(buckets, targets, exclude_ids)
-    assert len(picks) == 0
+    minimums = SpecialTypeMinimums(dnc=1, email_send=0, lead_escalated=0, review_link_sent=0, post_call_sms=0)
+    picks = assignment_service._phase2_nps_picks(buckets, targets, minimums)
+    assert len(picks) == 1
+    assert picks[0].lokam_call_id == call_dnc.lokam_call_id
 
 
-def test_phase2_pool_reduction_from_phase1() -> None:
-    """Phase2 Hamilton sum equals total_pool minus phase1 count."""
-    phase1_count = 3
+def test_phase2_priority_prefers_multi_special_over_single() -> None:
+    """A call satisfying 2 unsatisfied specials sorts above a call satisfying only 1."""
+    call_both = _make_call(1, "Completed", 3, is_dnc_request=True, call_metadata={"email_send": True})
+    call_dnc_only = _make_call(2, "Completed", 3, is_dnc_request=True)
+    call_plain = _make_call(3, "Completed", 3)
+    buckets = {k: [] for k in assignment_service.ALL_BUCKET_KEYS}
+    buckets["service_detractor"] = [call_dnc_only, call_both, call_plain]  # both not first
+    buckets["dnc"] = [call_dnc_only, call_both]
+    buckets["email_send"] = [call_both]
+    targets = {k: 0 for k in NPS_BUCKET_KEYS}
+    targets["service_detractor"] = 1
+    minimums = SpecialTypeMinimums(dnc=1, email_send=1, lead_escalated=0, review_link_sent=0, post_call_sms=0)
+    picks = assignment_service._phase2_nps_picks(buckets, targets, minimums)
+    assert len(picks) == 1
+    assert picks[0].lokam_call_id == call_both.lokam_call_id
+
+
+def test_phase2_special_credited_across_nps_buckets() -> None:
+    """DNC picked from service_detractor decrements DNC need; next NPS bucket no longer prioritises DNC."""
+    call_dnc = _make_call(1, "Completed", 3, is_dnc_request=True)
+    call_plain_det = _make_call(2, "Completed", 3)
+    call_dnc_promo = _make_call(3, "Completed", 10, is_dnc_request=True)
+    call_plain_promo = _make_call(4, "Completed", 10)
+    buckets = {k: [] for k in assignment_service.ALL_BUCKET_KEYS}
+    buckets["service_detractor"] = [call_plain_det, call_dnc]
+    buckets["service_promoter"] = [call_plain_promo, call_dnc_promo]
+    buckets["dnc"] = [call_dnc, call_dnc_promo]
+    targets = {k: 0 for k in NPS_BUCKET_KEYS}
+    targets["service_detractor"] = 1
+    targets["service_promoter"] = 1
+    minimums = SpecialTypeMinimums(dnc=1, email_send=0, lead_escalated=0, review_link_sent=0, post_call_sms=0)
+    picks = assignment_service._phase2_nps_picks(buckets, targets, minimums)
+    picked_ids = {p.lokam_call_id for p in picks}
+    # DNC filled by detractor pick; promoter bucket picks plain (DNC need already 0 → no sort boost)
+    assert call_dnc.lokam_call_id in picked_ids
+    assert len(picks) == 2
+
+
+def test_phase2_zero_minimum_no_priority_effect() -> None:
+    """When all special minimums are zero, picks equal top-N by original list order."""
+    call_dnc = _make_call(1, "Completed", 3, is_dnc_request=True)
+    call_plain = _make_call(2, "Completed", 3)
+    buckets = {k: [] for k in assignment_service.ALL_BUCKET_KEYS}
+    buckets["service_detractor"] = [call_plain, call_dnc]  # plain first
+    buckets["dnc"] = [call_dnc]
+    targets = {k: 0 for k in NPS_BUCKET_KEYS}
+    targets["service_detractor"] = 1
+    picks = assignment_service._phase2_nps_picks(buckets, targets, _zero_special_minimums())
+    assert len(picks) == 1
+    assert picks[0].lokam_call_id == call_plain.lokam_call_id  # plain first, no sort applied
+
+
+def test_phase2_full_pool_used() -> None:
+    """Hamilton targets sum equals total_pool (not reduced by special minimums)."""
     total_pool = 10
-    phase2_pool = total_pool - phase1_count
     probs = BucketProbabilities(**_make_flat_probs(**{k: 1.0 for k in NPS_BUCKET_KEYS}))
-    targets = assignment_service._hamilton_round(probs, phase2_pool)
-    assert sum(targets.values()) == phase2_pool
+    targets = assignment_service._hamilton_round(probs, total_pool)
+    assert sum(targets.values()) == total_pool
+
+
+# ── Phase 2: dedup within NPS ─────────────────────────────────────────────────
 
 
 def test_phase2_deduplicates_within_nps() -> None:
@@ -318,7 +305,7 @@ def test_phase2_deduplicates_within_nps() -> None:
     buckets["service_detractor"] = [call]
     targets = {k: 0 for k in NPS_BUCKET_KEYS}
     targets["service_detractor"] = 1
-    picks = assignment_service._phase2_nps_picks(buckets, targets, set())
+    picks = assignment_service._phase2_nps_picks(buckets, targets, _zero_special_minimums())
     assert len(picks) == 1
 
 
@@ -364,7 +351,7 @@ def test_distribute_short_na_capped_per_reviewer() -> None:
 async def test_assign_calls_no_users_returns_zero() -> None:
     """Returns 0 immediately when there are no active users."""
     db = AsyncMock()
-    with patch("app.services.assignment_service.user_repo.list_active_reviewers", AsyncMock(return_value=[])):
+    with patch("app.services.assignment_service.user_repo.list_all_active", AsyncMock(return_value=[])):
         count = await assignment_service.assign_calls_for_date(db, date(2026, 4, 4))
     assert count == 0
 
@@ -376,7 +363,7 @@ async def test_assign_calls_no_unassigned_returns_zero() -> None:
     cfg = _make_bucket_config(default_capacity=5)
     user = _make_user(1)
     with (
-        patch("app.services.assignment_service.user_repo.list_active_reviewers", AsyncMock(return_value=[user])),
+        patch("app.services.assignment_service.user_repo.list_all_active", AsyncMock(return_value=[user])),
         patch("app.services.assignment_service.bucket_config_service.get_config", AsyncMock(return_value=cfg)),
         patch("app.services.assignment_service._build_unified_load", AsyncMock(return_value={})),
         patch("app.services.assignment_service.raw_call_repo.get_unassigned_for_date", AsyncMock(return_value=[])),
@@ -392,7 +379,7 @@ async def test_assign_calls_total_capacity_zero_returns_zero() -> None:
     cfg = _make_bucket_config(default_capacity=5)
     user = _make_user(1)
     with (
-        patch("app.services.assignment_service.user_repo.list_active_reviewers", AsyncMock(return_value=[user])),
+        patch("app.services.assignment_service.user_repo.list_all_active", AsyncMock(return_value=[user])),
         patch("app.services.assignment_service.bucket_config_service.get_config", AsyncMock(return_value=cfg)),
         patch("app.services.assignment_service._build_unified_load", AsyncMock(return_value={1: 5})),
         patch("app.services.assignment_service.raw_call_repo.get_unassigned_for_date", AsyncMock(return_value=[])),
@@ -416,7 +403,7 @@ async def test_assign_calls_creates_evals() -> None:
         return service_calls if call_type == "service" else []
 
     with (
-        patch("app.services.assignment_service.user_repo.list_active_reviewers", AsyncMock(return_value=users)),
+        patch("app.services.assignment_service.user_repo.list_all_active", AsyncMock(return_value=users)),
         patch("app.services.assignment_service.bucket_config_service.get_config", AsyncMock(return_value=cfg)),
         patch("app.services.assignment_service._build_unified_load", AsyncMock(return_value={})),
         patch("app.services.assignment_service.raw_call_repo.get_unassigned_for_date", side_effect=_unassigned),
@@ -445,7 +432,7 @@ async def test_pool_matches_sum_of_capacities() -> None:
         return calls if call_type == "service" else []
 
     with (
-        patch("app.services.assignment_service.user_repo.list_active_reviewers", AsyncMock(return_value=users)),
+        patch("app.services.assignment_service.user_repo.list_all_active", AsyncMock(return_value=users)),
         patch("app.services.assignment_service.bucket_config_service.get_config", AsyncMock(return_value=cfg)),
         patch("app.services.assignment_service._build_unified_load", AsyncMock(return_value={})),
         patch("app.services.assignment_service.raw_call_repo.get_unassigned_for_date", side_effect=_unassigned),
@@ -471,7 +458,7 @@ async def test_default_capacity_used_when_user_capacity_null() -> None:
         return calls if call_type == "service" else []
 
     with (
-        patch("app.services.assignment_service.user_repo.list_active_reviewers", AsyncMock(return_value=[user])),
+        patch("app.services.assignment_service.user_repo.list_all_active", AsyncMock(return_value=[user])),
         patch("app.services.assignment_service.bucket_config_service.get_config", AsyncMock(return_value=cfg)),
         patch("app.services.assignment_service._build_unified_load", AsyncMock(return_value={})),
         patch("app.services.assignment_service.raw_call_repo.get_unassigned_for_date", side_effect=_unassigned),
@@ -500,7 +487,7 @@ async def test_partial_supply_assigns_available_continues_other_buckets() -> Non
         return all_calls if call_type == "service" else []
 
     with (
-        patch("app.services.assignment_service.user_repo.list_active_reviewers", AsyncMock(return_value=users)),
+        patch("app.services.assignment_service.user_repo.list_all_active", AsyncMock(return_value=users)),
         patch("app.services.assignment_service.bucket_config_service.get_config", AsyncMock(return_value=cfg)),
         patch("app.services.assignment_service._build_unified_load", AsyncMock(return_value={})),
         patch("app.services.assignment_service.raw_call_repo.get_unassigned_for_date", side_effect=_unassigned),
@@ -514,7 +501,7 @@ async def test_partial_supply_assigns_available_continues_other_buckets() -> Non
 
 @pytest.mark.asyncio
 async def test_two_phase_total_at_most_pool() -> None:
-    """Combined phase1 + phase2 assignments never exceed total_pool."""
+    """Assignments with special minimums never exceed total_pool."""
     users = [_make_user(1, capacity=5), _make_user(2, capacity=5)]  # pool = 10
     probs = {k: 0.0 for k in NPS_BUCKET_KEYS}
     probs["service_na"] = 1.0
@@ -530,7 +517,7 @@ async def test_two_phase_total_at_most_pool() -> None:
         return dnc_calls + na_calls if call_type == "service" else []
 
     with (
-        patch("app.services.assignment_service.user_repo.list_active_reviewers", AsyncMock(return_value=users)),
+        patch("app.services.assignment_service.user_repo.list_all_active", AsyncMock(return_value=users)),
         patch("app.services.assignment_service.bucket_config_service.get_config", AsyncMock(return_value=cfg)),
         patch("app.services.assignment_service._build_unified_load", AsyncMock(return_value={})),
         patch("app.services.assignment_service.raw_call_repo.get_unassigned_for_date", side_effect=_unassigned),
