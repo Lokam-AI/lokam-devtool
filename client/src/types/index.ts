@@ -186,10 +186,17 @@ export interface SpecialTypeMinimums {
   post_call_sms: number;
 }
 
+export interface BucketConfigSystemDefaults {
+  probabilities: BucketProbabilities;
+  special_minimums: SpecialTypeMinimums;
+  reviewer_capacity: number;
+}
+
 export interface BucketConfig {
   probabilities: BucketProbabilities;
   special_minimums: SpecialTypeMinimums;
   default_reviewer_capacity: number;
+  system_defaults: BucketConfigSystemDefaults;
 }
 
 export interface ReviewerCapacity {
