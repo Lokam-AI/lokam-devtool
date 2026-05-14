@@ -47,7 +47,7 @@ async def update_capacity(
 async def bulk_update(
     db: AsyncSession, payload: ReviewerCapacityBulkUpdate
 ) -> list[ReviewerCapacityRead]:
-    """Atomically update capacities for a list of reviewers."""
+    """Update capacities for a list of reviewers."""
     results = []
     for item in payload.updates:
         result = await update_capacity(db, item.user_id, ReviewerCapacityUpdate(capacity=item.capacity))

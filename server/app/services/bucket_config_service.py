@@ -37,13 +37,23 @@ async def get_config(db: AsyncSession) -> BucketConfigRead:
     else:
         probabilities = BucketProbabilities(**DEFAULT_BUCKET_PROBABILITIES)
 
-    default_capacity = int(raw_capacity) if raw_capacity is not None else DEFAULT_REVIEWER_CAPACITY
+    if raw_capacity is not None:
+        try:
+            default_capacity = int(raw_capacity)
+        except (ValueError, TypeError):
+            logger.warning("default_reviewer_capacity in system_settings is invalid; using default")
+            default_capacity = DEFAULT_REVIEWER_CAPACITY
+    else:
+        default_capacity = DEFAULT_REVIEWER_CAPACITY
 
-    special_minimums = (
-        SpecialTypeMinimums(**json.loads(raw_minimums))
-        if raw_minimums is not None
-        else SpecialTypeMinimums(**DEFAULT_SPECIAL_MINIMUMS)
-    )
+    if raw_minimums is not None:
+        try:
+            special_minimums = SpecialTypeMinimums(**json.loads(raw_minimums))
+        except (ValidationError, ValueError, KeyError, TypeError):
+            logger.warning("special_type_minimums in system_settings is invalid; using defaults")
+            special_minimums = SpecialTypeMinimums(**DEFAULT_SPECIAL_MINIMUMS)
+    else:
+        special_minimums = SpecialTypeMinimums(**DEFAULT_SPECIAL_MINIMUMS)
 
     return BucketConfigRead(
         probabilities=probabilities,
