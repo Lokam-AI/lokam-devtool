@@ -22,8 +22,6 @@ import {
   apiResolveBug,
   apiToggleBookmark,
   apiGetDashboardStats,
-  apiGetAssignmentConfig,
-  apiUpdateAssignmentConfig,
   apiCreateBug,
   type CreateBugPayload,
   type MyCallsParams,
@@ -34,7 +32,6 @@ import {
   type BugsStatsResult,
   type MyBugsParams,
 } from "@/lib/api";
-import type { AssignmentConfig } from "@/types";
 import type { Eval } from "@/types";
 
 const STALE_MS = 5 * 60 * 1000;
@@ -225,24 +222,6 @@ export function useUpdateUser() {
       apiUpdateUser(userId, patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["users"] });
-    },
-  });
-}
-
-export function useAssignmentConfig() {
-  return useQuery({
-    queryKey: ["assignment-config"],
-    queryFn: apiGetAssignmentConfig,
-    staleTime: 60_000,
-  });
-}
-
-export function useUpdateAssignmentConfig() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (patch: Partial<AssignmentConfig>) => apiUpdateAssignmentConfig(patch),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["assignment-config"] });
     },
   });
 }
