@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import admin, auth, bugs, calls, evals, health, notifications, stats, sync, team, threads, uploads, users
+from app.api.v1.endpoints import admin, admin_bucket_config, auth, bugs, calls, evals, health, notifications, stats, sync, team, threads, uploads, users
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -10,6 +10,7 @@ api_router.include_router(users.router)
 api_router.include_router(calls.router)
 api_router.include_router(evals.router)
 api_router.include_router(admin.router)
+api_router.include_router(admin_bucket_config.router)
 api_router.include_router(team.router)
 api_router.include_router(bugs.router)
 api_router.include_router(sync.router)

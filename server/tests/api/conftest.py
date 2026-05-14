@@ -45,6 +45,17 @@ def admin_client() -> TestClient:
 
 
 @pytest.fixture
+def superadmin_client() -> TestClient:
+    """Return a test client authenticated as a superadmin."""
+    user = _make_user(role="superadmin")
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    client = TestClient(app, raise_server_exceptions=False)
+    yield client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
 def unauthenticated_client() -> TestClient:
     """Return a test client with no authentication."""
     app.dependency_overrides[get_db] = lambda: AsyncMock()

@@ -10,7 +10,7 @@ def test_user_table_name() -> None:
 def test_user_columns_exist() -> None:
     """User model defines all required columns."""
     col_names = {c.key for c in inspect(User).mapper.column_attrs}
-    expected = {"id", "email", "password_hash", "name", "role", "is_active", "must_change_password", "created_at", "updated_at"}
+    expected = {"id", "email", "password_hash", "name", "role", "is_active", "must_change_password", "capacity", "created_at", "updated_at"}
     assert expected.issubset(col_names)
 
 

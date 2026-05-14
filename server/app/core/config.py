@@ -66,11 +66,27 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-MAX_CALLS_PER_USER: int = 5
-CALL_TARGETS: dict[str, int] = {"na": 2, "passive": 0, "detractor": 1, "promoter": 1, "missed": 1}
-FILL_PRIORITY: list[str] = ["na", "detractor", "missed", "promoter", "passive"]
+DEFAULT_REVIEWER_CAPACITY: int = 17
 
-# Sales-call assignment: 3-status bucketing (na/promoter/detractor — lokamspace emits nps 5/10/null).
-SALES_MAX_CALLS_PER_USER: int = 2
-SALES_CALL_TARGETS: dict[str, int] = {"na": 0, "detractor": 1, "promoter": 1}
-SALES_FILL_PRIORITY: list[str] = ["na", "detractor", "promoter"]
+# NPS bucket probabilities for Phase 2 — 8 keys summing to 1.0.
+# Derived from legacy targets (service: na=7, det=2, pro=3, missed=3; sales: det=1, pro=1)
+# normalised over the 17-call pool: each value = legacy_count / 17.
+DEFAULT_BUCKET_PROBABILITIES: dict[str, float] = {
+    "service_na": 0.4118,
+    "service_passive": 0.0,
+    "service_detractor": 0.1176,
+    "service_promoter": 0.1765,
+    "service_missed": 0.1765,
+    "sales_na": 0.0,
+    "sales_detractor": 0.0588,
+    "sales_promoter": 0.0588,
+}
+
+# Phase 1 special-type minimum counts — one call of each type guaranteed per day.
+DEFAULT_SPECIAL_MINIMUMS: dict[str, int] = {
+    "dnc": 1,
+    "email_send": 1,
+    "lead_escalated": 1,
+    "review_link_sent": 1,
+    "post_call_sms": 1,
+}
