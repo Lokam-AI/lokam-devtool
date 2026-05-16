@@ -167,23 +167,42 @@ export interface EnvConfig {
   is_active: boolean;
 }
 
-export interface CallTargets {
-  na: number;
-  passive: number;
-  detractor: number;
-  promoter: number;
-  missed: number;
+export interface BucketProbabilities {
+  service_na: number;
+  service_passive: number;
+  service_detractor: number;
+  service_promoter: number;
+  service_missed: number;
+  sales_na: number;
+  sales_detractor: number;
+  sales_promoter: number;
 }
 
-export interface SalesCallTargets {
-  na: number;
-  detractor: number;
-  promoter: number;
+export interface SpecialTypeMinimums {
+  dnc: number;
+  email_send: number;
+  lead_escalated: number;
+  review_link_sent: number;
+  post_call_sms: number;
 }
 
-export interface AssignmentConfig {
-  max_calls_per_user: number;
-  call_targets: CallTargets;
-  sales_max_calls_per_user: number;
-  sales_call_targets: SalesCallTargets;
+export interface BucketConfigSystemDefaults {
+  probabilities: BucketProbabilities;
+  special_minimums: SpecialTypeMinimums;
+  reviewer_capacity: number;
+}
+
+export interface BucketConfig {
+  probabilities: BucketProbabilities;
+  special_minimums: SpecialTypeMinimums;
+  default_reviewer_capacity: number;
+  system_defaults: BucketConfigSystemDefaults;
+}
+
+export interface ReviewerCapacity {
+  user_id: number;
+  email: string;
+  name: string;
+  capacity: number | null;
+  effective_capacity: number;
 }

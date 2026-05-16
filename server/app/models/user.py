@@ -1,6 +1,6 @@
 from typing import Any
 
-from sqlalchemy import Boolean, Index, String
+from sqlalchemy import Boolean, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -24,6 +24,7 @@ class User(Base, TimestampMixin):
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False)
     must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     def __init__(
         self,
