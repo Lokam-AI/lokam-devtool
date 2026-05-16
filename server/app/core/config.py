@@ -66,11 +66,25 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-MAX_CALLS_PER_USER: int = 5
-CALL_TARGETS: dict[str, int] = {"na": 2, "passive": 0, "detractor": 1, "promoter": 1, "missed": 1}
-FILL_PRIORITY: list[str] = ["na", "detractor", "missed", "promoter", "passive"]
+DEFAULT_REVIEWER_CAPACITY: int = 15
 
-# Sales-call assignment: 3-status bucketing (na/promoter/detractor — lokamspace emits nps 5/10/null).
-SALES_MAX_CALLS_PER_USER: int = 2
-SALES_CALL_TARGETS: dict[str, int] = {"na": 0, "detractor": 1, "promoter": 1}
-SALES_FILL_PRIORITY: list[str] = ["na", "detractor", "promoter"]
+
+DEFAULT_BUCKET_PROBABILITIES: dict[str, float] = {
+    "service_na": 0.10,
+    "service_passive": 0.10,
+    "service_detractor": 0.20,
+    "service_promoter": 0.10,
+    "service_missed": 0.10,
+    "sales_na": 0.10,
+    "sales_detractor": 0.20,
+    "sales_promoter": 0.10,
+}
+
+# Phase 1 special-type minimum counts — one call of each type guaranteed per day.
+DEFAULT_SPECIAL_MINIMUMS: dict[str, int] = {
+    "dnc": 10,
+    "email_send": 10,
+    "lead_escalated": 10,
+    "review_link_sent": 10,
+    "post_call_sms": 10,
+}

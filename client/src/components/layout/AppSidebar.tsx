@@ -20,6 +20,7 @@ import {
   PanelLeftOpen,
   Bell,
   Bookmark,
+  Sliders,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuthStore } from "@/store/auth-store";
@@ -64,8 +65,12 @@ const REVIEWER_NAV = [
 ];
 
 const ADMIN_NAV = [
-  { title: "Admin Controls", url: "/admin", icon: Settings },
-  { title: "Team Overview",  url: "/team",  icon: Users    },
+  { title: "Admin Controls",    url: "/admin",             icon: Settings },
+  { title: "Team Overview",     url: "/team",              icon: Users    },
+];
+
+const SUPERADMIN_NAV = [
+  { title: "Call Distribution", url: "/call-distribution", icon: Sliders  },
 ];
 
 
@@ -197,6 +202,9 @@ export function AppSidebar() {
                     <NavItem key={item.url} item={item} collapsed={collapsed} pathname={location.pathname} />
                   ))}
                   {isAtLeast("admin") && ADMIN_NAV.map((item) => (
+                    <NavItem key={item.url} item={item} collapsed={collapsed} pathname={location.pathname} />
+                  ))}
+                  {isAtLeast("superadmin") && SUPERADMIN_NAV.map((item) => (
                     <NavItem key={item.url} item={item} collapsed={collapsed} pathname={location.pathname} />
                   ))}
                 </SidebarMenu>

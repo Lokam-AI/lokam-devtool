@@ -24,6 +24,14 @@ async def list_all_active(db: AsyncSession) -> list[User]:
     return list(result.scalars().all())
 
 
+async def list_active_reviewers(db: AsyncSession) -> list[User]:
+    """Return all active users with the reviewer role."""
+    result = await db.execute(
+        select(User).where(User.is_active.is_(True), User.role == "reviewer").order_by(User.id)
+    )
+    return list(result.scalars().all())
+
+
 async def list_all(db: AsyncSession) -> list[User]:
     """Return all users ordered by id."""
     result = await db.execute(select(User).order_by(User.id))

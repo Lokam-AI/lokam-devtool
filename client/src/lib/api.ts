@@ -10,7 +10,8 @@ import type {
   BugReport,
   SystemHealth,
   EnvConfig,
-  AssignmentConfig,
+  BucketConfig,
+  ReviewerCapacity,
   Thread,
   Message,
   Attachment,
@@ -387,17 +388,40 @@ interface BackendUser {
   must_change_password: boolean;
 }
 
-/** GET /admin/assignment-config — returns current assignment config (superadmin only) */
-export const apiGetAssignmentConfig = async (): Promise<AssignmentConfig> => {
-  const { data } = await api.get<AssignmentConfig>("/admin/assignment-config");
+/** GET /admin/bucket-config — returns org-level call distribution config (superadmin only) */
+export const apiGetBucketConfig = async (): Promise<BucketConfig> => {
+  const { data } = await api.get<BucketConfig>("/admin/bucket-config");
   return data;
 };
 
-/** PATCH /admin/assignment-config — update assignment config (superadmin only) */
-export const apiUpdateAssignmentConfig = async (
-  patch: Partial<AssignmentConfig>
-): Promise<AssignmentConfig> => {
-  const { data } = await api.patch<AssignmentConfig>("/admin/assignment-config", patch);
+/** PATCH /admin/bucket-config — update bucket probabilities / default capacity (superadmin only) */
+export const apiUpdateBucketConfig = async (
+  patch: Partial<BucketConfig>
+): Promise<BucketConfig> => {
+  const { data } = await api.patch<BucketConfig>("/admin/bucket-config", patch);
+  return data;
+};
+
+/** GET /admin/reviewer-capacities — list reviewer capacity settings (superadmin only) */
+export const apiListReviewerCapacities = async (): Promise<ReviewerCapacity[]> => {
+  const { data } = await api.get<ReviewerCapacity[]>("/admin/reviewer-capacities");
+  return data;
+};
+
+/** PATCH /admin/reviewer-capacities/:id — update one reviewer's capacity (superadmin only) */
+export const apiUpdateReviewerCapacity = async (
+  userId: number,
+  capacity: number | null
+): Promise<ReviewerCapacity> => {
+  const { data } = await api.patch<ReviewerCapacity>(`/admin/reviewer-capacities/${userId}`, { capacity });
+  return data;
+};
+
+/** PUT /admin/reviewer-capacities — bulk update reviewer capacities (superadmin only) */
+export const apiBulkUpdateReviewerCapacities = async (
+  updates: { user_id: number; capacity: number | null }[]
+): Promise<ReviewerCapacity[]> => {
+  const { data } = await api.put<ReviewerCapacity[]>("/admin/reviewer-capacities", { updates });
   return data;
 };
 
