@@ -1,20 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useAuthStore } from "@/store/auth-store";
 import { parseUtc } from "@/lib/utils";
 import { useCalls, useCallsCount, useHealth, useTeam, useDashboardStats } from "@/hooks/use-calls";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bug, RefreshCw, AlertTriangle } from "lucide-react";
+import { useBugTypeStats } from "@/hooks/use-call-tags";
 
 const FF = '"cv01", "ss03"' as const;
 const MONO = "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace";
 
-const REVIEW_LOG = [
-  { icon: "mic",      iconColor: "#7170ff", title: "Incoming Call #4812",  meta: "Node: Alpha-7 · 2m ago"            },
-  { icon: "verified", iconColor: "#10b981", title: "Verification Success", meta: "Internal Review · 15m ago"         },
-  { icon: "warning",  iconColor: "#ff716c", title: "Flagged Exception",    meta: "Manual Override Required · 1h ago" },
-  { icon: "mic",      iconColor: "#7170ff", title: "Incoming Call #4810",  meta: "Node: Beta-3 · 2h ago"             },
-];
 
 function relativeTime(iso: string | null): string {
   if (!iso) return "Never";
@@ -29,7 +24,6 @@ function relativeTime(iso: string | null): string {
 
 export default function DashboardPage() {
   const isAdmin = useAuthStore((s) => s.isAtLeast)("admin");
-  const { data: calls, isLoading: recentCallsLoading, isError: callsError } = useCalls({ limit: 5 });
   const { data: pendingCount,   isLoading: pendingLoading   } = useCallsCount({ eval_status: "pending"   });
   const { data: completedCount, isLoading: completedLoading } = useCallsCount({ eval_status: "completed" });
   const { data: firstPendingCalls } = useCalls({ eval_status: "pending", limit: 1 });
@@ -38,7 +32,7 @@ export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const navigate = useNavigate();
 
-  const callsLoading   = recentCallsLoading || pendingLoading || completedLoading;
+  const callsLoading = pendingLoading || completedLoading;
   const pending        = pendingCount   ?? 0;
   const completed      = completedCount ?? 0;
   const firstPendingId = firstPendingCalls?.[0]?.call.id;
@@ -51,16 +45,6 @@ export default function DashboardPage() {
   const promoterPct  = npsScored ? Math.round((stats!.nps.promoters  / npsScored) * 100) : 0;
   const neutralPct   = npsScored ? Math.round((stats!.nps.neutrals   / npsScored) * 100) : 0;
   const detractorPct = npsScored ? Math.round((stats!.nps.detractors / npsScored) * 100) : 0;
-
-  if (callsError) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-xs uppercase tracking-widest" style={{ color: "#ff716c", fontWeight: 510, fontFeatureSettings: FF }}>
-          Failed to load dashboard data. Please refresh the page.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="animate-in fade-in duration-500 space-y-10">
@@ -351,129 +335,130 @@ export default function DashboardPage() {
           </div>
         </div>
 
-      {/* ── Row 3: Review log + reviewer bottleneck ───────────────────── */}
-      <div className="grid grid-cols-12 gap-6">
+      {/* ── Row 3: Bug Occurrences + Queue Bottleneck ─────────────────── */}
+      <div className="grid grid-cols-2 gap-6">
 
-        {/* Review log */}
-        <div className="col-span-12 lg:col-span-7">
-          <div className="flex items-center justify-between mb-6">
-            <h4 className="text-base" style={{ color: "#f7f8f8", fontWeight: 510, fontFeatureSettings: FF }}>
-              {isAdmin ? "Review Log" : "My Recent Calls"}
-            </h4>
-            <button
-              className="text-[10px] uppercase tracking-widest transition-colors"
-              style={{ color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#828fff"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#7170ff"; }}
-              onClick={() => navigate("/calls")}
-            >
-              View All
-            </button>
-          </div>
-          <div className="space-y-2">
-            {calls && calls.length > 0
-              ? calls.slice(0, 5).map(({ call, eval: ev }) => (
-                  <ReviewLogItem
-                    key={call.id}
-                    icon={ev.status === "completed" ? "verified" : "pending_actions"}
-                    iconColor={ev.status === "completed" ? "#10b981" : "#8a8f98"}
-                    title={`Call #${call.id.slice(-6).toUpperCase()}`}
-                    meta={`${call.source_env ?? "unknown"} · ${ev.status}`}
-                    onClick={() => navigate(`/eval/${call.id}`)}
-                  />
-                ))
-              : REVIEW_LOG.map((item, i) => (
-                  <ReviewLogItem key={i} icon={item.icon} iconColor={item.iconColor} title={item.title} meta={item.meta} />
-                ))
-            }
-          </div>
-        </div>
+        {/* Bug Occurrences (admin+) */}
+        {isAdmin && <BugOccurrencesCard />}
 
-        {/* Reviewer bottleneck / team progress */}
-        <div className="col-span-12 lg:col-span-5 flex flex-col gap-5">
-
-          {/* Queue Bottleneck — visible to all roles */}
-          {team && team.length > 0 && (
-            <div
-              className="rounded-xl p-6 border flex flex-col gap-5"
-              style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] uppercase tracking-widest" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>Queue Bottleneck</p>
-                <span className="text-[10px] uppercase tracking-widest" style={{ color: "#62666d", fontFeatureSettings: FF }}>Pending</span>
-              </div>
-              <div className="space-y-4">
-                {[...team].sort((a, b) => b.calls_pending - a.calls_pending).slice(0, 4).map((m) => (
-                  <div key={m.id} className="flex items-center gap-3">
-                    <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] border"
-                      style={{
-                        background: m.calls_pending > 10 ? "rgba(255,113,108,0.1)" : "rgba(255,255,255,0.04)",
-                        color:      m.calls_pending > 10 ? "#ff716c" : "rgba(255,255,255,0.4)",
-                        borderColor: m.calls_pending > 10 ? "rgba(255,113,108,0.2)" : "rgba(255,255,255,0.07)",
-                        fontWeight: 510,
-                      }}
-                    >
-                      {m.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+        {/* Queue Bottleneck */}
+        {team && team.length > 0 && (
+          <div
+            className="rounded-2xl p-5 border flex flex-col gap-4"
+            style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)" }}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-widest" style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}>Queue Bottleneck</p>
+              <span className="text-[10px] uppercase tracking-widest" style={{ color: "#62666d", fontFeatureSettings: FF }}>Pending</span>
+            </div>
+            <div className="flex flex-col gap-4">
+              {[...team].sort((a, b) => b.calls_pending - a.calls_pending).slice(0, 4).map((m) => (
+                <div key={m.id} className="flex items-center gap-3">
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] border"
+                    style={{
+                      background:  m.calls_pending > 10 ? "rgba(255,113,108,0.1)" : "rgba(255,255,255,0.04)",
+                      color:       m.calls_pending > 10 ? "#ff716c" : "rgba(255,255,255,0.4)",
+                      borderColor: m.calls_pending > 10 ? "rgba(255,113,108,0.2)" : "rgba(255,255,255,0.07)",
+                      fontWeight: 510,
+                    }}
+                  >
+                    {m.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[12px] truncate" style={{ color: "#d0d6e0", fontWeight: 510, fontFeatureSettings: FF }}>{m.name}</span>
+                      <span className="text-[11px] shrink-0 ml-2" style={{ color: m.calls_pending > 10 ? "#ff716c" : "#8a8f98", fontFamily: MONO }}>{m.calls_pending}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[12px] truncate" style={{ color: "#d0d6e0", fontWeight: 510, fontFeatureSettings: FF }}>{m.name}</span>
-                        <span className="text-[11px] shrink-0 ml-2" style={{ color: m.calls_pending > 10 ? "#ff716c" : "#8a8f98", fontFamily: MONO }}>{m.calls_pending}</span>
-                      </div>
-                      <div className="h-px rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${Math.min(100, m.completion_pct)}%`,
-                            background: m.completion_pct >= 75 ? "#10b981" : m.completion_pct >= 40 ? "#5e6ad2" : "rgba(255,113,108,0.6)",
-                          }}
-                        />
-                      </div>
+                    <div className="h-px rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.min(100, m.completion_pct)}%`,
+                          background: m.completion_pct >= 75 ? "#10b981" : m.completion_pct >= 40 ? "#5e6ad2" : "rgba(255,113,108,0.6)",
+                        }}
+                      />
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function ReviewLogItem({ icon, iconColor, title, meta, onClick }: {
-  icon: string; iconColor: string; title: string; meta: string; onClick?: () => void;
-}) {
+
+function BugOccurrencesCard() {
+  const [days, setDays] = useState<7 | 30>(7);
+  const { data: stats = [], isLoading } = useBugTypeStats(days);
+  const topStats = stats.slice(0, 6);
+  const maxCount = topStats[0]?.count ?? 1;
+
   return (
     <div
-      className="p-3.5 rounded-lg border flex items-center justify-between cursor-pointer transition-all duration-150"
+      className="rounded-2xl border p-5 flex flex-col gap-4"
       style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)" }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)";
-        (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.08)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.02)";
-        (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.06)";
-      }}
-      onClick={onClick}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 border"
-          style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)" }}
-        >
-          <span className="material-symbols-outlined text-sm" style={{ color: iconColor, fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>
-            {icon}
-          </span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Bug className="h-4 w-4" style={{ color: "#f87171" }} />
+          <p className="text-xs uppercase tracking-widest" style={{ color: "#8a8f98", fontWeight: 510, fontFeatureSettings: FF }}>
+            Bug Occurrences
+          </p>
         </div>
-        <div>
-          <p className="text-xs" style={{ color: "#d0d6e0", fontWeight: 510, fontFeatureSettings: FF }}>{title}</p>
-          <p className="text-[10px]" style={{ color: "#62666d", fontFeatureSettings: FF }}>{meta}</p>
+        <div className="flex items-center gap-1 p-0.5 rounded-lg border" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+          {([7, 30] as const).map((d) => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className="px-2.5 py-1 rounded-md text-[10px] transition-all"
+              style={days === d
+                ? { background: "rgba(113,112,255,0.15)", color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }
+                : { color: "#62666d", fontFeatureSettings: FF }
+              }
+            >
+              {d}d
+            </button>
+          ))}
         </div>
       </div>
-      <span className="material-symbols-outlined text-sm" style={{ color: "#62666d", fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>chevron_right</span>
+
+      {isLoading ? (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-7 rounded-lg" style={{ background: "rgba(255,255,255,0.04)" }} />
+          ))}
+        </div>
+      ) : topStats.length === 0 ? (
+        <p className="text-xs text-center py-4" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+          No bug reports in the last {days} days.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {topStats.map((stat) => {
+            const pct = maxCount > 0 ? (stat.count / maxCount) * 100 : 0;
+            return (
+              <div key={stat.id} className="flex items-center gap-3">
+                <p className="text-xs w-36 shrink-0 truncate" style={{ color: "#d0d6e0", fontFeatureSettings: FF }}>
+                  {stat.name}
+                </p>
+                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%`, background: "rgba(248,113,113,0.6)" }}
+                  />
+                </div>
+                <p className="text-[10px] w-6 text-right shrink-0" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+                  {stat.count}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
