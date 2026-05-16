@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { useTeam, useUsers, useCreateUser, useUpdateUser } from "@/hooks/use-calls";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -6,6 +6,9 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth-store";
 import { UserPlus, Users, ShieldCheck, Star } from "lucide-react";
 import type { UserRole } from "@/types";
+
+const CallDistributionPage = lazy(() => import("@/pages/CallDistributionPage"));
+const BugTypeConfigPage    = lazy(() => import("@/pages/BugTypeConfigPage"));
 
 const FF = '"cv01", "ss03"' as const;
 
@@ -25,16 +28,20 @@ const ROLE_CONFIG: Record<string, { label: string; bg: string; color: string; bo
 
 export default function TeamPage() {
   const isSuperadmin = useAuthStore((s) => s.hasRole)("superadmin");
-  const [tab, setTab] = useState<"team" | "users">("team");
+  const [tab, setTab] = useState<"team" | "users" | "call-distribution" | "bug-type-config">("team");
+
+  const tabs = [
+    { key: "team",              label: "Team Overview"     },
+    { key: "users",             label: "User Registry",     superadminOnly: true },
+    { key: "call-distribution", label: "Call Distribution", superadminOnly: true },
+    { key: "bug-type-config",   label: "Bug Type Config",   superadminOnly: true },
+  ].filter((t) => !t.superadminOnly || isSuperadmin) as { key: typeof tab; label: string }[];
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       {/* ── Tab bar ─────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "0" }}>
-        {([
-          { key: "team",  label: "Team Overview" },
-          ...(isSuperadmin ? [{ key: "users", label: "User Registry" }] : []),
-        ] as { key: "team" | "users"; label: string }[]).map(({ key, label }) => (
+        {tabs.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -54,8 +61,18 @@ export default function TeamPage() {
         ))}
       </div>
 
-      {tab === "team" && <TeamTab />}
-      {tab === "users" && isSuperadmin && <UsersTab />}
+      {tab === "team"              && <TeamTab />}
+      {tab === "users"             && isSuperadmin && <UsersTab />}
+      {tab === "call-distribution" && isSuperadmin && (
+        <Suspense fallback={<Skeleton className="h-64 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }} />}>
+          <CallDistributionPage />
+        </Suspense>
+      )}
+      {tab === "bug-type-config"   && isSuperadmin && (
+        <Suspense fallback={<Skeleton className="h-64 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }} />}>
+          <BugTypeConfigPage />
+        </Suspense>
+      )}
     </div>
   );
 }

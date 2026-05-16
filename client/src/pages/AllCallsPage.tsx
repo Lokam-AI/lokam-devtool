@@ -53,6 +53,8 @@ export default function AllCallsPage() {
     call_type:         filters.callType  !== "all" ? filters.callType   : undefined,
     sort_by:           filters.sortBy,
     sort_dir:          filters.sortDir,
+    is_bookmarked:     filters.isBookmarked ? (true as const) : undefined,
+    quality_tag:       filters.qualityTag !== "all" ? filters.qualityTag : undefined,
   }), [filters]);
 
   const queryParams = useMemo(() => ({
@@ -70,6 +72,8 @@ export default function AllCallsPage() {
     nps_filter:        filters.npsFilter !== "all" ? filters.npsFilter  : undefined,
     post_call_sms:     filters.postCallSms !== "all" ? filters.postCallSms : undefined,
     call_type:         filters.callType  !== "all" ? filters.callType   : undefined,
+    is_bookmarked:     filters.isBookmarked ? (true as const) : undefined,
+    quality_tag:       filters.qualityTag !== "all" ? filters.qualityTag : undefined,
   }), [filters]);
 
 
@@ -120,7 +124,8 @@ export default function AllCallsPage() {
   const hasFilters = filters.search || filters.callStatus !== "all" ||
     filters.postCallSms !== "all" || filters.org !== "all" || filters.npsFilter !== "all" ||
     filters.callType !== "all" || !!filters.dateRange?.from ||
-    filters.sortBy !== "date" || filters.sortDir !== "desc";
+    filters.sortBy !== "date" || filters.sortDir !== "desc" || filters.isBookmarked ||
+    filters.qualityTag !== "all";
 
   const resetFilters = () => {
     setFilters({ ...DEFAULT_FILTERS, dateRange: thisMonthRange() });
@@ -197,6 +202,8 @@ export default function AllCallsPage() {
         showCallType
         showNps
         showPostCallSms
+        showBookmarked
+        showQualityTag
         showOrg
         showDateRange
         showSort

@@ -95,6 +95,7 @@ async def list_bugs(
     bug_type: str | None = Query(default=None),
     is_internal: bool | None = Query(default=None),
     mentioned_me: bool = Query(default=False),
+    severity: str | None = Query(default=None),
     limit: int = Query(default=PAGE_SIZE, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -107,7 +108,7 @@ async def list_bugs(
         db, date_from, date_to, source_env=source_env, organization_name=organization_name,
         is_resolved=is_resolved, bug_type=bug_type, is_internal=is_internal,
         mentioned_user_id=current_user.id if mentioned_me else None,
-        limit=limit, offset=offset,
+        severity=severity, limit=limit, offset=offset,
     )
     return [BugReportRead.model_validate(r) for r in rows]
 
@@ -122,6 +123,7 @@ async def count_bugs(
     bug_type: str | None = Query(default=None),
     is_internal: bool | None = Query(default=None),
     mentioned_me: bool = Query(default=False),
+    severity: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_reviewer),
 ) -> dict[str, int]:
@@ -130,6 +132,7 @@ async def count_bugs(
         db, date_from, date_to, source_env=source_env, organization_name=organization_name,
         is_resolved=is_resolved, bug_type=bug_type, is_internal=is_internal,
         mentioned_user_id=current_user.id if mentioned_me else None,
+        severity=severity,
     )
     return {"count": total}
 

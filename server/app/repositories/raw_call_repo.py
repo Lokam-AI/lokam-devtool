@@ -84,6 +84,7 @@ def _apply_call_filters(
     post_call_sms: str | None = None,
     call_type: str | None = None,
     is_bookmarked: bool | None = None,
+    quality_tag: str | None = None,
 ) -> object:
     """Apply shared filter clauses to a RawCall select query."""
     if source_env is not None:
@@ -120,6 +121,8 @@ def _apply_call_filters(
         query = query.where(RawCall.is_post_call_sms_survey.is_(False))
     if is_bookmarked is not None:
         query = query.where(RawCall.is_bookmarked == is_bookmarked)
+    if quality_tag is not None:
+        query = query.where(RawCall.quality_tag == quality_tag)
     return query
 
 
@@ -153,6 +156,7 @@ async def list_all(
     limit: int = 30,
     offset: int = 0,
     call_type: str | None = None,
+    quality_tag: str | None = None,
 ) -> list[RawCall]:
     """Return all RawCall rows with optional filters, ordered as requested."""
     query = select(RawCall)
@@ -168,6 +172,7 @@ async def list_all(
         post_call_sms=post_call_sms,
         call_type=call_type,
         is_bookmarked=is_bookmarked,
+        quality_tag=quality_tag,
     )
     query = _apply_call_sort(query, sort_by, sort_dir)
     result = await db.execute(query.limit(limit).offset(offset))
@@ -186,6 +191,7 @@ async def count_all(
     post_call_sms: str | None = None,
     call_type: str | None = None,
     is_bookmarked: bool | None = None,
+    quality_tag: str | None = None,
 ) -> int:
     """Return count of RawCall rows matching filters."""
     query = select(func.count(RawCall.id))
@@ -201,6 +207,7 @@ async def count_all(
         post_call_sms=post_call_sms,
         call_type=call_type,
         is_bookmarked=is_bookmarked,
+        quality_tag=quality_tag,
     )
     result = await db.execute(query)
     return result.scalar_one()
@@ -218,6 +225,7 @@ async def stats_all(
     post_call_sms: str | None = None,
     call_type: str | None = None,
     is_bookmarked: bool | None = None,
+    quality_tag: str | None = None,
 ) -> dict:
     """Return avg_duration_sec and avg_nps for all RawCall rows matching filters."""
     query = select(
@@ -236,6 +244,7 @@ async def stats_all(
         post_call_sms=post_call_sms,
         call_type=call_type,
         is_bookmarked=is_bookmarked,
+        quality_tag=quality_tag,
     )
     result = await db.execute(query)
     row = result.one()
