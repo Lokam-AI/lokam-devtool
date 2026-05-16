@@ -485,6 +485,7 @@ export interface AllCallsParams {
   post_call_sms?: string;
   call_type?: CallType;
   is_bookmarked?: boolean;
+  quality_tag?: string;
   sort_by?: string;
   sort_dir?: string;
   limit?: number;
@@ -526,6 +527,8 @@ export const apiGetEnvs = async (): Promise<EnvConfig[]> => {
   return data;
 };
 
+export type BugSeverity = "low" | "medium" | "high";
+
 export interface BugsParams {
   date_from: string;
   date_to: string;
@@ -535,6 +538,7 @@ export interface BugsParams {
   bug_type?: string;
   is_internal?: boolean;
   mentioned_me?: boolean;
+  severity?: BugSeverity;
   limit?: number;
   offset?: number;
 }

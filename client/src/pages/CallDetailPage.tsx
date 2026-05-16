@@ -411,26 +411,40 @@ function CallDetailInner({ call, navigate }: { call: RawCall; navigate: ReturnTy
               AI Analysis
             </h2>
           </div>
-          <button
-            onClick={() => toggleBookmark.mutate({ callId: Number(call.id), isBookmarked: !call.is_bookmarked })}
-            disabled={toggleBookmark.isPending}
-            aria-label={call.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
-            aria-pressed={call.is_bookmarked}
-            title={call.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
-            className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              background: call.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)",
-              borderColor: call.is_bookmarked ? "rgba(247,248,248,0.2)" : "rgba(255,255,255,0.06)",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(247,248,248,0.1)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = call.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)"; }}
-          >
-            <Bookmark
-              className="h-3.5 w-3.5"
-              fill={call.is_bookmarked ? "#f7f8f8" : "none"}
-              style={{ color: call.is_bookmarked ? "#f7f8f8" : "#62666d" }}
-            />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {call.quality_tag && (
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                style={
+                  call.quality_tag === "AGENT_HANDLED_WELL"
+                    ? { background: "rgba(34,197,94,0.15)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.25)" }
+                    : { background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(239,68,68,0.25)" }
+                }
+              >
+                {call.quality_tag === "AGENT_HANDLED_WELL" ? "Handled Well" : "Agent Failed"}
+              </span>
+            )}
+            <button
+              onClick={() => toggleBookmark.mutate({ callId: Number(call.id), isBookmarked: !call.is_bookmarked })}
+              disabled={toggleBookmark.isPending}
+              aria-label={call.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
+              aria-pressed={call.is_bookmarked}
+              title={call.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
+              className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: call.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)",
+                borderColor: call.is_bookmarked ? "rgba(247,248,248,0.2)" : "rgba(255,255,255,0.06)",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(247,248,248,0.1)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = call.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)"; }}
+            >
+              <Bookmark
+                className="h-3.5 w-3.5"
+                fill={call.is_bookmarked ? "#f7f8f8" : "none"}
+                style={{ color: call.is_bookmarked ? "#f7f8f8" : "#62666d" }}
+              />
+            </button>
+          </div>
         </div>
 
         <ScrollArea className="flex-1">

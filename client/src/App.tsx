@@ -18,9 +18,6 @@ const AllCallsPage = lazy(() => import("@/pages/AllCallsPage"));
 const BugsPage = lazy(() => import("@/pages/BugsPage"));
 const MyBugsPage = lazy(() => import("@/pages/MyBugsPage"));
 const CallDetailPage = lazy(() => import("@/pages/CallDetailPage"));
-const BookmarkedCallsPage = lazy(() => import("@/pages/BookmarkedCallsPage"));
-const CallDistributionPage = lazy(() => import("@/pages/CallDistributionPage"));
-const BugTypeConfigPage = lazy(() => import("@/pages/BugTypeConfigPage"));
 
 function PageLoader() {
   return (
@@ -52,10 +49,7 @@ const App = () => {
                 path="/all-calls"
                 element={<RoleGuard minRole="reviewer"><AllCallsPage /></RoleGuard>}
               />
-              <Route
-                path="/bookmarked"
-                element={<RoleGuard minRole="reviewer"><BookmarkedCallsPage /></RoleGuard>}
-              />
+              <Route path="/bookmarked" element={<Navigate to="/all-calls" replace />} />
               <Route
                 path="/admin"
                 element={<RoleGuard minRole="admin"><AdminPage /></RoleGuard>}
@@ -64,14 +58,8 @@ const App = () => {
                 path="/team"
                 element={<RoleGuard minRole="admin"><TeamPage /></RoleGuard>}
               />
-              <Route
-                path="/call-distribution"
-                element={<RoleGuard minRole="superadmin"><Suspense fallback={<PageLoader />}><CallDistributionPage /></Suspense></RoleGuard>}
-              />
-              <Route
-                path="/bug-type-config"
-                element={<RoleGuard minRole="superadmin"><Suspense fallback={<PageLoader />}><BugTypeConfigPage /></Suspense></RoleGuard>}
-              />
+              <Route path="/call-distribution" element={<Navigate to="/team" replace />} />
+              <Route path="/bug-type-config"   element={<Navigate to="/team" replace />} />
               <Route
                 path="/bugs"
                 element={<RoleGuard minRole="reviewer"><BugsPage /></RoleGuard>}
