@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 from sqlalchemy import func, case, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.bug_report import BugReport
 from app.models.eval import Eval
 from app.models.raw_call import RawCall
+
+if TYPE_CHECKING:
+    from app.models.super_config import SuperConfig
 
 
 async def get_dashboard_stats(db: AsyncSession) -> dict:
@@ -66,3 +70,28 @@ async def get_dashboard_stats(db: AsyncSession) -> dict:
             "bugs_today":     bug_sync.today,
         },
     }
+
+
+async def get_bug_type_stats(
+    db: AsyncSession,
+    configs: "list[SuperConfig]",
+    days: int = 7,
+) -> list[dict]:
+    """Return occurrence counts for each bug type over the given number of days."""
+    since = date.today() - timedelta(days=days)
+    results = []
+    for cfg in configs:
+        count_row = await db.execute(
+            select(func.count())
+            .where(BugReport.bug_date >= since)
+            .where(BugReport.bug_types.contains([cfg.name]))
+        )
+        results.append({
+            "id": cfg.id,
+            "name": cfg.name,
+            "display_name": cfg.display_name,
+            "is_active": cfg.is_active,
+            "count": count_row.scalar_one(),
+            "days": days,
+        })
+    return sorted(results, key=lambda x: x["count"], reverse=True)

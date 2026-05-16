@@ -148,7 +148,7 @@ export default function BookmarkedCallsPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                {["Call ID", "Organization", "Campaign", "Date", "Status", "Direction", "Duration", "NPS", "Action"].map((h) => (
+                {["Call ID", "Organization", "Campaign", "Date", "Status", "Direction", "Duration", "NPS", "Quality", "Action"].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-3 text-[10px] uppercase tracking-widest whitespace-nowrap"
@@ -163,7 +163,7 @@ export default function BookmarkedCallsPage() {
               {isLoading
                 ? Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      {Array.from({ length: 9 }).map((_, j) => (
+                      {Array.from({ length: 10 }).map((_, j) => (
                         <td key={j} className="px-4 py-3.5">
                           <Skeleton className="h-3.5 w-16" style={{ background: "rgba(255,255,255,0.04)" }} />
                         </td>
@@ -368,6 +368,25 @@ function BookmarkCallRow({ call, onView }: { call: RawCall; onView: () => void }
           ? <span style={{ color: call.ai_nps_score >= 9 ? "#10b981" : call.ai_nps_score >= 7 ? "#f59e0b" : "#ff716c", fontWeight: 510 }}>{call.ai_nps_score}</span>
           : <span style={{ color: "#62666d" }}>—</span>
         }
+      </td>
+      <td className="px-4 py-3">
+        {call.quality_tag === "AGENT_HANDLED_WELL" && (
+          <span
+            className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-widest border whitespace-nowrap"
+            style={{ background: "rgba(16,185,129,0.1)", color: "#10b981", borderColor: "rgba(16,185,129,0.2)", fontWeight: 510, fontFeatureSettings: FF }}
+          >
+            Handled Well
+          </span>
+        )}
+        {call.quality_tag === "AGENT_FAILED" && (
+          <span
+            className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-widest border whitespace-nowrap"
+            style={{ background: "rgba(248,113,113,0.1)", color: "#f87171", borderColor: "rgba(248,113,113,0.2)", fontWeight: 510, fontFeatureSettings: FF }}
+          >
+            Agent Failed
+          </span>
+        )}
+        {!call.quality_tag && <span style={{ color: "#62666d" }}>—</span>}
       </td>
       <td className="px-4 py-3">
         <button

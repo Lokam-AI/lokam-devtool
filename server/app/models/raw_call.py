@@ -74,6 +74,9 @@ class RawCall(Base, TimestampMixin):
     )
     # Devtool bookmark (golden dataset curation)
     is_bookmarked: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    # Call quality tag set via the bookmark picker in the eval form
+    quality_tag: Mapped[str | None] = mapped_column(String(30))
+    quality_tag_notes: Mapped[str | None] = mapped_column(Text)
     # Post-call SMS survey
     is_post_call_sms_survey: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
     post_call_sms_body: Mapped[str | None] = mapped_column(Text)

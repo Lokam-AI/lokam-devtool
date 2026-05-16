@@ -16,6 +16,9 @@ import type {
   Message,
   Attachment,
   Notification,
+  SuperConfig,
+  BugTypeStat,
+  BugTypeWithName,
 } from "@/types";
 
 const API_BASE = `${import.meta.env.VITE_API_BASE_URL ?? ""}/api/v1`;
@@ -79,6 +82,8 @@ function mapCall(r: BackendRawCall): RawCall {
     post_call_sms_nps: r.post_call_sms_nps ?? undefined,
     vapi_call_id: r.vapi_call_id ?? null,
     is_bookmarked: r.is_bookmarked ?? false,
+    quality_tag: (r.quality_tag as RawCall["quality_tag"]) ?? null,
+    quality_tag_notes: r.quality_tag_notes ?? null,
   };
 }
 
@@ -151,6 +156,8 @@ interface BackendRawCall {
   post_call_sms_nps: number | null;
   vapi_call_id: string | null;
   is_bookmarked: boolean | null;
+  quality_tag: string | null;
+  quality_tag_notes: string | null;
 }
 
 interface BackendEval {
@@ -725,6 +732,71 @@ export const apiToggleFeatureFlag = async (
     `/admin/feature-flags/${flagKey}/toggle`,
     { env, enabled },
   );
+  return data;
+};
+
+/* ------------------------------------------------------------------ */
+/*  Super Configs (voice bug types, etc.)                               */
+/* ------------------------------------------------------------------ */
+
+/** GET /super-configs?category=... */
+export const apiListSuperConfigs = async (category: string): Promise<SuperConfig[]> => {
+  const { data } = await api.get<SuperConfig[]>("/super-configs", { params: { category } });
+  return data;
+};
+
+/** POST /super-configs */
+export const apiCreateSuperConfig = async (
+  payload: Pick<SuperConfig, "category" | "name"> & Partial<Pick<SuperConfig, "display_name" | "description" | "options" | "sort_order">>
+): Promise<SuperConfig> => {
+  const { data } = await api.post<SuperConfig>("/super-configs", payload);
+  return data;
+};
+
+/** PATCH /super-configs/:id */
+export const apiUpdateSuperConfig = async (
+  id: number,
+  patch: Partial<Pick<SuperConfig, "name" | "display_name" | "description" | "options" | "is_active" | "sort_order">>
+): Promise<SuperConfig> => {
+  const { data } = await api.patch<SuperConfig>(`/super-configs/${id}`, patch);
+  return data;
+};
+
+/* ------------------------------------------------------------------ */
+/*  Call Tags (bug type tagging + quality tagging)                     */
+/* ------------------------------------------------------------------ */
+
+/** GET /calls/:callId/bug-type-ids */
+export const apiGetCallBugTypeIds = async (callId: string): Promise<BugTypeWithName[]> => {
+  const { data } = await api.get<BugTypeWithName[]>(`/calls/${callId}/bug-type-ids`);
+  return data;
+};
+
+/** PATCH /calls/:callId/bug-type-ids */
+export const apiUpdateCallBugTypeIds = async (
+  callId: string,
+  bugTypeIds: number[]
+): Promise<{ call_id: number; bug_type_ids: number[] }> => {
+  const { data } = await api.patch(`/calls/${callId}/bug-type-ids`, { bug_type_ids: bugTypeIds });
+  return data;
+};
+
+/** PATCH /calls/:callId/quality-tag — set or clear */
+export const apiSetCallQualityTag = async (
+  callId: string,
+  qualityTag: "AGENT_HANDLED_WELL" | "AGENT_FAILED" | null,
+  notes?: string | null,
+): Promise<RawCall> => {
+  const { data } = await api.patch<BackendRawCall>(`/calls/${callId}/quality-tag`, {
+    quality_tag: qualityTag,
+    quality_tag_notes: notes ?? null,
+  });
+  return mapCall(data);
+};
+
+/** GET /stats/bug-types?days=7 */
+export const apiGetBugTypeStats = async (days: number = 7): Promise<BugTypeStat[]> => {
+  const { data } = await api.get<BugTypeStat[]>("/stats/bug-types", { params: { days } });
   return data;
 };
 

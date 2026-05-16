@@ -71,6 +71,7 @@ const ADMIN_NAV = [
 
 const SUPERADMIN_NAV = [
   { title: "Call Distribution", url: "/call-distribution", icon: Sliders  },
+  { title: "Bug Type Config",   url: "/bug-type-config",   icon: Bug      },
 ];
 
 

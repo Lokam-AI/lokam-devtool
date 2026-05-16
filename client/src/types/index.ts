@@ -50,6 +50,8 @@ export interface RawCall {
   post_call_sms_nps?: number;
   vapi_call_id?: string | null;
   is_bookmarked: boolean;
+  quality_tag: "AGENT_HANDLED_WELL" | "AGENT_FAILED" | null;
+  quality_tag_notes: string | null;
 }
 
 export interface Eval {
@@ -205,4 +207,33 @@ export interface ReviewerCapacity {
   name: string;
   capacity: number | null;
   effective_capacity: number;
+}
+
+export interface SuperConfig {
+  id: number;
+  category: string;
+  name: string;
+  display_name: string | null;
+  description: string | null;
+  options: Record<string, unknown> | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BugTypeStat {
+  id: number;
+  name: string;
+  display_name: string | null;
+  is_active: boolean;
+  count: number;
+  days: number;
+}
+
+export interface BugTypeWithName {
+  id: number;
+  name: string;
+  display_name: string | null;
+  is_active: boolean;
 }
