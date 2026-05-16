@@ -56,6 +56,13 @@ class RawCallCreate(BaseModel):
     post_call_sms_nps: int | None = None
 
 
+class QualityTagUpdate(BaseModel):
+    """Payload for setting or clearing the quality tag on a call."""
+
+    quality_tag: str | None = None
+    quality_tag_notes: str | None = None
+
+
 class RawCallRead(RawCallCreate):
     """Schema for returning raw call data to API consumers."""
 
@@ -63,6 +70,8 @@ class RawCallRead(RawCallCreate):
 
     id: int
     is_bookmarked: bool = False
+    quality_tag: str | None = None
+    quality_tag_notes: str | None = None
     synced_at: datetime
     created_at: datetime
     updated_at: datetime

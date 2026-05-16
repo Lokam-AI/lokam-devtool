@@ -39,6 +39,7 @@ class EvalUpdate(BaseModel):
     gt_lead_escalated: bool | None = None
     scenario_tags: Any | None = None
     scenario_tags_str: str | None = None
+    bug_type_ids: list[int] | None = None
 
 
 class EvalRead(BaseModel):
@@ -73,5 +74,6 @@ class EvalRead(BaseModel):
     scenario_tags: Any | None = None
     scenario_tags_str: str | None = None
     formatted_tags: Any | None = None
+    bug_type_ids: list[int] | None = None
     created_at: datetime
     updated_at: datetime

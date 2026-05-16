@@ -6,7 +6,10 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.bug_report import BugReport
+from app.models.super_config import SuperConfig
 from app.models.thread import Notification
+
+VOICE_BUG_CATEGORY = "voice_bug_type"
 
 MANUAL_SOURCE_ENV = "manual"
 
@@ -101,6 +104,7 @@ def _apply_bug_date_filters(
     bug_type: str | None,
     is_internal: bool | None = None,
     mentioned_user_id: int | None = None,
+    severity_names: list[str] | None = None,
 ) -> object:
     """Apply shared filter clauses to a BugReport select query."""
     query = query.where(BugReport.bug_date >= date_from, BugReport.bug_date <= date_to)
@@ -112,6 +116,12 @@ def _apply_bug_date_filters(
         query = query.where(BugReport.is_resolved == is_resolved)
     if bug_type is not None:
         query = query.where(BugReport.bug_types.contains([bug_type]))
+    if severity_names is not None:
+        from sqlalchemy import or_
+        if severity_names:
+            query = query.where(or_(*[BugReport.bug_types.contains([n]) for n in severity_names]))
+        else:
+            query = query.where(False)
     if is_internal is True:
         query = query.where(BugReport.external_id < 0)
     elif is_internal is False:
@@ -130,6 +140,17 @@ def _apply_bug_date_filters(
     return query
 
 
+async def _resolve_severity_names(db: AsyncSession, severity: str) -> list[str]:
+    """Return super_config names for voice bug types matching the given severity."""
+    result = await db.execute(
+        select(SuperConfig.name).where(
+            SuperConfig.category == VOICE_BUG_CATEGORY,
+            SuperConfig.options["severity"].astext == severity,
+        )
+    )
+    return list(result.scalars().all())
+
+
 async def list_by_date_range(
     db: AsyncSession,
     date_from: date,
@@ -140,12 +161,16 @@ async def list_by_date_range(
     bug_type: str | None = None,
     is_internal: bool | None = None,
     mentioned_user_id: int | None = None,
+    severity: str | None = None,
     limit: int = 30,
     offset: int = 0,
 ) -> list[BugReport]:
     """Return BugReport rows within an inclusive date range with optional filters and pagination."""
+    severity_names: list[str] | None = None
+    if severity is not None:
+        severity_names = await _resolve_severity_names(db, severity)
     query = select(BugReport)
-    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type, is_internal, mentioned_user_id)
+    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type, is_internal, mentioned_user_id, severity_names)
     result = await db.execute(
         query.order_by(BugReport.bug_date.desc(), BugReport.id.desc()).limit(limit).offset(offset)
     )
@@ -162,10 +187,14 @@ async def count_by_date_range(
     bug_type: str | None = None,
     is_internal: bool | None = None,
     mentioned_user_id: int | None = None,
+    severity: str | None = None,
 ) -> int:
     """Return count of BugReport rows matching filters."""
+    severity_names: list[str] | None = None
+    if severity is not None:
+        severity_names = await _resolve_severity_names(db, severity)
     query = select(func.count(BugReport.id))
-    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type, is_internal, mentioned_user_id)
+    query = _apply_bug_date_filters(query, date_from, date_to, source_env, organization_name, is_resolved, bug_type, is_internal, mentioned_user_id, severity_names)
     result = await db.execute(query)
     return result.scalar_one()
 

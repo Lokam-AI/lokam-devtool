@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
-import { Bug, Building2, MapPin, Tag, AlertTriangle, RefreshCw, Filter, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Bug, Building2, MapPin, Tag, AlertTriangle, RefreshCw, X, ChevronLeft, ChevronRight, SlidersHorizontal, ChevronDown, Check } from "lucide-react";
+import type { BugSeverity } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useBugs, useBugsCount, useBugsStats, useAssignBug, useResolveBug, useUsers } from "@/hooks/use-calls";
@@ -100,12 +101,13 @@ export default function BugsPage() {
   const [sourceFilter, setSourceFilter] = useState<"all" | "internal" | "clients">("all");
   const [orgFilter, setOrgFilter] = useState<string>("");
   const [bugTypeFilter, setBugTypeFilter] = useState<string>("");
+  const [severityFilter, setSeverityFilter] = useState<BugSeverity | "">("");
   const [mentionedMe, setMentionedMe] = useState(false);
   const [selected, setSelected] = useState<BugReport | null>(null);
   const openIdParam = searchParams.get("open");
   const [page, setPage] = useState(0);
 
-  useEffect(() => { setPage(0); }, [range, statusFilter, sourceFilter, orgFilter, bugTypeFilter, mentionedMe]);
+  useEffect(() => { setPage(0); }, [range, statusFilter, sourceFilter, orgFilter, bugTypeFilter, severityFilter, mentionedMe]);
 
   const dateFrom = range?.from ? toIso(range.from) : "";
   const dateTo   = range?.to   ? toIso(range.to)   : dateFrom;
@@ -118,7 +120,8 @@ export default function BugsPage() {
     bug_type:          bugTypeFilter || undefined,
     is_internal:       sourceFilter === "internal" ? true : sourceFilter === "clients" ? false : undefined,
     mentioned_me:      mentionedMe || undefined,
-  }), [dateFrom, dateTo, orgFilter, statusFilter, bugTypeFilter, sourceFilter, mentionedMe]);
+    severity:          severityFilter || undefined,
+  }), [dateFrom, dateTo, orgFilter, statusFilter, bugTypeFilter, sourceFilter, mentionedMe, severityFilter]);
 
   const bugsParams = useMemo(() => ({
     ...filterBase,
@@ -139,7 +142,8 @@ export default function BugsPage() {
     organization_name: orgFilter || undefined,
     is_resolved:       statusFilter === "open" ? false : statusFilter === "resolved" ? true : undefined,
     bug_type:          bugTypeFilter || undefined,
-  }), [dateFrom, dateTo, orgFilter, statusFilter, bugTypeFilter]);
+    severity:          severityFilter || undefined,
+  }), [dateFrom, dateTo, orgFilter, statusFilter, bugTypeFilter, severityFilter]);
 
   const { data: bugs = [], isLoading, isFetching, refetch } = useBugs(bugsParams);
   const { data: totalCount = 0 } = useBugsCount(countParams);
@@ -175,7 +179,7 @@ export default function BugsPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const activeFilterCount = [statusFilter !== "all", sourceFilter !== "all", !!orgFilter, !!bugTypeFilter, mentionedMe].filter(Boolean).length;
+  const activeFilterCount = [statusFilter !== "all", sourceFilter !== "all", !!orgFilter, !!bugTypeFilter, !!severityFilter, mentionedMe].filter(Boolean).length;
 
 
   // Keep drawer in sync when list refreshes
@@ -221,111 +225,21 @@ export default function BugsPage() {
       </div>
 
       {/* ── Filter bar ─────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-1.5" style={{ color: activeFilterCount > 0 ? "#7170ff" : "#62666d" }}>
-          <Filter className="h-3.5 w-3.5 shrink-0" />
-          <span className="text-[12px]" style={{ fontWeight: 510, fontFeatureSettings: FF }}>
-            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-          </span>
-        </div>
-
-        {/* Status */}
-        {(["all", "open", "resolved"] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className="h-7 px-2.5 rounded-md text-[12px] capitalize transition-colors"
-            style={statusFilter === s
-              ? { background: "rgba(113,112,255,0.12)", border: "1px solid rgba(113,112,255,0.25)", color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }
-              : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "#8a8f98", fontFeatureSettings: FF }
-            }
-          >
-            {s}
-          </button>
-        ))}
-
-        {/* Divider */}
-        <div className="h-4 w-px mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
-
-        {/* Source */}
-        {(["all", "internal", "clients"] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => setSourceFilter(s)}
-            className="h-7 px-2.5 rounded-md text-[12px] capitalize transition-colors"
-            style={sourceFilter === s
-              ? { background: "rgba(113,112,255,0.12)", border: "1px solid rgba(113,112,255,0.25)", color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }
-              : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "#8a8f98", fontFeatureSettings: FF }
-            }
-          >
-            {s}
-          </button>
-        ))}
-
-        {/* Divider */}
-        <div className="h-4 w-px mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
-
-        {/* Mentioned me */}
-        <button
-          onClick={() => setMentionedMe((v) => !v)}
-          className="h-7 px-2.5 rounded-md text-[12px] flex items-center gap-1.5 transition-colors"
-          style={mentionedMe
-            ? { background: "rgba(113,112,255,0.12)", border: "1px solid rgba(113,112,255,0.25)", color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }
-            : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "#8a8f98", fontFeatureSettings: FF }
-          }
-        >
-          <span style={{ fontSize: 11 }}>@</span>
-          Mentioned me
-        </button>
-
-        {/* Divider */}
-        <div className="h-4 w-px mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
-
-        {/* Org filter */}
-        {orgOptions.length > 0 && (
-          <DropdownSelect
-            value={orgFilter}
-            onChange={setOrgFilter}
-            options={[
-              { value: "", label: "All orgs" },
-              ...orgOptions.map((o) => ({ value: o, label: o })),
-            ]}
-            size="sm"
-          />
-        )}
-
-        {/* Bug type filter */}
-        {bugTypeOptions.length > 0 && (
-          <DropdownSelect
-            value={bugTypeFilter}
-            onChange={setBugTypeFilter}
-            options={[
-              { value: "", label: "All bug types" },
-              ...bugTypeOptions.map((t) => ({ value: t, label: t })),
-            ]}
-            size="sm"
-          />
-        )}
-
-        {/* Clear all */}
-        {activeFilterCount > 0 && (
-          <button
-            onClick={() => { setStatusFilter("all"); setSourceFilter("all"); setOrgFilter(""); setBugTypeFilter(""); setMentionedMe(false); }}
-            className="h-7 px-2 text-[12px] flex items-center gap-1 rounded-md transition-colors"
-            style={{ color: "#62666d", fontFeatureSettings: FF }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#ff716c"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#62666d"; }}
-          >
-            <X className="h-3 w-3" />
-            Clear
-          </button>
-        )}
-
-        {/* Result count */}
-        <span className="ml-auto text-[12px]" style={{ color: "#62666d", fontFeatureSettings: FF }}>
-          {totalCount > 0 ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, totalCount)} of ${totalCount}` : "0 results"}
-        </span>
-      </div>
+      <BugsFilterBar
+        statusFilter={statusFilter}        onStatusFilter={setStatusFilter}
+        sourceFilter={sourceFilter}        onSourceFilter={setSourceFilter}
+        severityFilter={severityFilter}    onSeverityFilter={setSeverityFilter}
+        mentionedMe={mentionedMe}          onMentionedMe={setMentionedMe}
+        orgFilter={orgFilter}              onOrgFilter={setOrgFilter}
+        bugTypeFilter={bugTypeFilter}      onBugTypeFilter={setBugTypeFilter}
+        orgOptions={orgOptions}
+        bugTypeOptions={bugTypeOptions}
+        activeFilterCount={activeFilterCount}
+        totalCount={totalCount}
+        page={page}
+        pageSize={PAGE_SIZE}
+        onClear={() => { setStatusFilter("all"); setSourceFilter("all"); setOrgFilter(""); setBugTypeFilter(""); setSeverityFilter(""); setMentionedMe(false); }}
+      />
 
       {/* ── Metric cards ───────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -434,6 +348,226 @@ export default function BugsPage() {
         assigning={assignBug.isPending}
         resolving={resolveBug.isPending}
       />
+    </div>
+  );
+}
+
+/* ── BugsFilterBar ───────────────────────────────────────────────── */
+
+const SEVERITY_OPTS = [
+  { value: "low"    as BugSeverity, label: "Low",    color: "#10b981" },
+  { value: "medium" as BugSeverity, label: "Medium", color: "#f59e0b" },
+  { value: "high"   as BugSeverity, label: "High",   color: "#f87171" },
+];
+
+function BugsFilterBar({
+  statusFilter, onStatusFilter,
+  sourceFilter, onSourceFilter,
+  severityFilter, onSeverityFilter,
+  mentionedMe, onMentionedMe,
+  orgFilter, onOrgFilter,
+  bugTypeFilter, onBugTypeFilter,
+  orgOptions, bugTypeOptions,
+  activeFilterCount,
+  totalCount, page, pageSize,
+  onClear,
+}: {
+  statusFilter: "all" | "open" | "resolved"; onStatusFilter: (v: "all" | "open" | "resolved") => void;
+  sourceFilter: "all" | "internal" | "clients"; onSourceFilter: (v: "all" | "internal" | "clients") => void;
+  severityFilter: BugSeverity | ""; onSeverityFilter: (v: BugSeverity | "") => void;
+  mentionedMe: boolean; onMentionedMe: (v: boolean) => void;
+  orgFilter: string; onOrgFilter: (v: string) => void;
+  bugTypeFilter: string; onBugTypeFilter: (v: string) => void;
+  orgOptions: string[]; bugTypeOptions: string[];
+  activeFilterCount: number;
+  totalCount: number; page: number; pageSize: number;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const pillActive = {
+    background: "rgba(113,112,255,0.15)",
+    border: "1px solid rgba(113,112,255,0.3)",
+    color: "#a5a4ff",
+    fontFeatureSettings: FF,
+  } as React.CSSProperties;
+
+  const pillIdle = {
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(255,255,255,0.06)",
+    color: "#8a8f98",
+    fontFeatureSettings: FF,
+  } as React.CSSProperties;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {/* Filters button */}
+      <div className="relative" ref={ref}>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center h-9 gap-1.5 px-3 rounded-md border text-[13px] transition-all cursor-pointer"
+          style={{
+            background:  open || activeFilterCount > 0 ? "rgba(113,112,255,0.06)" : "rgba(255,255,255,0.02)",
+            borderColor: open || activeFilterCount > 0 ? "rgba(113,112,255,0.2)"  : "rgba(255,255,255,0.08)",
+            color:       open || activeFilterCount > 0 ? "#a5a4ff" : "#8a8f98",
+            fontFeatureSettings: FF,
+          }}
+        >
+          <SlidersHorizontal
+            className="h-3.5 w-3.5 shrink-0"
+            style={{ color: open || activeFilterCount > 0 ? "#a5a4ff" : "#62666d" }}
+          />
+          <span>Filters</span>
+          {activeFilterCount > 0 && (
+            <span
+              className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-semibold"
+              style={{ background: "rgba(113,112,255,0.3)", color: "#a5a4ff" }}
+            >
+              {activeFilterCount}
+            </span>
+          )}
+          <ChevronDown
+            className="h-3 w-3 transition-transform duration-150"
+            style={{ color: "#62666d", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+          />
+        </button>
+
+        {open && (
+          <div
+            className="absolute top-full mt-1.5 left-0 z-50 rounded-xl p-4 space-y-4"
+            style={{
+              background: "#191a1b",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.2)",
+              width: "300px",
+            }}
+          >
+            {/* Status */}
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>Status</p>
+              <div className="flex gap-1">
+                {(["all", "open", "resolved"] as const).map((s) => (
+                  <button key={s} onClick={() => onStatusFilter(s)}
+                    className="px-2.5 py-1 rounded-md text-[12px] capitalize transition-all cursor-pointer"
+                    style={statusFilter === s ? pillActive : pillIdle}
+                  >{s}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Source */}
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>Source</p>
+              <div className="flex gap-1">
+                {(["all", "internal", "clients"] as const).map((s) => (
+                  <button key={s} onClick={() => onSourceFilter(s)}
+                    className="px-2.5 py-1 rounded-md text-[12px] capitalize transition-all cursor-pointer"
+                    style={sourceFilter === s ? pillActive : pillIdle}
+                  >{s}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Severity */}
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>Severity</p>
+              <div className="flex gap-1">
+                {SEVERITY_OPTS.map(({ value, label, color }) => (
+                  <button key={value}
+                    onClick={() => onSeverityFilter(severityFilter === value ? "" : value)}
+                    className="px-2.5 py-1 rounded-md text-[12px] transition-all cursor-pointer"
+                    style={severityFilter === value
+                      ? { background: `${color}18`, border: `1px solid ${color}50`, color, fontFeatureSettings: FF }
+                      : pillIdle
+                    }
+                  >{label}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>Tags</p>
+              <button
+                onClick={() => onMentionedMe(!mentionedMe)}
+                aria-pressed={mentionedMe}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] transition-all cursor-pointer"
+                style={mentionedMe ? pillActive : pillIdle}
+              >
+                {mentionedMe && <Check className="h-3 w-3 shrink-0" />}
+                @ Mentioned me
+              </button>
+            </div>
+
+            {/* Org */}
+            {orgOptions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>Organization</p>
+                <DropdownSelect
+                  value={orgFilter}
+                  onChange={onOrgFilter}
+                  options={[{ value: "", label: "All orgs" }, ...orgOptions.map((o) => ({ value: o, label: o }))]}
+                />
+              </div>
+            )}
+
+            {/* Bug type */}
+            {bugTypeOptions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "#4a4f58", fontFeatureSettings: FF }}>Bug Type</p>
+                <DropdownSelect
+                  value={bugTypeFilter}
+                  onChange={onBugTypeFilter}
+                  options={[{ value: "", label: "All bug types" }, ...bugTypeOptions.map((t) => ({ value: t, label: t }))]}
+                />
+              </div>
+            )}
+
+            {/* Clear inside popover */}
+            {activeFilterCount > 0 && (
+              <button
+                className="w-full text-[12px] py-1.5 rounded-md transition-all cursor-pointer"
+                style={{ color: "#8a8f98", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", fontFeatureSettings: FF }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#d0d6e0"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#8a8f98"; }}
+                onClick={() => { onClear(); setOpen(false); }}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Clear all (outside) */}
+      {activeFilterCount > 0 && (
+        <button
+          className="h-9 px-3 rounded-md text-[13px] transition-all cursor-pointer"
+          style={{ color: "#62666d", fontFeatureSettings: FF }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#d0d6e0"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#62666d"; }}
+          onClick={onClear}
+        >
+          Clear all
+        </button>
+      )}
+
+      {/* Result count */}
+      <span className="ml-auto text-[12px]" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+        {totalCount > 0
+          ? `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, totalCount)} of ${totalCount}`
+          : "0 results"}
+      </span>
     </div>
   );
 }

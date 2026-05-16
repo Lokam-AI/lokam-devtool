@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useCall, useCalls, useSubmitEval, useCreateBug, useTeam, useToggleBookmark } from "@/hooks/use-calls";
+import { useSuperConfigs } from "@/hooks/use-super-configs";
+import { useSetCallQualityTag } from "@/hooks/use-call-tags";
 import { useAuthStore } from "@/store/auth-store";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Loader2, Phone, MapPin,
   Bot, Play, Pause, Check, X, ChevronRight, Bug, MessageSquare, Bookmark,
-  Star, Mail,
+  Star, Mail, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 import { PostCallSmsPanel } from "@/components/PostCallSmsPanel";
 import { CallTypePill } from "@/components/ui/call-type-pill";
@@ -119,7 +121,21 @@ function EvalFormInner({
   const saved = evalData.status === "completed";
   const isSales = callData.call_type === "sales";
   const [bugModalOpen, setBugModalOpen] = useState(false);
+  const [qualityPickerOpen, setQualityPickerOpen] = useState(false);
+  const qualityPickerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!qualityPickerOpen) return;
+    const close = (e: MouseEvent) => {
+      if (qualityPickerRef.current && !qualityPickerRef.current.contains(e.target as Node)) {
+        setQualityPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [qualityPickerOpen]);
   const toggleBookmark = useToggleBookmark();
+  const setQualityTag = useSetCallQualityTag(callData.id);
+  const [localQualityTag, setLocalQualityTag] = useState<RawCall["quality_tag"]>(() => callData.quality_tag);
   const { skippedIds, skipCall, clearSession } = useEvalSessionStore();
 
   const [fields, setFields] = useState<Record<string, FieldState>>(() => {
@@ -288,7 +304,12 @@ function EvalFormInner({
     evalUpdate.corrections = corrections;
 
     try {
-      await submitEval.mutateAsync({ evalId: evalData.id, data: evalUpdate });
+      await Promise.all([
+        submitEval.mutateAsync({ evalId: evalData.id, data: evalUpdate }),
+        localQualityTag !== callData.quality_tag
+          ? setQualityTag.mutateAsync({ qualityTag: localQualityTag })
+          : Promise.resolve(),
+      ]);
       toast.success("Evaluation submitted");
       const next = allCalls?.find(
         (c) => c.eval.status === "pending" && c.call.id !== callData.id && !skippedIds.includes(c.call.id)
@@ -697,26 +718,83 @@ function EvalFormInner({
             </h2>
           </div>
           <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => toggleBookmark.mutate({ callId: Number(callData.id), isBookmarked: !callData.is_bookmarked })}
-              disabled={toggleBookmark.isPending}
-              aria-label={callData.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
-              aria-pressed={callData.is_bookmarked}
-              title={callData.is_bookmarked ? "Remove bookmark" : "Bookmark this call"}
-              className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                background: callData.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)",
-                borderColor: callData.is_bookmarked ? "rgba(247,248,248,0.2)" : "rgba(255,255,255,0.08)",
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(247,248,248,0.1)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = callData.is_bookmarked ? "rgba(247,248,248,0.08)" : "rgba(255,255,255,0.03)"; }}
-            >
-              <Bookmark
-                className="h-3.5 w-3.5"
-                fill={callData.is_bookmarked ? "#f7f8f8" : "none"}
-                style={{ color: callData.is_bookmarked ? "#f7f8f8" : "#62666d" }}
-              />
-            </button>
+            {/* Quality tag picker — replaces plain bookmark toggle */}
+            <div className="relative" ref={qualityPickerRef}>
+              <button
+                onClick={() => setQualityPickerOpen((v) => !v)}
+                disabled={setQualityTag.isPending}
+                title={localQualityTag ? `Quality: ${localQualityTag === "AGENT_HANDLED_WELL" ? "Handled Well" : "Agent Failed"}` : "Mark call quality"}
+                className="w-7 h-7 rounded-md flex items-center justify-center border transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: localQualityTag === "AGENT_HANDLED_WELL"
+                    ? "rgba(16,185,129,0.12)"
+                    : localQualityTag === "AGENT_FAILED"
+                    ? "rgba(248,113,113,0.12)"
+                    : "rgba(255,255,255,0.03)",
+                  borderColor: localQualityTag === "AGENT_HANDLED_WELL"
+                    ? "rgba(16,185,129,0.3)"
+                    : localQualityTag === "AGENT_FAILED"
+                    ? "rgba(248,113,113,0.3)"
+                    : "rgba(255,255,255,0.08)",
+                }}
+              >
+                <Bookmark
+                  className="h-3.5 w-3.5 transition-colors"
+                  style={{
+                    color: localQualityTag === "AGENT_HANDLED_WELL"
+                      ? "#10b981"
+                      : localQualityTag === "AGENT_FAILED"
+                      ? "#f87171"
+                      : "#62666d",
+                    fill: localQualityTag ? (localQualityTag === "AGENT_HANDLED_WELL" ? "#10b981" : "#f87171") : "none",
+                  }}
+                />
+              </button>
+              {qualityPickerOpen && (
+                <div
+                  className="absolute right-0 top-9 z-50 rounded-xl border shadow-2xl overflow-hidden w-44"
+                  style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.1)" }}
+                >
+                  <p className="px-3 pt-2.5 pb-1.5 text-[9px] uppercase tracking-widest" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>
+                    Call Quality
+                  </p>
+                  {([
+                    { tag: "AGENT_HANDLED_WELL" as const, label: "Handled Well", color: "#10b981", bg: "rgba(16,185,129,0.08)", Icon: ThumbsUp },
+                    { tag: "AGENT_FAILED" as const, label: "Agent Failed", color: "#f87171", bg: "rgba(248,113,113,0.08)", Icon: ThumbsDown },
+                  ]).map(({ tag, label, color, bg, Icon }) => (
+                    <button
+                      key={tag}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[11px] transition-colors"
+                      style={{
+                        background: localQualityTag === tag ? bg : "transparent",
+                        color: localQualityTag === tag ? color : "#8a8f98",
+                        fontFeatureSettings: FF,
+                      }}
+                      onMouseEnter={(e) => { if (localQualityTag !== tag) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                      onMouseLeave={(e) => { if (localQualityTag !== tag) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                      onClick={() => {
+                        setLocalQualityTag(localQualityTag === tag ? null : tag);
+                        setQualityPickerOpen(false);
+                      }}
+                    >
+                      <Icon className="h-3 w-3 shrink-0" style={{ color }} />
+                      {label}
+                    </button>
+                  ))}
+                  <div style={{ height: "1px", background: "rgba(255,255,255,0.05)", margin: "4px 0" }} />
+                  <button
+                    className="w-full flex items-center gap-2.5 px-3 py-2 mb-1 text-left text-[11px] transition-colors"
+                    style={{ color: "#62666d", fontFeatureSettings: FF }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                    onClick={() => { setLocalQualityTag(null); setQualityPickerOpen(false); }}
+                  >
+                    <X className="h-3 w-3 shrink-0" />
+                    Clear tag
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => setBugModalOpen(true)}
               title="Report a bug"
@@ -1033,21 +1111,6 @@ function EvalFormInner({
 /* ──────────────────────────────────────────────────────────────────── */
 /*  ReportBugModal                                                      */
 /* ──────────────────────────────────────────────────────────────────── */
-const BUG_TYPE_OPTIONS = [
-  "Incorrect NPS Score",
-  "Missing Transcript",
-  "Audio Quality Issue",
-  "Wrong Organization",
-  "Incorrect Call Status",
-  "Missing Recording",
-  "Duplicate Call",
-  "Review Link",
-  "Escalation Email",
-  "Voice Agent",
-  "Postcall Prompt",
-  "Other",
-] as const;
-
 function ReportBugModal({
   callId, organizationName, rooftopName, onClose,
 }: {
@@ -1059,6 +1122,7 @@ function ReportBugModal({
   const createBug = useCreateBug();
   const currentUser = useAuthStore((s) => s.user);
   const { data: team = [] } = useTeam();
+  const { data: bugTypeConfigs = [] } = useSuperConfigs("voice_bug_type");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [description, setDescription]     = useState("");
   const [assigneeId, setAssigneeId]       = useState<string>(currentUser?.id ?? "");
@@ -1147,20 +1211,22 @@ function ReportBugModal({
               Bug Type <span style={{ color: "#f87171" }}>*</span>
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {BUG_TYPE_OPTIONS.map((t) => {
-                const active = selectedTypes.includes(t);
+              {bugTypeConfigs.map((cfg) => {
+                const label = cfg.display_name ?? cfg.name;
+                const active = selectedTypes.includes(cfg.name);
                 return (
                   <button
-                    key={t}
+                    key={cfg.id}
                     type="button"
-                    onClick={() => toggleType(t)}
+                    onClick={() => toggleType(cfg.name)}
+                    title={cfg.description ?? undefined}
                     className="px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider border transition-all active:scale-95"
                     style={active
                       ? { background: "rgba(248,113,113,0.12)", color: "#f87171", borderColor: "rgba(248,113,113,0.25)", fontWeight: 510, fontFeatureSettings: FF }
                       : { background: "rgba(255,255,255,0.02)", color: "#62666d", borderColor: "rgba(255,255,255,0.08)", fontWeight: 400, fontFeatureSettings: FF }
                     }
                   >
-                    {t}
+                    {label}
                   </button>
                 );
               })}

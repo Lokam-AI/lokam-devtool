@@ -57,6 +57,8 @@ class Eval(Base, TimestampMixin):
     # Scenario tagging
     scenario_tags: Mapped[dict | None] = mapped_column(JSONB)
     scenario_tags_str: Mapped[str | None] = mapped_column(Text)
+    # Voice agent bug type IDs from super_configs (list of int)
+    bug_type_ids: Mapped[list | None] = mapped_column(JSONB)
     # Assignment & status
     assigned_to: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     eval_status: Mapped[str] = mapped_column(String(20), nullable=False)

@@ -19,8 +19,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Bell,
-  Bookmark,
-  Sliders,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuthStore } from "@/store/auth-store";
@@ -60,7 +58,6 @@ const MAIN_NAV = [
 
 const REVIEWER_NAV = [
   { title: "All Calls",       url: "/all-calls",   icon: Database  },
-  { title: "Bookmarked",      url: "/bookmarked",  icon: Bookmark  },
   { title: "Bug Reports",     url: "/bugs",        icon: Bug       },
 ];
 
@@ -69,9 +66,7 @@ const ADMIN_NAV = [
   { title: "Team Overview",     url: "/team",              icon: Users    },
 ];
 
-const SUPERADMIN_NAV = [
-  { title: "Call Distribution", url: "/call-distribution", icon: Sliders  },
-];
+const SUPERADMIN_NAV: { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> }[] = [];
 
 
 const ROLE_CONFIG: Record<string, {

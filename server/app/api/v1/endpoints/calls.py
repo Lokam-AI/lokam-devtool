@@ -43,6 +43,7 @@ async def list_all_calls(
     post_call_sms: str | None = Query(default=None),
     call_type: CallType | None = Query(default=None),
     is_bookmarked: bool | None = Query(default=None),
+    quality_tag: str | None = Query(default=None),
     sort_by: str = Query(default="date"),
     sort_dir: str = Query(default="desc"),
     limit: int = Query(default=PAGE_SIZE, le=200),
@@ -57,6 +58,7 @@ async def list_all_calls(
         is_bookmarked=is_bookmarked,
         sort_by=sort_by, sort_dir=sort_dir, limit=limit, offset=offset,
         call_type=call_type,
+        quality_tag=quality_tag,
     )
     return [RawCallRead.model_validate(r) for r in rows]
 
@@ -73,6 +75,7 @@ async def count_all_calls(
     post_call_sms: str | None = Query(default=None),
     call_type: CallType | None = Query(default=None),
     is_bookmarked: bool | None = Query(default=None),
+    quality_tag: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_reviewer),
 ) -> dict[str, int]:
@@ -81,6 +84,7 @@ async def count_all_calls(
         db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms,
         call_type=call_type,
         is_bookmarked=is_bookmarked,
+        quality_tag=quality_tag,
     )
     return {"count": total}
 
@@ -97,6 +101,7 @@ async def stats_all_calls(
     post_call_sms: str | None = Query(default=None),
     call_type: CallType | None = Query(default=None),
     is_bookmarked: bool | None = Query(default=None),
+    quality_tag: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_reviewer),
 ) -> dict:
@@ -105,6 +110,7 @@ async def stats_all_calls(
         db, source_env, call_status, date_from, date_to, search, organization_name, nps_filter, post_call_sms,
         call_type=call_type,
         is_bookmarked=is_bookmarked,
+        quality_tag=quality_tag,
     )
 
 
