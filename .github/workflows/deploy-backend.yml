@@ -81,7 +81,8 @@ jobs:
               {"name":"POSTHOG_HOST",            "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:POSTHOG_HOST::"},
               {"name":"LOKI_QUERY_URL","valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:LOKI_QUERY_URL::"},
               {"name":"LOKI_USERNAME", "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:LOKI_USERNAME::"},
-              {"name":"LOKI_API_KEY",  "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:LOKI_API_KEY::"}
+              {"name":"LOKI_API_KEY",  "valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:LOKI_API_KEY::"},
+              {"name":"METRICS_BACKEND_TOKEN","valueFrom":"arn:aws:secretsmanager:us-east-1:968874455777:secret:lokam-devtool/prod:METRICS_BACKEND_TOKEN::"}
             ]
 
       - name: Slack — success
