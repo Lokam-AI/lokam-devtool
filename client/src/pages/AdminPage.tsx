@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useHealth } from "@/hooks/use-calls";
+import { useHealth, useAppMetrics } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { toast } from "sonner";
@@ -42,6 +42,8 @@ export default function AdminPage() {
   const [syncRunning, setSyncRunning]         = useState(false);
   const [syncResult, setSyncResult]           = useState<{ calls: Record<string, number>; bugs: Record<string, number> } | null>(null);
   const { data: health, isLoading }           = useHealth();
+  const [metricsEnv, setMetricsEnv]           = useState("playground");
+  const { data: appMetrics, isLoading: metricsLoading, dataUpdatedAt } = useAppMetrics(metricsEnv);
   const isSuperadmin                          = useAuthStore((s) => s.hasRole("superadmin"));
 
   useEffect(() => {
@@ -628,6 +630,15 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* App Metrics */}
+          <AppMetricsSection
+            env={metricsEnv}
+            onEnvChange={setMetricsEnv}
+            metrics={appMetrics ?? null}
+            loading={metricsLoading}
+            updatedAt={dataUpdatedAt}
+          />
+
           {/* Footer */}
           <div
             className="flex justify-between items-center shrink-0 pt-2 border-t"
@@ -802,6 +813,142 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
+/*  AppMetricsSection                                                   */
+/* ──────────────────────────────────────────────────────────────────── */
+
+import type { AppMetrics } from "@/lib/api";
+
+const MONO = "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace";
+const METRIC_ENVS = ["prod", "arena", "playground"] as const;
+
+function MetricStat({
+  label, value, sub, color, loading,
+}: {
+  label: string; value: string; sub?: string; color?: string; loading: boolean;
+}) {
+  return (
+    <div
+      className="rounded-lg p-3 flex flex-col gap-1 border"
+      style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
+    >
+      <span className="text-[9px] uppercase tracking-[0.15em]" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>
+        {label}
+      </span>
+      {loading ? (
+        <div className="h-7 w-16 rounded animate-pulse" style={{ background: "rgba(255,255,255,0.05)" }} />
+      ) : (
+        <span className="text-2xl leading-none tabular-nums" style={{ color: color ?? "#f7f8f8", fontWeight: 590, fontFamily: MONO }}>
+          {value}
+        </span>
+      )}
+      {sub && <span className="text-[9px]" style={{ color: "#42464d", fontFamily: MONO }}>{sub}</span>}
+    </div>
+  );
+}
+
+function AppMetricsSection({
+  env, onEnvChange, metrics, loading, updatedAt,
+}: {
+  env: string;
+  onEnvChange: (e: string) => void;
+  metrics: AppMetrics | null;
+  loading: boolean;
+  updatedAt: number;
+}) {
+  const secsAgo = updatedAt ? Math.round((Date.now() - updatedAt) / 1000) : null;
+  const unavailable = !loading && metrics === null;
+
+  const errColor = metrics
+    ? metrics.error_rate_percent > 1 ? "#ef4444" : "#10b981"
+    : "#62666d";
+  const p99Color = metrics
+    ? metrics.p99_latency_ms > 1000 ? "#ef4444" : metrics.p99_latency_ms > 500 ? "#f59e0b" : "#f7f8f8"
+    : "#62666d";
+
+  return (
+    <div className="flex flex-col gap-2 shrink-0">
+      {/* Sub-header */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-widest" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>
+          App Metrics
+        </span>
+        <div className="flex items-center gap-2">
+          {secsAgo !== null && !loading && (
+            <span className="text-[9px]" style={{ color: "#42464d", fontFamily: MONO }}>
+              all-time · updated {secsAgo}s ago
+            </span>
+          )}
+          <div className="flex gap-0.5">
+            {METRIC_ENVS.map((e) => (
+              <button
+                key={e}
+                onClick={() => onEnvChange(e)}
+                className="text-[9px] px-2 py-0.5 rounded transition-all"
+                style={{
+                  fontFamily: MONO,
+                  color: env === e ? "#f7f8f8" : "#42464d",
+                  background: env === e ? "rgba(255,255,255,0.08)" : "transparent",
+                  border: `1px solid ${env === e ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.05)"}`,
+                }}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {unavailable ? (
+        <div
+          className="rounded-lg p-3 text-[11px] text-center border"
+          style={{ color: "#42464d", background: "#191a1b", borderColor: "rgba(255,255,255,0.06)", fontFamily: MONO }}
+        >
+          Metrics unavailable
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <MetricStat label="Request Rate" value={loading ? "—" : `${metrics?.request_rate_per_second ?? 0}`} sub="req/s" loading={loading} />
+            <MetricStat label="Error Rate" value={loading ? "—" : `${metrics?.error_rate_percent ?? 0}%`} color={errColor} loading={loading} />
+            <MetricStat label="Active Requests" value={loading ? "—" : String(metrics?.active_requests ?? 0)} loading={loading} />
+            <MetricStat label="P50 Latency" value={loading ? "—" : `${metrics?.p50_latency_ms ?? 0}ms`} loading={loading} />
+            <MetricStat label="P99 Latency" value={loading ? "—" : `${metrics?.p99_latency_ms ?? 0}ms`} color={p99Color} loading={loading} />
+
+            {/* Slowest routes */}
+            <div
+              className="rounded-lg p-3 flex flex-col gap-1.5 border"
+              style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
+            >
+              <span className="text-[9px] uppercase tracking-[0.15em] shrink-0" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>
+                Slowest Routes
+              </span>
+              {loading ? (
+                <div className="flex flex-col gap-1">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-3 rounded animate-pulse" style={{ background: "rgba(255,255,255,0.05)", width: `${70 - i * 15}%` }} />
+                  ))}
+                </div>
+              ) : (metrics?.top_slowest_routes ?? []).length === 0 ? (
+                <span className="text-[9px]" style={{ color: "#42464d", fontFamily: MONO }}>No data</span>
+              ) : (
+                <div className="flex flex-col gap-0.5 overflow-hidden">
+                  {(metrics?.top_slowest_routes ?? []).map((r) => (
+                    <div key={r.route} className="flex items-center justify-between gap-2">
+                      <span className="text-[9px] truncate" style={{ color: "#8a8f98", fontFamily: MONO }}>{r.route}</span>
+                      <span className="text-[9px] shrink-0 tabular-nums" style={{ color: r.p99_ms > 500 ? "#f59e0b" : "#62666d", fontFamily: MONO }}>{r.p99_ms}ms</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

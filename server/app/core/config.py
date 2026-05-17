@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     LOKI_USERNAME: str = ""    # Grafana Cloud numeric user ID
     LOKI_API_KEY: str = ""     # Grafana Cloud API token (MetricsPublisher or Editor scope)
 
+    # Lokamspace Prometheus metrics token
+    METRICS_BACKEND_TOKEN: str = ""
+
     @property
     def db_url(self) -> str:
         """Return async SQLAlchemy database URL."""
