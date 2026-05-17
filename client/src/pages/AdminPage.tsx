@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useHealth, useAppMetrics } from "@/hooks/use-calls";
+import { useHealth, useAppMetrics, useSystemHealth } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { toast } from "sonner";
@@ -44,6 +44,7 @@ export default function AdminPage() {
   const { data: health, isLoading }           = useHealth();
   const [metricsEnv, setMetricsEnv]           = useState("playground");
   const { data: appMetrics, isLoading: metricsLoading, dataUpdatedAt } = useAppMetrics(metricsEnv);
+  const { data: sysHealth, isLoading: sysLoading } = useSystemHealth(metricsEnv);
   const isSuperadmin                          = useAuthStore((s) => s.hasRole("superadmin"));
 
   useEffect(() => {
@@ -124,10 +125,13 @@ export default function AdminPage() {
     }
   };
 
-  const activeCalls = health?.active_calls ?? 0;
-  const queueDepth  = health?.queue_depth  ?? 0;
-  const workers     = health?.workers      ?? 0;
-  const maxMetric   = Math.max(activeCalls, queueDepth, workers, 1);
+  const activeCalls  = sysHealth?.active_calls  ?? health?.active_calls  ?? 0;
+  const queueDepth   = sysHealth?.queue_depth   ?? health?.queue_depth   ?? 0;
+  const workers      = sysHealth?.workers       ?? health?.workers       ?? 0;
+  const maxConcurrent = sysHealth?.max_concurrent_calls ?? 1;
+  const maxMetric    = Math.max(activeCalls, queueDepth, workers, 1);
+  const capacityPct  = maxConcurrent > 0 ? Math.round((activeCalls / maxConcurrent) * 100) : 0;
+  const healthLoading = isLoading && sysLoading;
 
   return (
     <div className="h-full flex flex-col gap-3 animate-in fade-in duration-500 overflow-hidden">
@@ -565,9 +569,9 @@ export default function AdminPage() {
 
           {/* 3 metric cards */}
           <div className="grid grid-cols-3 gap-3 shrink-0">
-            <HealthCard icon="pulse_alert" label="Active Calls" value={health?.active_calls} loading={isLoading} max={maxMetric} emptyLabel="0%" />
-            <HealthCard icon="layers"      label="Queue Depth"  value={health?.queue_depth}  loading={isLoading} max={maxMetric} emptyLabel="Empty" />
-            <HealthCard icon="memory"      label="Workers"      value={health?.workers}       loading={isLoading} max={maxMetric} emptyLabel="Idle" />
+            <HealthCard icon="pulse_alert" label="Active Calls" value={activeCalls} loading={healthLoading} max={maxConcurrent || maxMetric} emptyLabel="0%" />
+            <HealthCard icon="layers"      label="Queue Depth"  value={queueDepth}  loading={healthLoading} max={maxMetric} emptyLabel="Empty" />
+            <HealthCard icon="memory"      label="ACS Slots"    value={workers}     loading={healthLoading} max={maxConcurrent || maxMetric} emptyLabel="Idle" />
           </div>
 
           {/* Waveform card */}
@@ -590,28 +594,34 @@ export default function AdminPage() {
                 <span
                   className="text-[10px]"
                   style={{
-                    color: "rgba(255,255,255,0.2)",
+                    color: sysHealth?.database_connected === false ? "#ef4444" : "rgba(255,255,255,0.2)",
                     fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
                   }}
                 >
-                  HASH: 0x821f92e
+                  {sysHealth ? (sysHealth.database_connected ? "DB: CONNECTED" : "DB: DOWN") : "ENV: " + metricsEnv.toUpperCase()}
                 </span>
               </div>
               <div className="flex items-end gap-1 h-10">
-                {WAVEFORM_HEIGHTS.map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-sm"
-                    style={{
-                      height: `${h}px`,
-                      background: "#5e6ad2",
-                      opacity: 0.1 + (h / 12) * 0.5,
-                    }}
-                  />
-                ))}
+                {WAVEFORM_HEIGHTS.map((h, i) => {
+                  const isActive = maxConcurrent > 0 && i < Math.round((activeCalls / maxConcurrent) * WAVEFORM_HEIGHTS.length);
+                  return (
+                    <div
+                      key={i}
+                      className="flex-1 rounded-sm transition-all duration-700"
+                      style={{
+                        height: `${h}px`,
+                        background: isActive ? "#7170ff" : "#5e6ad2",
+                        opacity: isActive ? 0.7 + (h / 12) * 0.3 : 0.1 + (h / 12) * 0.3,
+                      }}
+                    />
+                  );
+                })}
               </div>
               <div className="flex gap-2">
-                {["Latency: 0ms", "Uptime: 99.9%"].map((tag) => (
+                {[
+                  `Latency: ${appMetrics ? `${appMetrics.p50_latency_ms}ms` : "—"}`,
+                  `Capacity: ${capacityPct}% (${activeCalls}/${maxConcurrent})`,
+                ].map((tag) => (
                   <span
                     key={tag}
                     className="px-2.5 py-0.5 rounded-full text-[9px] uppercase tracking-widest border"
