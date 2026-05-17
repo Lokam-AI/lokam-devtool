@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Loader2, Phone, MapPin,
   Bot, Play, Pause, Check, X, ChevronRight, Bug, MessageSquare, Bookmark,
-  Star, Mail, ThumbsUp, ThumbsDown,
+  Star, Mail, ThumbsUp, ThumbsDown, Info,
 } from "lucide-react";
 import { PostCallSmsPanel } from "@/components/PostCallSmsPanel";
 import { CallTypePill } from "@/components/ui/call-type-pill";
@@ -822,6 +822,7 @@ function EvalFormInner({
             {/* NPS Score — sales uses 3-bucket pill (Promoter/Detractor/N/A); service uses 1-10 input */}
             <EvalField
               label={isSales ? "Status" : "NPS Score"}
+              labelAddon={!isSales ? <NpsGuideButton /> : undefined}
               aiValue={
                 isSales
                   ? (SALES_NPS_BUCKETS.find((b) => b.key === npsToBucket(callData.ai_nps_score))?.label ?? "N/A")
@@ -1355,21 +1356,24 @@ function StatPill({
 /*  EvalField                                                           */
 /* ──────────────────────────────────────────────────────────────────── */
 function EvalField({
-  label, aiValue, correct, onToggle, children, readOnly, highlight,
+  label, aiValue, correct, onToggle, children, readOnly, highlight, labelAddon,
 }: {
   label: string; aiValue: string; correct: boolean;
   onToggle: (v: boolean) => void; children?: React.ReactNode;
-  readOnly?: boolean; highlight?: boolean;
+  readOnly?: boolean; highlight?: boolean; labelAddon?: React.ReactNode;
 }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <label
-          className="text-[9px] uppercase tracking-widest"
-          style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
-        >
-          {label}
-        </label>
+        <div className="flex items-center gap-1.5">
+          <label
+            className="text-[9px] uppercase tracking-widest"
+            style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: '"cv01", "ss03"' }}
+          >
+            {label}
+          </label>
+          {labelAddon}
+        </div>
         {!readOnly && (
           <div className="flex gap-1">
             <button
@@ -1715,6 +1719,114 @@ function formatTimestamp(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = Math.floor(totalSeconds % 60);
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
+/*  NpsGuideButton                                                      */
+/* ──────────────────────────────────────────────────────────────────── */
+function NpsGuideButton() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        title="NPS scoring guide"
+        className="flex items-center justify-center rounded transition-all"
+        style={{ color: open ? "#8a8f98" : "#42464d", width: 14, height: 14 }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#8a8f98"; }}
+        onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLButtonElement).style.color = "#42464d"; }}
+      >
+        <Info className="h-3 w-3" />
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 top-5 z-50 rounded-xl border shadow-2xl overflow-y-auto"
+          style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.1)", width: 340, maxHeight: "70vh" }}
+        >
+          <p className="px-4 pt-3 pb-2 text-[9px] uppercase tracking-widest border-b sticky top-0" style={{ color: "#42464d", fontWeight: 510, fontFeatureSettings: FF, borderColor: "rgba(255,255,255,0.06)", background: "#191a1b" }}>
+            NPS Scoring Guide
+          </p>
+          <div className="px-4 py-3 space-y-3">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[9px] uppercase tracking-widest" style={{ color: "#10b981", fontWeight: 510, fontFeatureSettings: FF }}>Promoters</span>
+                <span className="text-[9px]" style={{ color: "#42464d", fontFeatureSettings: FF }}>9–10</span>
+              </div>
+              <div className="space-y-1.5">
+                {([
+                  { label: "Superlatives", examples: '"excellent", "fantastic", "amazing", "outstanding", "superb", "wonderful"', score: "9" },
+                  { label: "Strong positive", examples: '"very good", "great", "really good", "everything good", "all good", "everything was good"', score: "9" },
+                  { label: "High likelihood", examples: '"very likely to recommend", "definitely recommend", "would definitely", "highly recommend", "absolutely recommend"', score: "9" },
+                  { label: "Enthusiastic repetition", examples: '"good good", "really really good", "great great"', score: "9" },
+                ] as const).map((row) => (
+                  <div key={row.label} className="flex items-start gap-2">
+                    <span className="shrink-0 mt-0.5 text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", fontFeatureSettings: FF }}>→ {row.score}</span>
+                    <p className="text-[10px] leading-relaxed" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+                      <span style={{ color: "#8a8f98" }}>{row.label}:</span> {row.examples}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ height: 1, background: "rgba(255,255,255,0.05)" }} />
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[9px] uppercase tracking-widest" style={{ color: "#7170ff", fontWeight: 510, fontFeatureSettings: FF }}>Passives</span>
+                <span className="text-[9px]" style={{ color: "#42464d", fontFeatureSettings: FF }}>7–8</span>
+              </div>
+              <div className="space-y-1.5">
+                {([
+                  { label: "Moderate positive", examples: '"good", "well good", "pretty good", "quite good", "satisfied", "it was good"', score: "7" },
+                  { label: "Neutral-positive", examples: '"okay", "fine", "alright", "it was alright", "not bad", "decent"', score: "7" },
+                  { label: "Moderate likelihood", examples: '"probably would recommend", "likely to recommend", "would recommend"', score: "8" },
+                  { label: "Qualified positive", examples: '"good, but...", "mostly good", "generally good"', score: "7" },
+                ] as const).map((row) => (
+                  <div key={row.label} className="flex items-start gap-2">
+                    <span className="shrink-0 mt-0.5 text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(113,112,255,0.12)", color: "#7170ff", fontFeatureSettings: FF }}>→ {row.score}</span>
+                    <p className="text-[10px] leading-relaxed" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+                      <span style={{ color: "#8a8f98" }}>{row.label}:</span> {row.examples}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ height: 1, background: "rgba(255,255,255,0.05)" }} />
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[9px] uppercase tracking-widest" style={{ color: "#ff716c", fontWeight: 510, fontFeatureSettings: FF }}>Detractors</span>
+                <span className="text-[9px]" style={{ color: "#42464d", fontFeatureSettings: FF }}>0–6</span>
+              </div>
+              <div className="space-y-1.5">
+                {([
+                  { label: "Uncertain/weak", examples: '"might recommend", "possibly", "not sure", "maybe", "I guess"', score: "6" },
+                  { label: "Negative lean & strong negative", examples: '"not great", "could be better", "disappointed", "underwhelmed", "bad", "terrible", "poor", "awful", "horrible"', score: "5" },
+                  { label: "Unlikely", examples: '"probably not", "unlikely to recommend", "don\'t think so", "probably wouldn\'t"', score: "4" },
+                  { label: "Definite no", examples: '"definitely not", "absolutely not", "would not recommend", "never"', score: "2" },
+                ] as const).map((row) => (
+                  <div key={row.label} className="flex items-start gap-2">
+                    <span className="shrink-0 mt-0.5 text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(255,113,108,0.12)", color: "#ff716c", fontFeatureSettings: FF }}>→ {row.score}</span>
+                    <p className="text-[10px] leading-relaxed" style={{ color: "#62666d", fontFeatureSettings: FF }}>
+                      <span style={{ color: "#8a8f98" }}>{row.label}:</span> {row.examples}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ──────────────────────────────────────────────────────────────────── */

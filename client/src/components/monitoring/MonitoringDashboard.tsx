@@ -373,16 +373,21 @@ export function MonitoringDashboard({ filters }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const envsKey = filters.envs.slice().sort().join(",");
+  const { hours } = filters;
+
   useEffect(() => {
+    let cancelled = false;
+
+    const q = (opts: { services?: string[]; levels?: string[]; search?: string; limit: number }) =>
+      fetchPanel(`${API_BASE}/monitoring/query?${buildParams(filters, opts)}`).catch(() => [] as LogEntryData[]);
+
+    const countParams = new URLSearchParams();
+    filters.envs.forEach((e) => countParams.append("envs", e));
+    countParams.set("hours", String(filters.hours));
+
     const fetchAll = (isInitial: boolean) => {
       if (isInitial) setLoading(true);
-
-      const q = (opts: { services?: string[]; levels?: string[]; search?: string; limit: number }) =>
-        fetchPanel(`${API_BASE}/monitoring/query?${buildParams(filters, opts)}`);
-
-      const countParams = new URLSearchParams();
-      filters.envs.forEach((e) => countParams.append("envs", e));
-      countParams.set("hours", String(filters.hours));
 
       Promise.all([
         q({ levels: ["error"], limit: 1000 }),
@@ -397,19 +402,23 @@ export function MonitoringDashboard({ filters }: Props) {
         q({ services: ["main-backend"], levels: ["error"], limit: 500 }),
         q({ services: ["data-ingestion", "dms-sync", "insights-analyzer"], levels: ["error"], limit: 500 }),
         axios.get<{ count: number }>(`${API_BASE}/monitoring/count?${countParams}`, { withCredentials: true })
-          .then((r) => r.data.count),
+          .then((r) => r.data.count).catch(() => 0),
       ])
       .then(([errorRate, errorsByService, logVolume, criticalCount, callInitErrors, smsFailures, acsErrors, recentErrors, warningRate, mainBackendErrors, dataPipelineErrors, totalLogCount]) => {
+        if (cancelled) return;
         setData({ errorRate, errorsByService, logVolume, criticalCount, callInitErrors, smsFailures, acsErrors, recentErrors, warningRate, mainBackendErrors, dataPipelineErrors, totalLogCount: totalLogCount as number });
       })
-      .catch((e) => console.error("Dashboard fetch failed:", e))
-      .finally(() => { if (isInitial) setLoading(false); });
+      .catch((e) => { if (!cancelled) console.error("Dashboard fetch failed:", e); })
+      .finally(() => { if (isInitial && !cancelled) setLoading(false); });
     };
 
     fetchAll(true);
     const timer = setInterval(() => fetchAll(false), POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [filters.envs.slice().sort().join(","), filters.hours]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [envsKey, hours]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const h = filters.hours;
 
