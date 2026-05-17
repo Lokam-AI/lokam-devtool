@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { LogEntry, type LogEntryData } from "@/components/monitoring/LogEntry";
 import { LogFilters, type Filters, type Service } from "@/components/monitoring/LogFilters";
+import { MonitoringDashboard } from "@/components/monitoring/MonitoringDashboard";
 import { Activity } from "lucide-react";
 
 const FF = '"cv01", "ss03"' as const;
@@ -20,8 +21,10 @@ export default function MonitoringPage() {
     envs: ["prod"],
     hours: 1,
     search: "",
-    mode: "live",
+    mode: "history",
   });
+
+  const [tab, setTab] = useState<"dashboard" | "logs">("dashboard");
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
@@ -138,7 +141,7 @@ export default function MonitoringPage() {
         >
           Monitoring
         </span>
-        {filters.mode === "live" && (
+        {tab === "logs" && filters.mode === "live" && (
           <span
             className="text-[10px] px-1.5 py-0.5 rounded"
             style={{
@@ -151,59 +154,87 @@ export default function MonitoringPage() {
             ● LIVE
           </span>
         )}
-        <span className="text-[12px] ml-auto" style={{ color: "#42464d", fontFamily: MONO }}>
-          {entries.length} entries
-        </span>
+        <div className="flex items-center gap-1 ml-4">
+          {(["dashboard", "logs"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className="text-[11px] px-2.5 py-0.5 rounded capitalize transition-all"
+              style={{
+                fontFamily: MONO,
+                fontWeight: tab === t ? 600 : 400,
+                color: tab === t ? "#f7f8f8" : "#62666d",
+                background: tab === t ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)",
+                border: `1px solid ${tab === t ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.07)"}`,
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {tab === "logs" && (
+          <span className="text-[12px] ml-auto" style={{ color: "#42464d", fontFamily: MONO }}>
+            {entries.length} entries
+          </span>
+        )}
       </div>
 
       {/* Filters */}
-      <LogFilters services={services} filters={filters} onChange={setFilters} />
+      <LogFilters services={services} filters={filters} onChange={setFilters} tab={tab} />
 
-      {/* Error banner */}
-      {error && (
-        <div
-          className="px-4 py-2 text-[12px] shrink-0"
-          style={{
-            color: "#ef4444",
-            background: "rgba(239,68,68,0.06)",
-            borderBottom: "1px solid rgba(239,68,68,0.1)",
-            fontFamily: MONO,
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {/* Dashboard tab */}
+      {tab === "dashboard" && <MonitoringDashboard filters={filters} />}
 
-      {/* Log list */}
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{ minHeight: 0 }}
-        onScroll={handleScroll}
-      >
-        {loading && (
-          <div className="flex items-center justify-center py-12">
+      {/* Logs tab */}
+      {tab === "logs" && (
+        <>
+          {/* Error banner */}
+          {error && (
             <div
-              className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin"
-              style={{ borderColor: "#7170ff", borderTopColor: "transparent" }}
-            />
-          </div>
-        )}
+              className="px-4 py-2 text-[12px] shrink-0"
+              style={{
+                color: "#ef4444",
+                background: "rgba(239,68,68,0.06)",
+                borderBottom: "1px solid rgba(239,68,68,0.1)",
+                fontFamily: MONO,
+              }}
+            >
+              {error}
+            </div>
+          )}
 
-        {!loading && entries.length === 0 && (
           <div
-            className="flex items-center justify-center py-16 text-[13px]"
-            style={{ color: "#42464d", fontFamily: MONO }}
+            className="flex-1 overflow-y-auto"
+            style={{ minHeight: 0 }}
+            onScroll={handleScroll}
           >
-            {filters.mode === "live" ? "Waiting for log events…" : "No logs found for the selected filters."}
+            {loading && (
+              <div className="flex items-center justify-center py-12">
+                <div
+                  className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin"
+                  style={{ borderColor: "#7170ff", borderTopColor: "transparent" }}
+                />
+              </div>
+            )}
+
+            {!loading && entries.length === 0 && (
+              <div
+                className="flex items-center justify-center py-16 text-[13px]"
+                style={{ color: "#42464d", fontFamily: MONO }}
+              >
+                {filters.mode === "live" ? "Waiting for log events…" : "No logs found for the selected filters."}
+              </div>
+            )}
+
+            {entries.map((e, i) => (
+              <LogEntry key={`${e.timestamp}-${i}`} entry={e} />
+            ))}
+
+            <div ref={bottomRef} />
           </div>
-        )}
-
-        {entries.map((e, i) => (
-          <LogEntry key={`${e.timestamp}-${i}`} entry={e} />
-        ))}
-
-        <div ref={bottomRef} />
-      </div>
+        </>
+      )}
     </div>
   );
 }

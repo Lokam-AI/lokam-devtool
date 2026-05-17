@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 
@@ -26,6 +27,35 @@ SERVICES = [
 
 LEVEL_ORDER = ["debug", "info", "warning", "error", "critical"]
 
+# App Runner normalises all Loki stream labels to level="info".
+# Filter and parse level from the log line content instead.
+# Log format: "2026-05-17 14:58:53,779 - logger.name - LEVEL - message"
+_LEVEL_PATTERNS: dict[str, str] = {
+    "debug":    "- DEBUG -",
+    "info":     "- INFO -",
+    "warning":  "- WARNING -",
+    "error":    "- ERROR -",
+    "critical": "- CRITICAL -",
+}
+
+
+def _parse_level(line: str, fallback: str) -> str:
+    """Extract log level from '... - LEVEL - ...' formatted log lines."""
+    for lvl in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
+        if f" - {lvl} - " in line:
+            return lvl.lower()
+    return fallback
+
+
+def _extract_message(line: str) -> str:
+    """Extract just the message portion from a structured log line."""
+    for lvl in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
+        marker = f" - {lvl} - "
+        idx = line.find(marker)
+        if idx != -1:
+            return line[idx + len(marker):]
+    return line
+
 
 def _loki_client() -> httpx.AsyncClient:
     if not settings.LOKI_QUERY_URL:
@@ -45,21 +75,29 @@ ENVS = [
 
 
 def _build_query(services: list[str], levels: list[str], envs: list[str], search: str) -> str:
+    """Build a LogQL query using stream labels for env/service and line filters for level."""
     label_pairs = []
-
     if envs:
-        label_pairs.append(f'env=~"{"| ".join(envs)}"')
-    # no env filter = all envs
-
+        label_pairs.append(f'env=~"{"|".join(envs)}"')
     if services:
-        label_pairs.append(f'service=~"{"| ".join(services)}"')
-    if levels:
-        label_pairs.append(f'level=~"{"| ".join(levels)}"')
+        label_pairs.append(f'service=~"{"|".join(services)}"')
 
     stream_selector = "{" + ", ".join(label_pairs) + "}" if label_pairs else "{}"
 
+    pipeline_parts = []
+    if levels:
+        prefixes = [_LEVEL_PATTERNS.get(l, l.upper() + ":") for l in levels]
+        if len(prefixes) == 1:
+            pipeline_parts.append(f'|= "{prefixes[0]}"')
+        else:
+            pattern = "|".join(re.escape(p) for p in prefixes)
+            pipeline_parts.append(f'|~ "({pattern})"')
+
     if search:
-        return f'{stream_selector} |= `{search}`'
+        pipeline_parts.append(f'|= `{search}`')
+
+    if pipeline_parts:
+        return f'{stream_selector} {" ".join(pipeline_parts)}'
     return stream_selector
 
 
@@ -94,18 +132,44 @@ async def query_logs(
         for ts_ns, line in stream.get("values", []):
             try:
                 body = json.loads(line)
+                message = body.get("message", line)
             except (json.JSONDecodeError, TypeError):
-                body = {"message": line}
+                body = {}
+                message = _extract_message(line)
             entries.append({
                 "timestamp": int(ts_ns) // 1_000_000,
-                "level": labels.get("level", body.get("levelname", "info")).lower(),
+                "level": _parse_level(line, labels.get("level", "info")),
                 "service": labels.get("service", "unknown"),
-                "message": body.get("message", line),
+                "message": message,
                 "raw": body,
             })
 
     entries.sort(key=lambda e: e["timestamp"], reverse=True)
     return entries
+
+
+async def count_logs(
+    envs: list[str],
+    hours: int,
+) -> int:
+    """Return the total log count for the given envs/time window using a Loki metric query."""
+    stream_selector = f'{{env=~"{"|".join(envs)}"}}'  if envs else "{}"
+    logql = f"sum(count_over_time({stream_selector}[{hours}h]))"
+
+    now_ns = int(datetime.now(timezone.utc).timestamp() * 1e9)
+
+    async with _loki_client() as client:
+        resp = await client.get(
+            "/loki/api/v1/query",
+            params={"query": logql, "time": str(now_ns)},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    result = data.get("data", {}).get("result", [])
+    if not result:
+        return 0
+    return int(float(result[0].get("value", [0, "0"])[1]))
 
 
 async def stream_logs(
@@ -145,14 +209,16 @@ async def stream_logs(
 
                     try:
                         body = json.loads(line)
+                        message = body.get("message", line)
                     except (json.JSONDecodeError, TypeError):
-                        body = {"message": line}
+                        body = {}
+                        message = _extract_message(line)
 
                     entry = {
                         "timestamp": int(ts_ns) // 1_000_000,
-                        "level": labels.get("level", body.get("levelname", "info")).lower(),
+                        "level": _parse_level(line, labels.get("level", "info")),
                         "service": labels.get("service", "unknown"),
-                        "message": body.get("message", line),
+                        "message": message,
                         "raw": body,
                     }
                     yield f"data: {json.dumps(entry)}\n\n"

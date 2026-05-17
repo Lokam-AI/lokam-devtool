@@ -41,6 +41,17 @@ async def query_logs(
     return entries
 
 
+@router.get("/count")
+async def count_logs(
+    envs: list[str] = Query(default=["prod"]),
+    hours: int = Query(default=1, ge=1, le=168),
+    _: User = Depends(require_admin),
+):
+    """Return total log count via Loki count_over_time metric query."""
+    total = await monitoring_service.count_logs(envs=envs, hours=hours)
+    return {"count": total}
+
+
 @router.get("/stream")
 async def stream_logs(
     services: list[str] = Query(default=[]),
