@@ -54,12 +54,20 @@ async def check_health(db: AsyncSession, env_name: str) -> ProxyHealthResponse:
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
             response = await client.get(url, headers=headers)
-            status = "healthy" if response.is_success else "degraded"
-            detail = None if response.is_success else response.text
+        if response.is_success:
+            body = response.json()
+            return ProxyHealthResponse(
+                env_name=env_name,
+                status="healthy",
+                active_calls=body.get("acs_active_calls", 0),
+                queue_depth=body.get("sqs_queue_depth", 0),
+                workers=body.get("dynamodb_slots_used", 0),
+                max_concurrent_calls=body.get("max_concurrent_calls", 0),
+                database_connected=body.get("database_connected", True),
+            )
+        return ProxyHealthResponse(env_name=env_name, status="degraded", detail=response.text)
     except httpx.RequestError as exc:
-        status = "unreachable"
-        detail = str(exc)
-    return ProxyHealthResponse(env_name=env_name, status=status, detail=detail)
+        return ProxyHealthResponse(env_name=env_name, status="unreachable", detail=str(exc))
 
 
 async def _get_env_or_raise(db: AsyncSession, env_name: str) -> object:

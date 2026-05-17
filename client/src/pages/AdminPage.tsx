@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useHealth } from "@/hooks/use-calls";
+import { useHealth, useAppMetrics, useSystemHealth } from "@/hooks/use-calls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { toast } from "sonner";
@@ -42,6 +42,9 @@ export default function AdminPage() {
   const [syncRunning, setSyncRunning]         = useState(false);
   const [syncResult, setSyncResult]           = useState<{ calls: Record<string, number>; bugs: Record<string, number> } | null>(null);
   const { data: health, isLoading }           = useHealth();
+  const [metricsEnv, setMetricsEnv]           = useState("playground");
+  const { data: appMetrics, isLoading: metricsLoading, dataUpdatedAt } = useAppMetrics(metricsEnv);
+  const { data: sysHealth, isLoading: sysLoading } = useSystemHealth(metricsEnv);
   const isSuperadmin                          = useAuthStore((s) => s.hasRole("superadmin"));
 
   useEffect(() => {
@@ -122,10 +125,13 @@ export default function AdminPage() {
     }
   };
 
-  const activeCalls = health?.active_calls ?? 0;
-  const queueDepth  = health?.queue_depth  ?? 0;
-  const workers     = health?.workers      ?? 0;
-  const maxMetric   = Math.max(activeCalls, queueDepth, workers, 1);
+  const activeCalls  = sysHealth?.active_calls  ?? health?.active_calls  ?? 0;
+  const queueDepth   = sysHealth?.queue_depth   ?? health?.queue_depth   ?? 0;
+  const workers      = sysHealth?.workers       ?? health?.workers       ?? 0;
+  const maxConcurrent = sysHealth?.max_concurrent_calls ?? 1;
+  const maxMetric    = Math.max(activeCalls, queueDepth, workers, 1);
+  const capacityPct  = maxConcurrent > 0 ? Math.round((activeCalls / maxConcurrent) * 100) : 0;
+  const healthLoading = isLoading && sysLoading;
 
   return (
     <div className="h-full flex flex-col gap-3 animate-in fade-in duration-500 overflow-hidden">
@@ -563,9 +569,9 @@ export default function AdminPage() {
 
           {/* 3 metric cards */}
           <div className="grid grid-cols-3 gap-3 shrink-0">
-            <HealthCard icon="pulse_alert" label="Active Calls" value={health?.active_calls} loading={isLoading} max={maxMetric} emptyLabel="0%" />
-            <HealthCard icon="layers"      label="Queue Depth"  value={health?.queue_depth}  loading={isLoading} max={maxMetric} emptyLabel="Empty" />
-            <HealthCard icon="memory"      label="Workers"      value={health?.workers}       loading={isLoading} max={maxMetric} emptyLabel="Idle" />
+            <HealthCard icon="pulse_alert" label="Active Calls" value={activeCalls} loading={healthLoading} max={maxConcurrent || maxMetric} emptyLabel="0%" />
+            <HealthCard icon="layers"      label="Queue Depth"  value={queueDepth}  loading={healthLoading} max={maxMetric} emptyLabel="Empty" />
+            <HealthCard icon="memory"      label="ACS Slots"    value={workers}     loading={healthLoading} max={maxConcurrent || maxMetric} emptyLabel="Idle" />
           </div>
 
           {/* Waveform card */}
@@ -588,28 +594,34 @@ export default function AdminPage() {
                 <span
                   className="text-[10px]"
                   style={{
-                    color: "rgba(255,255,255,0.2)",
+                    color: sysHealth?.database_connected === false ? "#ef4444" : "rgba(255,255,255,0.2)",
                     fontFamily: "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace",
                   }}
                 >
-                  HASH: 0x821f92e
+                  {sysHealth ? (sysHealth.database_connected ? "DB: CONNECTED" : "DB: DOWN") : "ENV: " + metricsEnv.toUpperCase()}
                 </span>
               </div>
               <div className="flex items-end gap-1 h-10">
-                {WAVEFORM_HEIGHTS.map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-sm"
-                    style={{
-                      height: `${h}px`,
-                      background: "#5e6ad2",
-                      opacity: 0.1 + (h / 12) * 0.5,
-                    }}
-                  />
-                ))}
+                {WAVEFORM_HEIGHTS.map((h, i) => {
+                  const isActive = maxConcurrent > 0 && i < Math.round((activeCalls / maxConcurrent) * WAVEFORM_HEIGHTS.length);
+                  return (
+                    <div
+                      key={i}
+                      className="flex-1 rounded-sm transition-all duration-700"
+                      style={{
+                        height: `${h}px`,
+                        background: isActive ? "#7170ff" : "#5e6ad2",
+                        opacity: isActive ? 0.7 + (h / 12) * 0.3 : 0.1 + (h / 12) * 0.3,
+                      }}
+                    />
+                  );
+                })}
               </div>
               <div className="flex gap-2">
-                {["Latency: 0ms", "Uptime: 99.9%"].map((tag) => (
+                {[
+                  `Latency: ${appMetrics ? `${appMetrics.p50_latency_ms}ms` : "—"}`,
+                  `Capacity: ${capacityPct}% (${activeCalls}/${maxConcurrent})`,
+                ].map((tag) => (
                   <span
                     key={tag}
                     className="px-2.5 py-0.5 rounded-full text-[9px] uppercase tracking-widest border"
@@ -627,6 +639,15 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
+
+          {/* App Metrics */}
+          <AppMetricsSection
+            env={metricsEnv}
+            onEnvChange={setMetricsEnv}
+            metrics={appMetrics ?? null}
+            loading={metricsLoading}
+            updatedAt={dataUpdatedAt}
+          />
 
           {/* Footer */}
           <div
@@ -802,6 +823,142 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
+/*  AppMetricsSection                                                   */
+/* ──────────────────────────────────────────────────────────────────── */
+
+import type { AppMetrics } from "@/lib/api";
+
+const MONO = "Berkeley Mono, ui-monospace, SF Mono, Menlo, monospace";
+const METRIC_ENVS = ["prod", "arena", "playground"] as const;
+
+function MetricStat({
+  label, value, sub, color, loading,
+}: {
+  label: string; value: string; sub?: string; color?: string; loading: boolean;
+}) {
+  return (
+    <div
+      className="rounded-lg p-3 flex flex-col gap-1 border"
+      style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
+    >
+      <span className="text-[9px] uppercase tracking-[0.15em]" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>
+        {label}
+      </span>
+      {loading ? (
+        <div className="h-7 w-16 rounded animate-pulse" style={{ background: "rgba(255,255,255,0.05)" }} />
+      ) : (
+        <span className="text-2xl leading-none tabular-nums" style={{ color: color ?? "#f7f8f8", fontWeight: 590, fontFamily: MONO }}>
+          {value}
+        </span>
+      )}
+      {sub && <span className="text-[9px]" style={{ color: "#42464d", fontFamily: MONO }}>{sub}</span>}
+    </div>
+  );
+}
+
+function AppMetricsSection({
+  env, onEnvChange, metrics, loading, updatedAt,
+}: {
+  env: string;
+  onEnvChange: (e: string) => void;
+  metrics: AppMetrics | null;
+  loading: boolean;
+  updatedAt: number;
+}) {
+  const secsAgo = updatedAt ? Math.round((Date.now() - updatedAt) / 1000) : null;
+  const unavailable = !loading && metrics === null;
+
+  const errColor = metrics
+    ? metrics.error_rate_percent > 1 ? "#ef4444" : "#10b981"
+    : "#62666d";
+  const p99Color = metrics
+    ? metrics.p99_latency_ms > 1000 ? "#ef4444" : metrics.p99_latency_ms > 500 ? "#f59e0b" : "#f7f8f8"
+    : "#62666d";
+
+  return (
+    <div className="flex flex-col gap-2 shrink-0">
+      {/* Sub-header */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-widest" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>
+          App Metrics
+        </span>
+        <div className="flex items-center gap-2">
+          {secsAgo !== null && !loading && (
+            <span className="text-[9px]" style={{ color: "#42464d", fontFamily: MONO }}>
+              all-time · updated {secsAgo}s ago
+            </span>
+          )}
+          <div className="flex gap-0.5">
+            {METRIC_ENVS.map((e) => (
+              <button
+                key={e}
+                onClick={() => onEnvChange(e)}
+                className="text-[9px] px-2 py-0.5 rounded transition-all"
+                style={{
+                  fontFamily: MONO,
+                  color: env === e ? "#f7f8f8" : "#42464d",
+                  background: env === e ? "rgba(255,255,255,0.08)" : "transparent",
+                  border: `1px solid ${env === e ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.05)"}`,
+                }}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {unavailable ? (
+        <div
+          className="rounded-lg p-3 text-[11px] text-center border"
+          style={{ color: "#42464d", background: "#191a1b", borderColor: "rgba(255,255,255,0.06)", fontFamily: MONO }}
+        >
+          Metrics unavailable
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <MetricStat label="Request Rate" value={loading ? "—" : `${metrics?.request_rate_per_second ?? 0}`} sub="req/s" loading={loading} />
+            <MetricStat label="Error Rate" value={loading ? "—" : `${metrics?.error_rate_percent ?? 0}%`} color={errColor} loading={loading} />
+            <MetricStat label="Active Requests" value={loading ? "—" : String(metrics?.active_requests ?? 0)} loading={loading} />
+            <MetricStat label="P50 Latency" value={loading ? "—" : `${metrics?.p50_latency_ms ?? 0}ms`} loading={loading} />
+            <MetricStat label="P99 Latency" value={loading ? "—" : `${metrics?.p99_latency_ms ?? 0}ms`} color={p99Color} loading={loading} />
+
+            {/* Slowest routes */}
+            <div
+              className="rounded-lg p-3 flex flex-col gap-1.5 border"
+              style={{ background: "#191a1b", borderColor: "rgba(255,255,255,0.08)" }}
+            >
+              <span className="text-[9px] uppercase tracking-[0.15em] shrink-0" style={{ color: "#62666d", fontWeight: 510, fontFeatureSettings: FF }}>
+                Slowest Routes
+              </span>
+              {loading ? (
+                <div className="flex flex-col gap-1">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-3 rounded animate-pulse" style={{ background: "rgba(255,255,255,0.05)", width: `${70 - i * 15}%` }} />
+                  ))}
+                </div>
+              ) : (metrics?.top_slowest_routes ?? []).length === 0 ? (
+                <span className="text-[9px]" style={{ color: "#42464d", fontFamily: MONO }}>No data</span>
+              ) : (
+                <div className="flex flex-col gap-0.5 overflow-hidden">
+                  {(metrics?.top_slowest_routes ?? []).map((r) => (
+                    <div key={r.route} className="flex items-center justify-between gap-2">
+                      <span className="text-[9px] truncate" style={{ color: "#8a8f98", fontFamily: MONO }}>{r.route}</span>
+                      <span className="text-[9px] shrink-0 tabular-nums" style={{ color: r.p99_ms > 500 ? "#f59e0b" : "#62666d", fontFamily: MONO }}>{r.p99_ms}ms</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

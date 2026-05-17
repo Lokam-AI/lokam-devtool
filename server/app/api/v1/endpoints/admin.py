@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
@@ -9,10 +9,23 @@ from app.schemas.admin import ACSToggleRequest, FeatureFlagItem, FeatureFlagEnvS
 from app.schemas.env_config import EnvConfigCreate, EnvConfigRead, EnvConfigUpdate
 from app.services import admin_proxy_service
 from app.services import posthog_service
+from app.services import metrics_service
 from app.services.bug_sync_service import sync_bugs_for_date
 from app.services.call_sync_service import sync_calls_for_date
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.get("/app-metrics")
+async def get_app_metrics(
+    env: str = Query(default="prod"),
+    _: User = Depends(require_admin),
+) -> dict:
+    """Fetch and return parsed Prometheus metrics from a lokamspace environment; admin+ only."""
+    try:
+        return await metrics_service.fetch_app_metrics(env)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @router.get("/envs", response_model=list[EnvConfigRead])
@@ -109,6 +122,16 @@ async def run_sync(
         bugs = await sync_bugs_for_date(bug_session, body.date)
         await bug_session.commit()
     return SyncResponse(date=body.date, calls=calls, bugs=bugs)
+
+
+@router.get("/system-health", response_model=ProxyHealthResponse)
+async def system_health(
+    env: str = Query(default="playground"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> ProxyHealthResponse:
+    """Return system health for the given env; admin+ only."""
+    return await admin_proxy_service.check_health(db, env)
 
 
 @router.get("/envs/{env_name}/health", response_model=ProxyHealthResponse)
