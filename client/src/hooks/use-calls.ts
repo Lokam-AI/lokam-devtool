@@ -11,6 +11,7 @@ import {
   apiGetTeam,
   apiGetHealth,
   apiGetAppMetrics,
+  apiGetSystemHealth,
   apiGetUsers,
   apiCreateUser,
   apiUpdateUser,
@@ -100,6 +101,15 @@ export function useTeam() {
 
 export function useHealth() {
   return useQuery({ queryKey: ["health"], queryFn: apiGetHealth, refetchInterval: 60000 });
+}
+
+export function useSystemHealth(env: string) {
+  return useQuery({
+    queryKey: ["system-health", env],
+    queryFn: () => apiGetSystemHealth(env),
+    refetchInterval: 30000,
+    staleTime: 25000,
+  });
 }
 
 export function useAppMetrics(env: string) {

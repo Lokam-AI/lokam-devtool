@@ -124,6 +124,16 @@ async def run_sync(
     return SyncResponse(date=body.date, calls=calls, bugs=bugs)
 
 
+@router.get("/system-health", response_model=ProxyHealthResponse)
+async def system_health(
+    env: str = Query(default="playground"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> ProxyHealthResponse:
+    """Return system health for the given env; admin+ only."""
+    return await admin_proxy_service.check_health(db, env)
+
+
 @router.get("/envs/{env_name}/health", response_model=ProxyHealthResponse)
 async def env_health(
     env_name: str,

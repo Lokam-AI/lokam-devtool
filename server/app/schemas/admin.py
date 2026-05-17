@@ -37,6 +37,11 @@ class ProxyHealthResponse(BaseModel):
     env_name: str
     status: str
     detail: str | None = None
+    active_calls: int = 0
+    queue_depth: int = 0
+    workers: int = 0
+    max_concurrent_calls: int = 0
+    database_connected: bool = True
 
 
 # --- Feature Flags ---

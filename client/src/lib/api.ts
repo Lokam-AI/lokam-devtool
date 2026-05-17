@@ -442,6 +442,25 @@ export interface AppMetrics {
   top_slowest_routes: { route: string; p99_ms: number }[];
 }
 
+export interface SystemHealthFull {
+  env_name: string;
+  status: string;
+  active_calls: number;
+  queue_depth: number;
+  workers: number;
+  max_concurrent_calls: number;
+  database_connected: boolean;
+}
+
+export const apiGetSystemHealth = async (env: string): Promise<SystemHealthFull | null> => {
+  try {
+    const { data } = await api.get<SystemHealthFull>(`/admin/system-health?env=${env}`);
+    return data;
+  } catch {
+    return null;
+  }
+};
+
 export const apiGetAppMetrics = async (env: string): Promise<AppMetrics | null> => {
   try {
     const { data } = await api.get<AppMetrics>(`/admin/app-metrics?env=${env}`);
