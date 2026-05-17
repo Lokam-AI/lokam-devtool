@@ -74,6 +74,7 @@ export default function MonitoringPage() {
     f.services.forEach((s) => params.append("services", s));
     f.levels.forEach((l) => params.append("levels", l));
     f.envs.forEach((e) => params.append("envs", e));
+    if (f.search) params.set("search", f.search);
 
     const url = `${API_BASE}/monitoring/stream?${params}`;
     const es = new EventSource(url, { withCredentials: true });

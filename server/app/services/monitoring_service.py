@@ -6,6 +6,7 @@ from typing import AsyncGenerator
 import httpx
 
 from app.core.config import settings
+from app.exceptions import DomainValidationError
 
 SERVICES = [
     {"id": "main-backend",              "label": "Main Backend (App Runner)"},
@@ -27,6 +28,8 @@ LEVEL_ORDER = ["debug", "info", "warning", "error", "critical"]
 
 
 def _loki_client() -> httpx.AsyncClient:
+    if not settings.LOKI_QUERY_URL:
+        raise DomainValidationError("Loki credentials not configured")
     return httpx.AsyncClient(
         base_url=settings.LOKI_QUERY_URL,
         auth=(settings.LOKI_USERNAME, settings.LOKI_API_KEY),
