@@ -34,7 +34,7 @@ interface Props {
   services: Service[];
   filters: Filters;
   onChange: (f: Filters) => void;
-  loading?: boolean;
+  tab?: "dashboard" | "logs";
 }
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -73,116 +73,96 @@ function Chip({
   );
 }
 
-export function LogFilters({ services, filters, onChange }: Props) {
+const SEP = <div className="w-px h-4 shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />;
+
+export function LogFilters({ services, filters, onChange, tab = "logs" }: Props) {
   function toggle<T extends string>(arr: T[], value: T): T[] {
     return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
   }
 
+  const envSection = (
+    <div className="flex items-center gap-1">
+      <span className="text-[10px] uppercase tracking-wider" style={{ color: "#42464d", fontFamily: MONO }}>Env</span>
+      {ALL_ENVS.map((e) => (
+        <Chip key={e.id} label={e.label} active={filters.envs.includes(e.id)} color={e.color}
+          onClick={() => onChange({ ...filters, envs: toggle(filters.envs, e.id) })} />
+      ))}
+    </div>
+  );
+
+  const timeSection = (
+    <div className="flex items-center gap-1">
+      <span className="text-[10px] uppercase tracking-wider" style={{ color: "#42464d", fontFamily: MONO }}>Range</span>
+      {TIME_RANGES.map((r) => (
+        <Chip key={r.label} label={r.label} active={filters.hours === r.hours}
+          onClick={() => onChange({ ...filters, hours: r.hours })} />
+      ))}
+    </div>
+  );
+
+  // Dashboard: only Env + Time Range
+  if (tab === "dashboard") {
+    return (
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        {envSection}
+        {SEP}
+        {timeSection}
+      </div>
+    );
+  }
+
+  // Logs tab
   return (
-    <div
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
-      style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-    >
-      {/* Mode toggle */}
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      {/* Mode */}
       <div className="flex items-center gap-1">
         {(["live", "history"] as const).map((m) => (
-          <Chip
-            key={m}
-            label={m === "live" ? "● Live" : "History"}
-            active={filters.mode === m}
+          <Chip key={m} label={m === "live" ? "● Live" : "History"} active={filters.mode === m}
             color={m === "live" ? "#10b981" : undefined}
-            onClick={() => onChange({ ...filters, mode: m })}
-          />
+            onClick={() => onChange({ ...filters, mode: m })} />
         ))}
       </div>
 
-      <div className="w-px h-4" style={{ background: "rgba(255,255,255,0.08)" }} />
-
-      {/* Environment */}
-      <div className="flex items-center gap-1">
-        <span className="text-[10px] uppercase tracking-wider" style={{ color: "#42464d", fontFamily: MONO }}>
-          Env
-        </span>
-        {ALL_ENVS.map((e) => (
-          <Chip
-            key={e.id}
-            label={e.label}
-            active={filters.envs.includes(e.id)}
-            color={e.color}
-            onClick={() => onChange({ ...filters, envs: toggle(filters.envs, e.id) })}
-          />
-        ))}
-      </div>
-
-      <div className="w-px h-4" style={{ background: "rgba(255,255,255,0.08)" }} />
+      {SEP}
+      {envSection}
+      {SEP}
 
       {/* Services */}
       <div className="flex items-center gap-1 flex-wrap">
-        <span className="text-[10px] uppercase tracking-wider" style={{ color: "#42464d", fontFamily: MONO }}>
-          Service
-        </span>
+        <span className="text-[10px] uppercase tracking-wider" style={{ color: "#42464d", fontFamily: MONO }}>Service</span>
+        {filters.services.length === 0 && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: "#42464d", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", fontFamily: MONO }}>all</span>
+        )}
         {services.map((s) => (
-          <Chip
-            key={s.id}
-            label={s.id}
-            active={filters.services.includes(s.id)}
-            onClick={() => onChange({ ...filters, services: toggle(filters.services, s.id) })}
-          />
+          <Chip key={s.id} label={s.id} active={filters.services.includes(s.id)}
+            onClick={() => onChange({ ...filters, services: toggle(filters.services, s.id) })} />
         ))}
       </div>
 
-      <div className="w-px h-4" style={{ background: "rgba(255,255,255,0.08)" }} />
+      {SEP}
 
       {/* Levels */}
       <div className="flex items-center gap-1">
-        <span className="text-[10px] uppercase tracking-wider" style={{ color: "#42464d", fontFamily: MONO }}>
-          Level
-        </span>
+        <span className="text-[10px] uppercase tracking-wider" style={{ color: "#42464d", fontFamily: MONO }}>Level</span>
         {ALL_LEVELS.map((l) => (
-          <Chip
-            key={l}
-            label={l.toUpperCase()}
-            active={filters.levels.includes(l)}
-            color={LEVEL_COLORS[l]}
-            onClick={() => onChange({ ...filters, levels: toggle(filters.levels, l) })}
-          />
+          <Chip key={l} label={l.toUpperCase()} active={filters.levels.includes(l)} color={LEVEL_COLORS[l]}
+            onClick={() => onChange({ ...filters, levels: toggle(filters.levels, l) })} />
         ))}
       </div>
 
-      {/* Time range (history mode only) */}
-      {filters.mode === "history" && (
-        <>
-          <div className="w-px h-4" style={{ background: "rgba(255,255,255,0.08)" }} />
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] uppercase tracking-wider" style={{ color: "#42464d", fontFamily: MONO }}>
-              Range
-            </span>
-            {TIME_RANGES.map((r) => (
-              <Chip
-                key={r.label}
-                label={r.label}
-                active={filters.hours === r.hours}
-                onClick={() => onChange({ ...filters, hours: r.hours })}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {/* Time range: history mode only */}
+      {filters.mode === "history" && <>{SEP}{timeSection}</>}
 
       {/* Search */}
       <div className="flex items-center gap-1.5 flex-1 min-w-[180px]">
-        <div
-          className="flex items-center gap-1.5 flex-1 rounded px-2 py-0.5"
-          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-        >
-          <input
-            type="text"
-            value={filters.search}
+        <div className="flex items-center gap-1.5 flex-1 rounded px-2 py-0.5"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <input type="text" value={filters.search}
             onChange={(e) => onChange({ ...filters, search: e.target.value })}
-            placeholder="Search logs…"
-            className="flex-1 bg-transparent outline-none text-[12px]"
-            style={{ color: "#d0d6e0", fontFamily: MONO, fontFeatureSettings: FF }}
-          />
+            placeholder="Search logs…" className="flex-1 bg-transparent outline-none text-[12px]"
+            style={{ color: "#d0d6e0", fontFamily: MONO, fontFeatureSettings: FF }} />
           {filters.search && (
             <button onClick={() => onChange({ ...filters, search: "" })}>
               <X className="h-3 w-3" style={{ color: "#62666d" }} />
