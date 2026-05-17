@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Bell,
+  Activity,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuthStore } from "@/store/auth-store";
@@ -62,8 +63,9 @@ const REVIEWER_NAV = [
 ];
 
 const ADMIN_NAV = [
-  { title: "Admin Controls",    url: "/admin",             icon: Settings },
-  { title: "Team Overview",     url: "/team",              icon: Users    },
+  { title: "Admin Controls",    url: "/admin",             icon: Settings  },
+  { title: "Team Overview",     url: "/team",              icon: Users     },
+  { title: "Monitoring",        url: "/monitoring",        icon: Activity  },
 ];
 
 const SUPERADMIN_NAV: { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> }[] = [];

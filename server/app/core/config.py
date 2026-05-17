@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     POSTHOG_PROJECT_ID: str = ""        # numeric ID from PostHog project URL
     POSTHOG_HOST: str = "https://us.i.posthog.com"
 
+    # Grafana Loki — monitoring log queries
+    LOKI_QUERY_URL: str = ""   # e.g. https://logs-prod-006.grafana.net
+    LOKI_USERNAME: str = ""    # Grafana Cloud numeric user ID
+    LOKI_API_KEY: str = ""     # Grafana Cloud API token (MetricsPublisher or Editor scope)
+
     @property
     def db_url(self) -> str:
         """Return async SQLAlchemy database URL."""
