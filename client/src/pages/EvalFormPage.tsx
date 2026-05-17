@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useCall, useCalls, useSubmitEval, useCreateBug, useTeam, useToggleBookmark } from "@/hooks/use-calls";
+import { useCall, useSubmitEval, useCreateBug, useTeam, useToggleBookmark } from "@/hooks/use-calls";
+import { useQuery } from "@tanstack/react-query";
+import { apiGetCalls } from "@/lib/api";
 import { useSuperConfigs } from "@/hooks/use-super-configs";
 import { useSetCallQualityTag } from "@/hooks/use-call-tags";
 import { useAuthStore } from "@/store/auth-store";
@@ -68,7 +70,11 @@ const SALES_NPS_BUCKETS: { key: SalesNpsBucket; label: string; color: string; bg
 export default function EvalFormPage() {
   const { id }    = useParams<{ id: string }>();
   const { data, isLoading, isError } = useCall(id!);
-  const { data: allCalls }  = useCalls();
+  const { data: allCalls } = useQuery({
+    queryKey: ["calls-pending-all"],
+    queryFn: () => apiGetCalls({ eval_status: "pending", limit: 200 }),
+    staleTime: 30 * 1000,
+  });
   const submitEval = useSubmitEval();
   const navigate   = useNavigate();
 
@@ -113,7 +119,7 @@ function EvalFormInner({
 }: {
   callData: RawCall;
   evalData: Eval;
-  allCalls: ReturnType<typeof useCalls>["data"];
+  allCalls: Awaited<ReturnType<typeof apiGetCalls>> | undefined;
   navigate: ReturnType<typeof useNavigate>;
   submitEval: ReturnType<typeof useSubmitEval>;
 }) {
@@ -311,8 +317,9 @@ function EvalFormInner({
           : Promise.resolve(),
       ]);
       toast.success("Evaluation submitted");
-      const next = allCalls?.find(
-        (c) => c.eval.status === "pending" && c.call.id !== callData.id && !skippedIds.includes(c.call.id)
+      const pendingCalls = await apiGetCalls({ eval_status: "pending", limit: 200 });
+      const next = pendingCalls.find(
+        (c) => c.call.id !== callData.id && !skippedIds.includes(c.call.id)
       );
       if (next) navigate(`/eval/${next.call.id}`, { replace: true, state: { editable: true } });
       else navigate("/calls", { replace: true });
